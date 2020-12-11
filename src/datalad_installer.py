@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-__python_requires__ = "~= 3.6"
+"""
+Installation script for Datalad and related components
+
+Visit <https://github.com/datalad/datalad-installer> for more information.
+"""
+
+__version__      = '0.1.0.dev1'
+__author__       = 'The DataLad Team and Contributors'
+__author_email__ = 'team@datalad.org'
+__license__      = 'MIT'
+__url__          = 'https://github.com/datalad/datalad-installer'
+
 import argparse
 import json
 import logging
