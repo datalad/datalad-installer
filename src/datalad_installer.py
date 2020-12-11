@@ -29,7 +29,7 @@ from zipfile import ZipFile
 log = logging.getLogger("datalad.install")
 
 
-def main():
+def main(args):
     logging.basicConfig(
         format="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
@@ -80,7 +80,7 @@ def main():
     )
     scm_datalad.add_argument("-b", "--batch", action="store_true")
     scm_datalad.add_argument("--path-miniconda")
-    args = parser.parse_args()
+    args = parser.parse_args(args)
     if args.env_write_file is not None:
         with open(args.env_write_file, "w"):
             # Force file to exist and start out empty
@@ -487,4 +487,4 @@ def download_latest_git_annex(ostype, target_path: Path):
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
