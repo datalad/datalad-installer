@@ -168,6 +168,7 @@ class Option:
         multiple=False,
         immediate=None,
         metavar=None,
+        choices=None,
     ):
         #: List of individual option characters
         self.shortopts = []
@@ -179,6 +180,7 @@ class Option:
         self.multiple = multiple
         self.immediate = immediate
         self.metavar = metavar
+        self.choices = choices
         for n in names:
             if n.startswith("-"):
                 if LONG_RGX.fullmatch(n):
@@ -196,6 +198,14 @@ class Option:
         if self.dest is None:
             self.dest = (self.longopts + self.shortopts)[0].replace("-", "_")
 
+    @property
+    def option_name(self):
+        if self.longopts:
+            return f"--{self.longopts[0]}"
+        else:
+            assert self.shortopts
+            return f"-{self.shortopts[0]}"
+
     def process(self, namespace, argument):
         if self.immediate is not None:
             return self.immediate
@@ -206,6 +216,10 @@ class Option:
                 value = argument
             else:
                 value = self.converter(argument)
+            if self.choices is not None and value not in self.choices:
+                raise UsageError(
+                    f"Invalid choice for {self.option_name} option: {value!r}"
+                )
             if self.multiple:
                 namespace.setdefault(self.dest, []).append(value)
             else:
@@ -304,6 +318,7 @@ COMPONENT_OPTION_PARSERS = {
             Option("--batch", is_flag=True),
             Option("--spec", converter=str.split),
             Option("-e", "--extra-args", converter=shlex.split),
+            Option("-m", "--method", choices=["auto", "miniconda-installer"]),
         ],
     ),
     "venv": OptionParser(
@@ -312,6 +327,7 @@ COMPONENT_OPTION_PARSERS = {
         options=[
             Option("--path", converter=Path, metavar="PATH"),
             Option("-e", "--extra-args", converter=shlex.split),
+            Option("-m", "--method", choices=["auto", "venv-python"]),
         ],
     ),
     "conda-env": OptionParser(
@@ -321,6 +337,7 @@ COMPONENT_OPTION_PARSERS = {
             Option("-n", "--name", metavar="NAME"),
             Option("--spec", converter=str.split),
             Option("-e", "--extra-args", converter=shlex.split),
+            Option("-m", "--method", choices=["auto", "conda-env"]),
         ],
     ),
     "git-annex": OptionParser(
@@ -329,6 +346,22 @@ COMPONENT_OPTION_PARSERS = {
         options=[
             Option("--build-dep", is_flag=True),
             Option("-e", "--extra-args", converter=shlex.split),
+            Option(
+                "-m",
+                "--method",
+                choices=[
+                    "auto",
+                    "apt",
+                    "autobuild",
+                    "brew",
+                    "conda",
+                    "datalad/annex",
+                    "deb-url",
+                    "neurodebian",
+                    "neurodebian-devel",
+                    "snapshot",
+                ],
+            ),
         ],
     ),
     "datalad": OptionParser(
@@ -339,6 +372,19 @@ COMPONENT_OPTION_PARSERS = {
             Option("-e", "--extra-args", converter=shlex.split),
             Option("--devel", is_flag=True),
             Option("-E", "--extras", metavar="EXTRAS"),
+            Option(
+                "-m",
+                "--method",
+                choices=[
+                    "auto",
+                    "apt",
+                    "conda",
+                    "deb-url",
+                    "neurodebian",
+                    "neurodebian-devel",
+                    "pip",
+                ],
+            ),
         ],
     ),
 }
@@ -347,6 +393,8 @@ ParsedArgs = namedtuple("ParsedArgs", "global_opts components")
 
 
 class ComponentRequest:
+    FIELDS = ("name", "version", "kwargs")
+
     def __init__(self, name, version=None, kwargs=None):
         self.name = name
         self.version = version
@@ -354,20 +402,14 @@ class ComponentRequest:
 
     def __eq__(self, other):
         if type(self) is type(other):
-            return (self.name, self.version, self.kwargs) == (
-                other.name,
-                other.version,
-                other.kwargs,
-            )
+            return all(getattr(self, f) == getattr(other, f) for f in self.FIELDS)
         else:
             return NotImplemented
 
     def __repr__(self):
-        return (
-            "{0.__module__}.{0.__name__}"
-            "(name={1.name!r}, version={1.version!r}, kwargs={1.kwargs!r})".format(
-                type(self), self
-            )
+        return "{0.__module__}.{0.__name__}({1})".format(
+            type(self),
+            ", ".join(f"{f}={getattr(self, f)!r}" for f in self.FIELDS),
         )
 
 

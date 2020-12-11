@@ -53,9 +53,14 @@ from datalad_installer import (
         ),
         (["--help"], HelpRequest(None)),
         (["--help", "datalad"], HelpRequest(None)),
+        (["--help", "datalad", "--invalid"], HelpRequest(None)),
         (["datalad", "--help"], HelpRequest("datalad")),
+        (["datalad", "--help", "invalid"], HelpRequest("datalad")),
+        (["datalad", "--help", "git-annex", "--invalid"], HelpRequest("datalad")),
         (["--version"], VersionRequest()),
         (["--version", "datalad"], VersionRequest()),
+        (["--version", "datalad", "--invalid"], VersionRequest()),
+        (["--version", "invalid"], VersionRequest()),
         (
             ["git-annex", "-e", "--extra-opt"],
             ParsedArgs(
@@ -141,6 +146,30 @@ from datalad_installer import (
                 ],
             ),
         ),
+        (
+            ["miniconda", "--method", "auto"],
+            ParsedArgs(
+                {},
+                [
+                    ComponentRequest(
+                        name="miniconda",
+                        kwargs={"method": "auto"},
+                    ),
+                ],
+            ),
+        ),
+        (
+            ["miniconda", "--method", "miniconda-installer"],
+            ParsedArgs(
+                {},
+                [
+                    ComponentRequest(
+                        name="miniconda",
+                        kwargs={"method": "miniconda-installer"},
+                    ),
+                ],
+            ),
+        ),
     ],
 )
 def test_parse_args(args, parsed):
@@ -159,6 +188,11 @@ def test_parse_args(args, parsed):
         (["=0.13.0", "--invalid"], "Component name must be nonempty", None),
         (["invalid"], "Unknown component: 'invalid'", None),
         (["venv=1.2.3"], "venv component does not take a version", "venv"),
+        (
+            ["miniconda", "--method", "apt"],
+            "Invalid choice for --method option: 'apt'",
+            "miniconda",
+        ),
     ],
 )
 def test_parse_args_errors(args, message, component):
