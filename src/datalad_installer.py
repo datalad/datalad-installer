@@ -12,13 +12,16 @@ __license__ = "MIT"
 __url__ = "https://github.com/datalad/datalad-installer"
 
 import argparse
+from collections import namedtuple
+from getopt import GetoptError, getopt
 import json
 import logging
 import os
 import os.path
 from pathlib import Path
 import platform
-from shlex import quote
+import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -127,6 +130,276 @@ def main(args):
         raise RuntimeError(f"Invalid schema: {args.schema}")
 
 
+def parse_log_level(level):
+    try:
+        lv = int(level)
+    except ValueError:
+        levelup = level.upper()
+        if levelup in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}:
+            return getattr(logging, levelup)
+        else:
+            raise UsageError(f"Invalid log level: {level!r}")
+    else:
+        return lv
+
+
+class Immediate:
+    pass
+
+
+class VersionRequest(namedtuple("VersionRequest", ""), Immediate):
+    pass
+
+
+class HelpRequest(namedtuple("HelpRequest", "component"), Immediate):
+    pass
+
+
+SHORT_RGX = re.compile(r"-[^-]")
+LONG_RGX = re.compile(r"--[^-].*")
+
+
+class Option:
+    def __init__(
+        self,
+        *names,
+        is_flag=False,
+        converter=None,
+        multiple=False,
+        immediate=None,
+        metavar=None,
+    ):
+        #: List of individual option characters
+        self.shortopts = []
+        #: List of long option names (sans leading "--")
+        self.longopts = []
+        self.dest = None
+        self.is_flag = is_flag
+        self.converter = converter
+        self.multiple = multiple
+        self.immediate = immediate
+        self.metavar = metavar
+        for n in names:
+            if n.startswith("-"):
+                if LONG_RGX.fullmatch(n):
+                    self.longopts.append(n[2:])
+                elif SHORT_RGX.fullmatch(n):
+                    self.shortopts.append(n[1])
+                else:
+                    raise ValueError(f"Invalid option: {n!r}")
+            elif self.dest is not None:
+                raise ValueError("More than one option destination specified")
+            else:
+                self.dest = n
+        if not self.shortopts and not self.longopts:
+            raise ValueError("No options supplied to Option constructor")
+        if self.dest is None:
+            self.dest = (self.longopts + self.shortopts)[0].replace("-", "_")
+
+    def process(self, namespace, argument):
+        if self.immediate is not None:
+            return self.immediate
+        if self.is_flag:
+            namespace[self.dest] = True
+        else:
+            if self.converter is None:
+                value = argument
+            else:
+                value = self.converter(argument)
+            if self.multiple:
+                namespace.setdefault(self.dest, []).append(value)
+            else:
+                namespace[self.dest] = value
+
+
+class OptionParser:
+    def __init__(self, component=None, versioned=False, options=None):
+        self.component = component
+        self.versioned = versioned
+        #: Mapping from individual option characters to Option instances
+        self.short_options = {}
+        #: Mapping from long option names (sans leading "--") to Option
+        #: instances
+        self.long_options = {}
+        #: Mapping from option names (including leading hyphens to Option
+        #: instances
+        self.options = {}
+        self.add_option(
+            Option("-h", "--help", is_flag=True, immediate=HelpRequest(self.component))
+        )
+        if options is not None:
+            for opt in options:
+                self.add_option(opt)
+
+    def add_option(self, option):
+        for o in option.shortopts:
+            if o in self.short_options:
+                raise ValueError(f"Option -{o} registered more than once")
+        for o in option.longopts:
+            if o in self.long_options:
+                raise ValueError(f"Option --{o} registered more than once")
+        for o in option.shortopts:
+            self.short_options[o] = option
+            self.options[f"-{o}"] = option
+        for o in option.longopts:
+            self.long_options[o] = option
+            self.options[f"--{o}"] = option
+
+    def parse_args(self, args):
+        shortspec = ""
+        for o, option in self.short_options.items():
+            if option.is_flag:
+                shortspec += o
+            else:
+                shortspec += f"{o}:"
+        longspec = []
+        for o, option in self.long_options.items():
+            if option.is_flag:
+                longspec.append(o)
+            else:
+                longspec.append(f"{o}=")
+        try:
+            optlist, leftovers = getopt(args, shortspec, longspec)
+        except GetoptError as e:
+            raise UsageError(str(e), self.component)
+        kwargs = {}
+        for (o, a) in optlist:
+            option = self.options[o]
+            try:
+                ret = option.process(kwargs, a)
+            except ValueError as e:
+                raise UsageError(f"{a!r}: {e}", self.component)
+            except UsageError as e:
+                e.component = self.component
+                raise e
+            else:
+                if ret is not None:
+                    return ret
+        return (kwargs, leftovers)
+
+
+class UsageError(Exception):
+    def __init__(self, message, component=None):
+        self.message = message
+        self.component = component
+
+    def __str__(self):
+        return self.message
+
+
+GLOBAL_OPTION_PARSER = OptionParser(
+    options=[
+        Option("-V", "--version", is_flag=True, immediate=VersionRequest()),
+        Option("-l", "--log-level", converter=parse_log_level, metavar="LEVEL"),
+        Option("-E", "--env-write-file", converter=Path, multiple=True),
+    ],
+)
+
+COMPONENT_OPTION_PARSERS = {
+    "miniconda": OptionParser(
+        "miniconda",
+        versioned=False,
+        options=[
+            Option("--path", converter=Path, metavar="PATH"),
+            Option("--batch", is_flag=True),
+            Option("--spec", converter=str.split),
+            Option("-e", "--extra-args", converter=shlex.split),
+        ],
+    ),
+    "venv": OptionParser(
+        "venv",
+        versioned=False,
+        options=[
+            Option("--path", converter=Path, metavar="PATH"),
+            Option("-e", "--extra-args", converter=shlex.split),
+        ],
+    ),
+    "conda-env": OptionParser(
+        "conda-env",
+        versioned=False,
+        options=[
+            Option("-n", "--name", metavar="NAME"),
+            Option("--spec", converter=str.split),
+            Option("-e", "--extra-args", converter=shlex.split),
+        ],
+    ),
+    "git-annex": OptionParser(
+        "git-annex",
+        versioned=True,
+        options=[
+            Option("--build-dep", is_flag=True),
+            Option("-e", "--extra-args", converter=shlex.split),
+        ],
+    ),
+    "datalad": OptionParser(
+        "datalad",
+        versioned=True,
+        options=[
+            Option("--build-dep", is_flag=True),
+            Option("-e", "--extra-args", converter=shlex.split),
+            Option("--devel", is_flag=True),
+            Option("-E", "--extras", metavar="EXTRAS"),
+        ],
+    ),
+}
+
+ParsedArgs = namedtuple("ParsedArgs", "global_opts components")
+
+
+class ComponentRequest:
+    def __init__(self, name, version=None, kwargs=None):
+        self.name = name
+        self.version = version
+        self.kwargs = kwargs or {}
+
+    def __eq__(self, other):
+        if type(self) is type(other):
+            return (self.name, self.version, self.kwargs) == (
+                other.name,
+                other.version,
+                other.kwargs,
+            )
+        else:
+            return NotImplemented
+
+    def __repr__(self):
+        return (
+            "{0.__module__}.{0.__name__}"
+            "(name={1.name!r}, version={1.version!r}, kwargs={1.kwargs!r})".format(
+                type(self), self
+            )
+        )
+
+
+def parse_args(args):
+    r = GLOBAL_OPTION_PARSER.parse_args(args)
+    if isinstance(r, Immediate):
+        return r
+    global_opts, leftovers = r
+    components = []
+    while leftovers:
+        c = leftovers.pop(0)
+        name, eq, version = c.partition("=")
+        if not name:
+            raise UsageError("Component name must be nonempty")
+        try:
+            cparser = COMPONENT_OPTION_PARSERS[name]
+        except KeyError:
+            raise UsageError(f"Unknown component: {name!r}")
+        if version and not cparser.versioned:
+            raise UsageError(f"{name} component does not take a version", name)
+        if eq and not version:
+            raise UsageError("Version must be nonempty", name)
+        cr = cparser.parse_args(leftovers)
+        if isinstance(cr, Immediate):
+            return cr
+        kwargs, leftovers = cr
+        components.append(
+            ComponentRequest(name=name, version=version or None, kwargs=kwargs)
+        )
+    return ParsedArgs(global_opts, components)
+
+
 class GitAnnexInstaller:
     def __init__(self, adjust_bashrc=False, env_write_file=None):
         self.pathline = None
@@ -141,9 +414,9 @@ class GitAnnexInstaller:
         if self.pathline is not None:
             raise RuntimeError("addpath() called more than once")
         if not last:
-            newpath = f'{quote(p)}:"$PATH"'
+            newpath = f'{shlex.quote(p)}:"$PATH"'
         else:
-            newpath = f'"$PATH":{quote(p)}'
+            newpath = f'"$PATH":{shlex.quote(p)}'
         self.pathline = f"export PATH={newpath}"
         if self.env_write_file is not None:
             with self.env_write_file.open("a") as fp:

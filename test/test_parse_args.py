@@ -19,18 +19,23 @@ from datalad_installer import (
         (
             ["--log-level", "INFO", "datalad"],
             ParsedArgs(
-                {"log_level": logging.INFO}, [ComponentRequest(name="datalad")],
+                {"log_level": logging.INFO},
+                [ComponentRequest(name="datalad")],
             ),
         ),
         (
             ["--log-level", "info", "datalad"],
             ParsedArgs(
-                {"log_level": logging.INFO}, [ComponentRequest(name="datalad")],
+                {"log_level": logging.INFO},
+                [ComponentRequest(name="datalad")],
             ),
         ),
         (
             ["--log-level", "15", "datalad"],
-            ParsedArgs({"log_level": 15}, [ComponentRequest(name="datalad")],),
+            ParsedArgs(
+                {"log_level": 15},
+                [ComponentRequest(name="datalad")],
+            ),
         ),
         (
             ["-E", "/path/to/file", "datalad"],
@@ -48,19 +53,16 @@ from datalad_installer import (
         ),
         (["--help"], HelpRequest(None)),
         (["--help", "datalad"], HelpRequest(None)),
-        (["--help", "--invalid"], HelpRequest(None)),
         (["datalad", "--help"], HelpRequest("datalad")),
-        (["datalad", "--help", "--invalid"], HelpRequest("datalad")),
         (["--version"], VersionRequest()),
         (["--version", "datalad"], VersionRequest()),
-        (["--version", "--invalid"], VersionRequest()),
         (
             ["git-annex", "-e", "--extra-opt"],
             ParsedArgs(
                 {},
                 [
                     ComponentRequest(
-                        name="git-annex", kwargs={"extra_opts": ["--extra-opt"]}
+                        name="git-annex", kwargs={"extra_args": ["--extra-opt"]}
                     )
                 ],
             ),
@@ -71,7 +73,7 @@ from datalad_installer import (
                 {},
                 [
                     ComponentRequest(
-                        name="git-annex", kwargs={"extra_opts": ["--extra", "--opt"]}
+                        name="git-annex", kwargs={"extra_args": ["--extra", "--opt"]}
                     )
                 ],
             ),
@@ -89,10 +91,10 @@ from datalad_installer import (
                 {},
                 [
                     ComponentRequest(
-                        name="git-annex", kwargs={"extra_opts": ["--extra", "--opt"]}
+                        name="git-annex", kwargs={"extra_args": ["--extra", "--opt"]}
                     ),
                     ComponentRequest(
-                        name="datalad", kwargs={"extra_opts": ["--extra=opt"]}
+                        name="datalad", kwargs={"extra_args": ["--extra=opt"]}
                     ),
                 ],
             ),
@@ -103,7 +105,8 @@ from datalad_installer import (
                 {},
                 [
                     ComponentRequest(
-                        name="venv", kwargs={"path": Path("/path/to/venv")},
+                        name="venv",
+                        kwargs={"path": Path("/path/to/venv")},
                     ),
                     ComponentRequest(name="datalad", kwargs={"extras": "all"}),
                 ],
@@ -129,7 +132,13 @@ from datalad_installer import (
         (
             ["git-annex", "--build-dep"],
             ParsedArgs(
-                {}, [ComponentRequest(name="git-annex", kwargs={"build_dep": True},),],
+                {},
+                [
+                    ComponentRequest(
+                        name="git-annex",
+                        kwargs={"build_dep": True},
+                    ),
+                ],
             ),
         ),
     ],
