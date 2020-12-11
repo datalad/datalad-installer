@@ -5,11 +5,11 @@ Installation script for Datalad and related components
 Visit <https://github.com/datalad/datalad-installer> for more information.
 """
 
-__version__      = '0.1.0.dev1'
-__author__       = 'The DataLad Team and Contributors'
-__author_email__ = 'team@datalad.org'
-__license__      = 'MIT'
-__url__          = 'https://github.com/datalad/datalad-installer'
+__version__ = "0.1.0.dev1"
+__author__ = "The DataLad Team and Contributors"
+__author_email__ = "team@datalad.org"
+__license__ = "MIT"
+__url__ = "https://github.com/datalad/datalad-installer"
 
 import argparse
 import json
@@ -39,7 +39,8 @@ def main():
     parser.add_argument(
         "--adjust-bashrc",
         action="store_true",
-        help="If the scheme tweaks PATH, prepend a snippet to ~/.bashrc that exports that path.",
+        help="If the scheme tweaks PATH, prepend a snippet to ~/.bashrc that"
+        " exports that path.",
     )
     parser.add_argument(
         "-E",
@@ -85,7 +86,8 @@ def main():
             # Force file to exist and start out empty
             pass
     installer = GitAnnexInstaller(
-        adjust_bashrc=args.adjust_bashrc, env_write_file=args.env_write_file,
+        adjust_bashrc=args.adjust_bashrc,
+        env_write_file=args.env_write_file,
     )
     if args.schema is None:
         installer.install_via_conda_forge()
@@ -151,7 +153,8 @@ class GitAnnexInstaller:
         # TODO: use nd_freeze_install for an arbitrary version specified
         # we assume neurodebian is generally configured
         subprocess.run(
-            ["sudo", "apt-get", "install", "git-annex-standalone"], check=True,
+            ["sudo", "apt-get", "install", "git-annex-standalone"],
+            check=True,
         )
         self.post_install()
 
@@ -264,7 +267,8 @@ class GitAnnexInstaller:
         log.info("downloading and extracting under %s", self.annex_bin)
         gzfile = os.path.join(tmpdir, "git-annex-standalone-amd64.tar.gz")
         download_file(
-            f"https://downloads.kitenet.net/git-annex/{subpath}/git-annex-standalone-amd64.tar.gz",
+            f"https://downloads.kitenet.net/git-annex/{subpath}"
+            "/git-annex-standalone-amd64.tar.gz",
             gzfile,
         )
         subprocess.run(["tar", "-C", tmpdir, "-xzf", gzfile], check=True)
