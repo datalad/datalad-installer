@@ -3,11 +3,11 @@ from pathlib import Path
 import pytest
 from datalad_installer import (
     ComponentRequest,
+    DataladInstaller,
     HelpRequest,
     ParsedArgs,
     UsageError,
     VersionRequest,
-    parse_args,
 )
 
 
@@ -67,7 +67,8 @@ from datalad_installer import (
                 {},
                 [
                     ComponentRequest(
-                        name="git-annex", kwargs={"extra_args": ["--extra-opt"]}
+                        name="git-annex",
+                        extra_args=["--extra-opt"],
                     )
                 ],
             ),
@@ -78,7 +79,8 @@ from datalad_installer import (
                 {},
                 [
                     ComponentRequest(
-                        name="git-annex", kwargs={"extra_args": ["--extra", "--opt"]}
+                        name="git-annex",
+                        extra_args=["--extra", "--opt"],
                     )
                 ],
             ),
@@ -96,10 +98,12 @@ from datalad_installer import (
                 {},
                 [
                     ComponentRequest(
-                        name="git-annex", kwargs={"extra_args": ["--extra", "--opt"]}
+                        name="git-annex",
+                        extra_args=["--extra", "--opt"],
                     ),
                     ComponentRequest(
-                        name="datalad", kwargs={"extra_args": ["--extra=opt"]}
+                        name="datalad",
+                        extra_args=["--extra=opt"],
                     ),
                 ],
             ),
@@ -111,9 +115,9 @@ from datalad_installer import (
                 [
                     ComponentRequest(
                         name="venv",
-                        kwargs={"path": Path("/path/to/venv")},
+                        path=Path("/path/to/venv"),
                     ),
-                    ComponentRequest(name="datalad", kwargs={"extras": "all"}),
+                    ComponentRequest(name="datalad", extras="all"),
                 ],
             ),
         ),
@@ -129,7 +133,7 @@ from datalad_installer import (
                     ComponentRequest(
                         name="datalad",
                         version="0.13.0",
-                        kwargs={"extra_args": ["-a", "-b", "-c"]},
+                        extra_args=["-a", "-b", "-c"],
                     )
                 ],
             ),
@@ -138,24 +142,14 @@ from datalad_installer import (
             ["git-annex", "--build-dep"],
             ParsedArgs(
                 {},
-                [
-                    ComponentRequest(
-                        name="git-annex",
-                        kwargs={"build_dep": True},
-                    ),
-                ],
+                [ComponentRequest(name="git-annex", build_dep=True)],
             ),
         ),
         (
             ["miniconda", "--method", "auto"],
             ParsedArgs(
                 {},
-                [
-                    ComponentRequest(
-                        name="miniconda",
-                        kwargs={"method": "auto"},
-                    ),
-                ],
+                [ComponentRequest(name="miniconda", method="auto")],
             ),
         ),
         (
@@ -165,7 +159,7 @@ from datalad_installer import (
                 [
                     ComponentRequest(
                         name="miniconda",
-                        kwargs={"method": "miniconda-installer"},
+                        method="miniconda-installer",
                     ),
                 ],
             ),
@@ -173,7 +167,7 @@ from datalad_installer import (
     ],
 )
 def test_parse_args(args, parsed):
-    assert parse_args(args) == parsed
+    assert DataladInstaller.parse_args(args) == parsed
 
 
 @pytest.mark.parametrize(
@@ -197,6 +191,6 @@ def test_parse_args(args, parsed):
 )
 def test_parse_args_errors(args, message, component):
     with pytest.raises(UsageError) as excinfo:
-        parse_args(args)
+        DataladInstaller.parse_args(args)
     assert str(excinfo.value) == message
     assert excinfo.value.component == component
