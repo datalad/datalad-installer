@@ -359,10 +359,10 @@ class DataladInstaller:
 
     def addcomponent(self, name, **kwargs):
         try:
-            adder = getattr(self, "add_" + name.replace("-", "_"))
+            component = self.COMPONENTS[name]
         except AttributeError:
             raise ValueError(f"Unknown component: {name}")
-        adder(**kwargs)
+        component(self).provide(**kwargs)
 
     ##### TODO: Get rid of?
     def post_install(self):
