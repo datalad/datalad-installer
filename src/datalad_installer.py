@@ -641,14 +641,16 @@ class AptInstaller(Installer):
         "git-annex": "git-annex",
     }
 
-    ##### TODO: Support build_dep
-
-    def install(self, component, version=None, extra_args=None):
+    def install(self, component, version=None, extra_args=None, build_dep=False):
         try:
             pkgname = self.PACKAGES[component]
         except KeyError:
             raise MethodNotSupportedError()
-        cmd = ["sudo", "apt-get", "install"]
+        cmd = ["sudo", "apt-get"]
+        if build_dep:
+            cmd.append("build-dep")
+        else:
+            cmd.append("install")
         if extra_args:
             cmd.extend(extra_args)
         if version is not None:
