@@ -411,7 +411,6 @@ class VenvComponent(Component):
         options=[
             Option("--path", converter=Path, metavar="PATH"),
             Option("-e", "--extra-args", converter=shlex.split),
-            Option("-m", "--method", choices=["auto", "venv-python"]),
         ],
     )
 
@@ -437,7 +436,6 @@ class MinicondaComponent(Component):
             Option("--batch", is_flag=True),
             Option("--spec", converter=str.split),
             Option("-e", "--extra-args", converter=shlex.split),
-            Option("-m", "--method", choices=["auto", "miniconda-installer"]),
         ],
     )
 
@@ -480,7 +478,6 @@ class CondaEnvComponent(Component):
             Option("-n", "--name", metavar="NAME"),
             Option("--spec", converter=str.split),
             Option("-e", "--extra-args", converter=shlex.split),
-            Option("-m", "--method", choices=["auto", "conda-env"]),
         ],
     )
 

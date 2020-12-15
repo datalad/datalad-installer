@@ -146,22 +146,17 @@ from datalad_installer import (
             ),
         ),
         (
-            ["miniconda", "--method", "auto"],
+            ["git-annex", "--method", "auto"],
             ParsedArgs(
                 {},
-                [ComponentRequest(name="miniconda", method="auto")],
+                [ComponentRequest(name="git-annex", method="auto")],
             ),
         ),
         (
-            ["miniconda", "--method", "miniconda-installer"],
+            ["git-annex", "--method", "apt"],
             ParsedArgs(
                 {},
-                [
-                    ComponentRequest(
-                        name="miniconda",
-                        method="miniconda-installer",
-                    ),
-                ],
+                [ComponentRequest(name="git-annex", method="apt")],
             ),
         ),
     ],
@@ -183,9 +178,9 @@ def test_parse_args(args, parsed):
         (["invalid"], "Unknown component: 'invalid'", None),
         (["venv=1.2.3"], "venv component does not take a version", "venv"),
         (
-            ["miniconda", "--method", "apt"],
-            "Invalid choice for --method option: 'apt'",
-            "miniconda",
+            ["git-annex", "--method", "pip"],
+            "Invalid choice for --method option: 'pip'",
+            "git-annex",
         ),
         (
             ["venv", "--extra-args", "--foo 'bar"],
