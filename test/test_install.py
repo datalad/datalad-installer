@@ -1,7 +1,7 @@
 import platform
 import subprocess
 import pytest
-from datalad_installer import DataladInstaller
+from datalad_installer import main
 
 
 @pytest.mark.xfail(
@@ -10,16 +10,16 @@ from datalad_installer import DataladInstaller
 )
 def test_install_miniconda(tmp_path):
     miniconda_path = tmp_path / "conda"
-    with DataladInstaller() as manager:
-        manager.main(
-            [
-                "datalad_installer.py",
-                "miniconda",
-                "--batch",
-                "--path",
-                str(miniconda_path),
-            ]
-        )
+    r = main(
+        [
+            "datalad_installer.py",
+            "miniconda",
+            "--batch",
+            "--path",
+            str(miniconda_path),
+        ]
+    )
+    assert r == 0
     r = subprocess.run(
         [str(miniconda_path / "bin" / "conda"), "create", "-n", "test", "-y"],
         stdout=subprocess.PIPE,

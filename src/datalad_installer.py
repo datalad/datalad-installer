@@ -990,10 +990,10 @@ def install_git_annex_dmg(dmgpath, manager):
     return [("git-annex", annex_bin / "git-annex")]
 
 
-def main():  # Needed for console_script entry point
+def main(argv=None):  # Needed for console_script entry point
     with DataladInstaller() as manager:
-        return manager.main()
+        return manager.main(argv)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv))
