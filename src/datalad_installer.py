@@ -144,7 +144,7 @@ class OptionParser:
         #: Mapping from long option names (sans leading "--") to Option
         #: instances
         self.long_options = {}
-        #: Mapping from option names (including leading hyphens to Option
+        #: Mapping from option names (including leading hyphens) to Option
         #: instances
         self.options = {}
         self.add_option(
@@ -257,7 +257,7 @@ class DataladInstaller:
         else:
             self.env_write_files = [Path(p) for p in env_write_files]
         self.installer_stack = [  # Lowest priority first
-            ##### TODO: "standalone"
+            AutobuildInstaller,
             HomebrewInstaller,
             NeurodebianInstaller,
             AptInstaller,
