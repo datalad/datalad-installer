@@ -450,7 +450,6 @@ class MinicondaComponent(Component):
     )
 
     def provide(self, path=None, batch=False, spec=None, extra_args=None):
-        ##### TODO: Use spec and extra_args
         if path is None:
             path = mktempdir("dl-miniconda-")
         systype = platform.system()
@@ -475,8 +474,12 @@ class MinicondaComponent(Component):
             args = ["-p", path, "-s"]
             if batch:
                 args.append("-b")
+            if extra_args is not None:
+                args.extend(extra_args)
             runcmd("bash", script_path, *args)
         self.manager.conda_stack.append(CondaCommand(path / "bin" / "conda"))
+        if spec is not None:
+            runcmd(path / "bin" / "conda", "install", *spec)
         ##### TODO: addpath?
 
 
