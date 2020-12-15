@@ -20,6 +20,7 @@ import os
 import os.path
 from pathlib import Path
 import platform
+from random import randrange
 import re
 import shlex
 import shutil
@@ -233,7 +234,8 @@ class ComponentRequest:
         )
 
 
-CondaCommand = namedtuple("CondaCommand", "cmdpath")
+CondaInstance = namedtuple("CondaInstance", "basepath name")
+# `basepath` is the root of the Conda installation.
 
 
 class DataladInstaller:
@@ -388,7 +390,8 @@ class DataladInstaller:
         else:
             conda_path = shutil.which("conda")
             if conda_path is not None:
-                return CondaCommand(cmdpath=conda_path)
+                basepath = Path(readcmd(conda_path, "info", "--base").strip())
+                return CondaInstance(basepath=basepath, name=None)
             else:
                 raise RuntimeError("conda not installed")
 
@@ -471,7 +474,7 @@ class MinicondaComponent(Component):
             if extra_args is not None:
                 args.extend(extra_args)
             runcmd("bash", script_path, *args)
-        self.manager.conda_stack.append(CondaCommand(path / "bin" / "conda"))
+        self.manager.conda_stack.append(CondaInstance(basepath=path, name=None))
         if spec is not None:
             runcmd(path / "bin" / "conda", "install", *spec)
         ##### TODO: addpath?
@@ -491,18 +494,18 @@ class CondaEnvComponent(Component):
 
     def provide(self, name=None, spec=None, extra_args=None):
         conda = self.manager.get_conda()
-        cmd = [conda.cmdpath, "create"]
         if name is not None:
-            cmd.append("--name")
-            cmd.append(name)
-        else:
-            raise NotImplementedError  ##### TODO
+            name = "datalad-installer-{:03d}".format(randrange(1000))
+            log.info("Using %s as name of conda environment", name)
+        cmd = [conda.basepath / "bin" / "conda", "create", "--name", name]
         if extra_args is not None:
             cmd.extend(extra_args)
         if spec is not None:
             cmd.extend(spec)
         runcmd(*cmd)
-        ##### TODO: Add a CondaInstaller for the environment?
+        self.manager.conda_stack.append(
+            CondaInstance(basepath=conda.basepath, name=name)
+        )
 
 
 @DataladInstaller.register_component("neurodebian")
@@ -872,14 +875,11 @@ class CondaInstaller(Installer):
                 f"Conda does not know how to install {component}"
             )
         conda = self.manager.get_conda()
-        cmd = [
-            conda.cmdpath,
-            "install",
-            "-q",
-            "-c",
-            "conda-forge",
-            "-y",
-        ]
+        cmd = [conda.basepath / "bin" / "conda", "install"]
+        if conda.name is not None:
+            cmd.append("--name")
+            cmd.append(conda.name)
+        cmd += ["-q", "-c", "conda-forge", "-y"]
         if extra_args is not None:
             cmd.extend(extra_args)
         if version is None:
@@ -887,7 +887,11 @@ class CondaInstaller(Installer):
         else:
             cmd.append(f"{pkgname}={version}")
         runcmd(*cmd)
-        ##### return: TODO
+        if conda.name is None:
+            bindir = conda.basepath / "bin"
+        else:
+            bindir = conda.basepath / "envs" / conda.name / "bin"
+        return [(component, bindir / component)]
 
     def is_supported(self):
         raise NotImplementedError  ##### TODO
