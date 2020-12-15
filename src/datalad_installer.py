@@ -401,14 +401,14 @@ class Component(ABC):
     @classmethod
     @abstractmethod
     def OPTIONS(cls):
-        raise NotImplementedError
+        ...
 
     def __init__(self, manager):
         self.manager = manager
 
     @abstractmethod
     def provide(self, **kwargs):
-        raise NotImplementedError
+        ...
 
 
 @DataladInstaller.register_component("venv")
@@ -474,9 +474,9 @@ class MinicondaComponent(Component):
             if extra_args is not None:
                 args.extend(extra_args)
             runcmd("bash", script_path, *args)
-        self.manager.conda_stack.append(CondaInstance(basepath=path, name=None))
         if spec is not None:
             runcmd(path / "bin" / "conda", "install", *spec)
+        self.manager.conda_stack.append(CondaInstance(basepath=path, name=None))
         ##### TODO: addpath?
 
 
@@ -532,7 +532,7 @@ class InstallableComponent(Component):
     @classmethod
     @abstractmethod
     def NAME(cls):
-        raise NotImplementedError
+        ...
 
     def provide(self, method=None, **kwargs):
         if method not in (None, "auto"):
@@ -620,7 +620,7 @@ class Installer(ABC):
     @classmethod
     @abstractmethod
     def NAME(cls):
-        raise NotImplementedError
+        ...
 
     def __init__(self, manager):
         self.manager = manager
@@ -630,11 +630,11 @@ class Installer(ABC):
         """
         Returns a list of (command, Path) pairs for each installed program
         """
-        raise NotImplementedError
+        ...
 
     @abstractmethod
     def is_supported(self):
-        raise NotImplementedError
+        ...
 
 
 @DataladInstaller.register_installer
@@ -894,7 +894,7 @@ class CondaInstaller(Installer):
         return [(component, bindir / component)]
 
     def is_supported(self):
-        raise NotImplementedError  ##### TODO
+        return self.manager.conda_stack or shutil.which("conda") is not None
 
 
 @DataladInstaller.register_installer
