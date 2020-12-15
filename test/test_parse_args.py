@@ -187,6 +187,11 @@ def test_parse_args(args, parsed):
             "Invalid choice for --method option: 'apt'",
             "miniconda",
         ),
+        (
+            ["venv", "--extra-args", "--foo 'bar"],
+            '"--foo \'bar": No closing quotation',
+            "venv",
+        ),
     ],
 )
 def test_parse_args_errors(args, message, component):
