@@ -232,6 +232,9 @@ class ComponentRequest:
         )
 
 
+CondaCommand = namedtuple("CondaCommand", "cmdpath")
+
+
 class DataladInstaller:
     COMPONENTS = {}
     INSTALLERS = {}
@@ -253,6 +256,7 @@ class DataladInstaller:
         else:
             self.env_write_files = [Path(p) for p in env_write_files]
         self.installer_stack = []  ##### TODO
+        self.conda_stack = []
 
     @classmethod
     def register_component(cls, name):
@@ -364,6 +368,16 @@ class DataladInstaller:
             raise ValueError(f"Unknown component: {name}")
         component(self).provide(**kwargs)
 
+    def get_conda(self):
+        if self.conda_stack:
+            return self.conda_stack[-1]
+        else:
+            conda_path = shutil.which("conda")
+            if conda_path is not None:
+                return CondaCommand(cmdpath=conda_path)
+            else:
+                raise RuntimeError("conda not installed")
+
     ##### TODO: Get rid of?
     def post_install(self):
         if self.adjust_bashrc and self.pathline is not None:
@@ -442,6 +456,7 @@ class MinicondaComponent(Component):
     VERSIONED = False
 
     def provide(self, path=None, batch=False, spec=None, extra_args=None):
+        ##### TODO: Use spec and extra_args
         if path is None:
             path = mktempdir("dl-miniconda-")
         systype = platform.system()
@@ -467,7 +482,8 @@ class MinicondaComponent(Component):
             if batch:
                 args.append("-b")
             runcmd("bash", script_path, *args)
-        ##### TODO: Add to self.installer_stack?
+        self.manager.conda_stack.append(CondaCommand(path / "bin" / "conda"))
+        ##### TODO: addpath?
 
 
 @DataladInstaller.register_component("conda-env")
@@ -484,7 +500,19 @@ class CondaEnvComponent(Component):
     VERSIONED = False
 
     def provide(self, name=None, spec=None, extra_args=None):
-        raise NotImplementedError  ##### TODO
+        conda = self.manager.get_conda()
+        cmd = [conda.cmdpath, "create"]
+        if name is not None:
+            cmd.append("--name")
+            cmd.append(name)
+        else:
+            raise NotImplementedError  ##### TODO
+        if extra_args is not None:
+            cmd.extend(extra_args)
+        if spec is not None:
+            cmd.extend(spec)
+        runcmd(*cmd)
+        ##### TODO: Add a CondaInstaller for the environment?
 
 
 @DataladInstaller.register_component("git-annex")
@@ -836,10 +864,9 @@ class CondaInstaller(Installer):
             pkgname = self.COMPONENTS[component]
         except KeyError:
             raise MethodNotSupportedError()
-        miniconda_path = ...  ##### TODO
-        ##### TODO: self.install_miniconda(miniconda_path, batch)
+        conda = self.manager.get_conda()
         cmd = [
-            os.path.join(miniconda_path, "bin", "conda"),
+            conda.cmdpath,
             "install",
             "-q",
             "-c",
@@ -972,61 +999,13 @@ def runcmd(*args, **kwargs):
     return subprocess.run(args, check=True, **kwargs)
 
 
-def install_git_annex_dmg(self, dmgpath, manager):
+def install_git_annex_dmg(dmgpath, manager):
     runcmd("hdiutil", "attach", dmgpath)
     runcmd("rsync", "-a", "/Volumes/git-annex/git-annex.app", "/Applications/")
     runcmd("hdiutil", "detach", "/Volumes/git-annex/")
-    ##### TODO: self.annex_bin = "/Applications/git-annex.app/Contents/MacOS"
-    manager.addpath(self.annex_bin)
-
-
-""" #### TODO
-    def install_via_conda_forge(self, version=None, miniconda_path=None, batch=False):
-        tmpdir = tempfile.mkdtemp(prefix="ga-")
-        self.annex_bin = os.path.join(tmpdir, "annex-bin")
-        self.addpath(self.annex_bin)
-        self._install_via_conda(version, tmpdir, miniconda_path, batch)
-
-    def install_via_conda_forge_last(
-        self, version=None, miniconda_path=None, batch=False
-    ):
-        tmpdir = tempfile.mkdtemp(prefix="ga-")
-        self.annex_bin = os.path.join(tmpdir, "annex-bin")
-        if shutil.which("git-annex") is not None:
-            log.warning(
-                "git annex already installed.  In this case this setup has no sense"
-            )
-            sys.exit(1)
-        # We are interested only to get git-annex into our environment
-        # So as to not interfere with "system wide" Python etc, we will add
-        # miniconda at the end of the path
-        self.addpath(self.annex_bin, last=True)
-        self._install_via_conda(version, tmpdir, miniconda_path, batch)
-
-    def _install_via_conda(self, version, tmpdir, miniconda_path=None, batch=False):
-        if miniconda_path is None:
-            miniconda_path = os.path.join(tmpdir, "miniconda")
-        conda_bin = os.path.join(miniconda_path, "bin")
-        # We will symlink git-annex only under a dedicated directory, so it could be
-        # used with default Python etc. If names changed here, possibly adjust
-        # hardcoded duplicates below where we establish relative symlinks.
-        self.install_miniconda(miniconda_path, batch=batch)
-        runcmd(
-            os.path.join(conda_bin, "conda"),
-            "install",
-            "-q",
-            "-c",
-            "conda-forge",
-            "-y",
-            f"git-annex={version}" if version is not None else "git-annex",
-        )
-        if self.annex_bin != conda_bin:
-            annex_bin = Path(self.annex_bin)
-            annex_bin.mkdir(parents=True, exist_ok=True)
-            for p in Path(conda_bin).glob("git-annex*"):
-                (annex_bin / p.name).symlink_to(p.resolve())
-        self.post_install()
-"""
+    ##### TODO: self.annex_bin = ...
+    annex_bin = "/Applications/git-annex.app/Contents/MacOS"
+    manager.addpath(annex_bin)
 
 
 def main():  # Needed for console_script entry point
