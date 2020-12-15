@@ -1031,6 +1031,11 @@ def install_git_annex_dmg(self, dmgpath, manager):
         self.post_install()
 """
 
-if __name__ == "__main__":
+
+def main():  # Needed for console_script entry point
     with DataladInstaller() as manager:
         manager.main()
+
+
+if __name__ == "__main__":
+    main()
