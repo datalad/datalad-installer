@@ -264,6 +264,7 @@ class DataladInstaller:
             CondaInstaller,
         ]
         self.conda_stack = []
+        self.new_commands = []
 
     @classmethod
     def register_component(cls, name):
@@ -340,7 +341,7 @@ class DataladInstaller:
             sys.exit(str(e))
         if isinstance(r, VersionRequest):
             print("datalad_installer", __version__)
-            return
+            return 0
         elif isinstance(r, HelpRequest):
             raise NotImplementedError("--help not yet implemented")  ### TODO
         else:
@@ -357,6 +358,16 @@ class DataladInstaller:
             self.env_write_files.extend(global_opts["env_write_file"])
         for cr in components:
             self.addcomponent(name=cr.name, **cr.kwargs)
+        ok = True
+        for name, path in self.new_commands:
+            log.info("%s is now installed at %s", name, path)
+            if path.name != name:
+                log.error("Program does not have expected name!")
+                ok = False
+            if not os.access(path, os.X_OK):
+                log.error("Cannot execute program!")
+                ok = False
+        return not ok
 
     def addpath(self, p, last=False):
         if self.newpath is None:
@@ -385,24 +396,6 @@ class DataladInstaller:
                 return CondaCommand(cmdpath=conda_path)
             else:
                 raise RuntimeError("conda not installed")
-
-    ##### TODO: Get rid of?
-    def post_install(self):
-        if self.adjust_bashrc and self.pathline is not None:
-            # If PATH was changed, we need to make it available to SSH commands.
-            # Note: Prepending is necessary. SSH commands load .bashrc, but many
-            # distributions (including Debian and Ubuntu) come with a snippet
-            # to exit early in that case.
-            bashrc = Path.home() / ".bashrc"
-            contents = bashrc.read_text()
-            bashrc.write_text(self.pathline + "\n" + contents)
-            log.info("Adjusted first line of ~/.bashrc:")
-            log.info("%s", self.pathline)
-        # Rudimentary test of installation and inform user about location
-        for binname in ["git-annex", "git-annex-shell"]:
-            if not os.access(os.path.join(self.annex_bin, binname), os.X_OK):
-                raise RuntimeError(f"Cannot execute {binname}")
-        log.info("git-annex is available under %r", self.annex_bin)
 
 
 class Component(ABC):
@@ -439,7 +432,7 @@ class VenvComponent(Component):
             cmd.extend(extra_args)
         cmd.append(path)
         runcmd(*cmd)
-        self.manager.installer_stack.append(PipInstaller(self, path / "bin" / "python"))
+        self.manager.installer_stack.append(PipInstaller(self, path))
 
 
 @DataladInstaller.register_component("miniconda")
@@ -549,19 +542,20 @@ class InstallableComponent(Component):
                 installer = self.manager.INSTALLERS[method]
             except KeyError:
                 raise ValueError(f"Unknown installation method: {method}")
-            installer(self).install(self.NAME, **kwargs)
+            bins = installer(self).install(self.NAME, **kwargs)
         else:
             for installer in reversed(self.manager.installer_stack):
                 inst = installer(self)
                 if inst.is_supported():
                     try:
-                        inst.install(self.NAME, **kwargs)
+                        bins = inst.install(self.NAME, **kwargs)
                     except MethodNotSupportedError:
                         pass
                     else:
                         break
             else:
                 raise RuntimeError(f"No viable installation method for {self.NAME}")
+        self.manager.new_commands.extend(bins)
 
 
 @DataladInstaller.register_component("git-annex")
@@ -627,6 +621,9 @@ class Installer(ABC):
 
     @abstractmethod
     def install(self, component, **kwargs):
+        """
+        Returns a list of (command, Path) pairs for each installed program
+        """
         raise NotImplementedError
 
     @abstractmethod
@@ -658,6 +655,7 @@ class AptInstaller(Installer):
         else:
             cmd.append(pkgname)
         runcmd(*cmd)
+        return [(component, Path("/", "usr", "bin", component))]
 
     def is_supported(self):
         return shutil.which("apt-get") is not None
@@ -679,7 +677,7 @@ class HomebrewInstaller(Installer):
             cmd.extend(extra_args)
         cmd.append(pkgname)
         runcmd(*cmd)
-        ##### TODO: self.annex_bin = "/usr/local/bin"
+        return [(component, Path("/", "usr", "local", "bin", component))]
 
     def is_supported(self):
         return shutil.which("brew") is not None
@@ -695,9 +693,16 @@ class PipInstaller(Installer):
         "datalad": "git+https://github.com/datalad/datalad.git",
     }
 
-    def __init__(self, manager, python=None):
+    def __init__(self, manager, venv_path=None):
         super().__init__(self, manager)
-        self.python = python or sys.executable
+        self.venv_path = venv_path
+
+    @property
+    def python(self):
+        if self.venv_path is None:
+            return sys.executable
+        else:
+            return self.venv_path / "bin" / "python"
 
     def install(
         self, component, version=None, devel=False, extras=None, extra_args=None
@@ -722,6 +727,17 @@ class PipInstaller(Installer):
             )
         )
         runcmd(*cmd)
+        if "--user" in (extra_args or []):
+            binpath = Path(
+                readcmd(self.python, "-m", "site", "--user-base").strip(),
+                "bin",
+                component,
+            )
+        elif self.venv_path is not None:
+            binpath = self.venv_path / "bin" / component
+        else:
+            binpath = Path("/", "usr", "local", "bin", component)
+        return [(component, binpath)]
 
     def is_supported(self):
         return True
@@ -750,6 +766,7 @@ class DebURLInstaller(Installer):
                 cmd.extend(extra_args)
             cmd.append(debpath)
             runcmd(*cmd)
+            return [(component, Path("/", "usr", "bin", component))]
 
     def is_supported(self):
         return shutil.which("dpkg") is not None
@@ -757,17 +774,18 @@ class DebURLInstaller(Installer):
 
 class AutobuildSnapshotInstaller(Installer):
     def _install_linux(self, path):
-        tmpdir = tempfile.mkdtemp(prefix="ga-")
-        ##### TODO: self.annex_bin = os.path.join(tmpdir, "git-annex.linux")
-        log.info("downloading and extracting under %s", self.annex_bin)
-        gzfile = os.path.join(tmpdir, "git-annex-standalone-amd64.tar.gz")
+        tmpdir = mktempdir("dl-build-")
+        annex_bin = tmpdir / "git-annex.linux"
+        log.info("Downloading and extracting under %s", annex_bin)
+        gzfile = tmpdir / "git-annex-standalone-amd64.tar.gz"
         download_file(
             f"https://downloads.kitenet.net/git-annex/{path}"
             "/git-annex-standalone-amd64.tar.gz",
             gzfile,
         )
         runcmd("tar", "-C", tmpdir, "-xzf", gzfile)
-        self.manager.addpath(self.annex_bin)
+        self.manager.addpath(annex_bin)
+        return [("git-annex", annex_bin / "git-annex")]
 
     def _install_macos(self, path):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -776,7 +794,7 @@ class AutobuildSnapshotInstaller(Installer):
                 f"https://downloads.kitenet.net/git-annex/{path}/git-annex.dmg",
                 dmgpath,
             )
-            install_git_annex_dmg(dmgpath, self.manager)
+            return install_git_annex_dmg(dmgpath, self.manager)
 
     def is_supported(self):
         return platform.system() in ("Linux", "Darwin")
@@ -789,9 +807,9 @@ class AutobuildInstaller(AutobuildSnapshotInstaller):
             raise MethodNotSupportedError()
         systype = platform.system()
         if systype == "Linux":
-            self._install_linux("autobuild/amd64")
+            return self._install_linux("autobuild/amd64")
         elif systype == "Darwin":
-            self._install_macos("autobuild/x86_64-apple-yosemite")
+            return self._install_macos("autobuild/x86_64-apple-yosemite")
         else:
             raise MethodNotSupportedError()
 
@@ -803,9 +821,9 @@ class SnapshotInstaller(AutobuildSnapshotInstaller):
             raise MethodNotSupportedError()
         systype = platform.system()
         if systype == "Linux":
-            self._install_linux("linux/current")
+            return self._install_linux("linux/current")
         elif systype == "Darwin":
-            self._install_macos("OSX/current/10.10_Yosemite")
+            return self._install_macos("OSX/current/10.10_Yosemite")
         else:
             raise MethodNotSupportedError()
 
@@ -838,6 +856,7 @@ class CondaInstaller(Installer):
         else:
             cmd.append(f"{pkgname}={version}")
         runcmd(*cmd)
+        ##### return: TODO
 
     def is_supported(self):
         raise NotImplementedError  ##### TODO
@@ -854,10 +873,11 @@ class DataladGitAnnexBuildInstaller(Installer):
                 self.download_latest_git_annex("ubuntu", tmpdir)
                 (debpath,) = Path(tmpdir).glob("*.deb")
                 runcmd("sudo", "dpkg", "-i", debpath)
+                return [("git-annex", Path("/", "usr", "bin", "git-annex"))]
             elif systype == "Darwin":
                 self.download_latest_git_annex("macos", tmpdir)
                 (dmgpath,) = Path(tmpdir).glob("*.dmg")
-                install_git_annex_dmg(dmgpath, self.manager)
+                return install_git_annex_dmg(dmgpath, self.manager)
             else:
                 raise MethodNotSupportedError(f"Unsupported OS: {systype}")
 
@@ -965,15 +985,15 @@ def install_git_annex_dmg(dmgpath, manager):
     runcmd("hdiutil", "attach", dmgpath)
     runcmd("rsync", "-a", "/Volumes/git-annex/git-annex.app", "/Applications/")
     runcmd("hdiutil", "detach", "/Volumes/git-annex/")
-    ##### TODO: self.annex_bin = ...
-    annex_bin = "/Applications/git-annex.app/Contents/MacOS"
+    annex_bin = Path("/Applications/git-annex.app/Contents/MacOS")
     manager.addpath(annex_bin)
+    return [("git-annex", annex_bin / "git-annex")]
 
 
 def main():  # Needed for console_script entry point
     with DataladInstaller() as manager:
-        manager.main()
+        return manager.main()
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
