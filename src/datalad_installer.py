@@ -636,7 +636,7 @@ class Installer(ABC):
 
 @DataladInstaller.register_installer("apt")
 class AptInstaller(Installer):
-    COMPONENTS = {
+    PACKAGES = {
         "datalad": "datalad",
         "git-annex": "git-annex",
     }
@@ -645,7 +645,7 @@ class AptInstaller(Installer):
 
     def install(self, component, version=None, extra_args=None):
         try:
-            pkgname = self.COMPONENTS[component]
+            pkgname = self.PACKAGES[component]
         except KeyError:
             raise MethodNotSupportedError()
         cmd = ["sudo", "apt-get", "install"]
@@ -663,13 +663,13 @@ class AptInstaller(Installer):
 
 @DataladInstaller.register_installer("brew")
 class HomebrewInstaller(Installer):
-    COMPONENTS = {
+    PACKAGES = {
         "git-annex": "git-annex",
     }
 
     def install(self, component, extra_args=None):
         try:
-            pkgname = self.COMPONENTS[component]
+            pkgname = self.PACKAGES[component]
         except KeyError:
             raise MethodNotSupportedError()
         cmd = ["brew", "install"]
@@ -685,11 +685,11 @@ class HomebrewInstaller(Installer):
 
 @DataladInstaller.register_installer("pip")
 class PipInstaller(Installer):
-    COMPONENTS = {
+    PACKAGES = {
         "datalad": "datalad",
     }
 
-    DEVEL_COMPONENTS = {
+    DEVEL_PACKAGES = {
         "datalad": "git+https://github.com/datalad/datalad.git",
     }
 
@@ -701,12 +701,12 @@ class PipInstaller(Installer):
         self, component, version=None, devel=False, extras=None, extra_args=None
     ):
         try:
-            pkgname = self.COMPONENTS[component]
+            pkgname = self.PACKAGES[component]
         except KeyError:
             raise MethodNotSupportedError()
         if devel:
             try:
-                urlspec = self.DEVEL_COMPONENTS[component]
+                urlspec = self.DEVEL_PACKAGES[component]
             except KeyError:
                 raise ValueError(f"No source repository known for {component}")
         else:
@@ -727,7 +727,7 @@ class PipInstaller(Installer):
 
 @DataladInstaller.register_installer("neurodebian")
 class NeurodebianInstaller(AptInstaller):
-    COMPONENTS = {
+    PACKAGES = {
         "git-annex": "git-annex-standalone",
     }
 
@@ -810,14 +810,14 @@ class SnapshotInstaller(AutobuildSnapshotInstaller):
 
 @DataladInstaller.register_installer("conda")
 class CondaInstaller(Installer):
-    COMPONENTS = {
+    PACKAGES = {
         "datalad": "datalad",
         "git-annex": "git-annex",
     }
 
     def install(self, component, version, extra_args=None):
         try:
-            pkgname = self.COMPONENTS[component]
+            pkgname = self.PACKAGES[component]
         except KeyError:
             raise MethodNotSupportedError()
         conda = self.manager.get_conda()
