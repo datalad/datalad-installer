@@ -250,8 +250,6 @@ class DataladInstaller:
 
     def __init__(self, env_write_files=None):
         self.newpath = None
-        # self.annex_bin = "/usr/bin"
-        # self.adjust_bashrc = adjust_bashrc
         if env_write_files is None:
             self.env_write_files = []
         else:
