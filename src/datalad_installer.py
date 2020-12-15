@@ -135,8 +135,9 @@ class Option:
 
 
 class OptionParser:
-    def __init__(self, component=None, options=None):
+    def __init__(self, component=None, versioned=False, options=None):
         self.component = component
+        self.versioned = versioned
         #: Mapping from individual option characters to Option instances
         self.short_options = {}
         #: Mapping from long option names (sans leading "--") to Option
@@ -308,11 +309,12 @@ class DataladInstaller:
                 component = cls.COMPONENTS[name]
             except KeyError:
                 raise UsageError(f"Unknown component: {name!r}")
-            if version and not component.VERSIONED:
+            cparser = component.OPTIONS
+            if version and not cparser.versioned:
                 raise UsageError(f"{name} component does not take a version", name)
             if eq and not version:
                 raise UsageError("Version must be nonempty", name)
-            cr = component.OPTIONS.parse_args(leftovers)
+            cr = cparser.parse_args(leftovers)
             if isinstance(cr, Immediate):
                 return cr
             kwargs, leftovers = cr
@@ -404,12 +406,6 @@ class Component(ABC):
     def OPTIONS(cls):
         raise NotImplementedError
 
-    @property
-    @classmethod
-    @abstractmethod
-    def VERSIONED(cls):
-        raise NotImplementedError
-
     def __init__(self, manager):
         self.manager = manager
 
@@ -422,13 +418,12 @@ class Component(ABC):
 class VenvComponent(Component):
     OPTIONS = OptionParser(
         "venv",
+        versioned=False,
         options=[
             Option("--path", converter=Path, metavar="PATH"),
             Option("-e", "--extra-args", converter=shlex.split),
         ],
     )
-
-    VERSIONED = False
 
     def provide(self, path=None, extra_args=None):
         if path is None:
@@ -445,6 +440,7 @@ class VenvComponent(Component):
 class MinicondaComponent(Component):
     OPTIONS = OptionParser(
         "miniconda",
+        versioned=False,
         options=[
             Option("--path", converter=Path, metavar="PATH"),
             Option("--batch", is_flag=True),
@@ -452,8 +448,6 @@ class MinicondaComponent(Component):
             Option("-e", "--extra-args", converter=shlex.split),
         ],
     )
-
-    VERSIONED = False
 
     def provide(self, path=None, batch=False, spec=None, extra_args=None):
         ##### TODO: Use spec and extra_args
@@ -490,14 +484,13 @@ class MinicondaComponent(Component):
 class CondaEnvComponent(Component):
     OPTIONS = OptionParser(
         "conda-env",
+        versioned=False,
         options=[
             Option("-n", "--name", metavar="NAME"),
             Option("--spec", converter=str.split),
             Option("-e", "--extra-args", converter=shlex.split),
         ],
     )
-
-    VERSIONED = False
 
     def provide(self, name=None, spec=None, extra_args=None):
         conda = self.manager.get_conda()
@@ -519,6 +512,7 @@ class CondaEnvComponent(Component):
 class GitAnnexComponent(Component):
     OPTIONS = OptionParser(
         "git-annex",
+        versioned=True,
         options=[
             Option("--build-dep", is_flag=True),
             Option("-e", "--extra-args", converter=shlex.split),
@@ -542,8 +536,6 @@ class GitAnnexComponent(Component):
         ],
     )
 
-    VERSIONED = True
-
     def provide(self, build_dep=False, extra_args=None, url=None):
         raise NotImplementedError  ##### TODO
 
@@ -552,6 +544,7 @@ class GitAnnexComponent(Component):
 class DataladComponent(Component):
     OPTIONS = OptionParser(
         "datalad",
+        versioned=True,
         options=[
             Option("--build-dep", is_flag=True),
             Option("-e", "--extra-args", converter=shlex.split),
@@ -572,8 +565,6 @@ class DataladComponent(Component):
             ),
         ],
     )
-
-    VERSIONED = True
 
     def provide(self, method=None, **kwargs):
         if method not in (None, "auto"):
