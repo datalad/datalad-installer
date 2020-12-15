@@ -256,7 +256,13 @@ class DataladInstaller:
             self.env_write_files = []
         else:
             self.env_write_files = [Path(p) for p in env_write_files]
-        self.installer_stack = []  ##### TODO
+        self.installer_stack = [  # Lowest priority first
+            ##### TODO: "standalone"
+            HomebrewInstaller,
+            NeurodebianInstaller,
+            AptInstaller,
+            CondaInstaller,
+        ]
         self.conda_stack = []
 
     @classmethod
@@ -511,8 +517,38 @@ class CondaEnvComponent(Component):
         ##### TODO: Add a CondaInstaller for the environment?
 
 
+class InstallableComponent(Component):
+    @property
+    @classmethod
+    @abstractmethod
+    def NAME(cls):
+        raise NotImplementedError
+
+    def provide(self, method=None, **kwargs):
+        if method not in (None, "auto"):
+            try:
+                installer = self.manager.INSTALLERS[method]
+            except KeyError:
+                raise ValueError(f"Unknown installation method: {method}")
+            installer(self).install(self.NAME, **kwargs)
+        else:
+            for installer in reversed(self.manager.installer_stack):
+                inst = installer(self)
+                if inst.is_supported():
+                    try:
+                        inst.install(self.NAME, **kwargs)
+                    except MethodNotSupportedError:
+                        pass
+                    else:
+                        break
+            else:
+                raise RuntimeError(f"No viable installation method for {self.NAME}")
+
+
 @DataladInstaller.register_component("git-annex")
-class GitAnnexComponent(Component):
+class GitAnnexComponent(InstallableComponent):
+    NAME = "git-annex"
+
     OPTIONS = OptionParser(
         "git-annex",
         versioned=True,
@@ -539,12 +575,11 @@ class GitAnnexComponent(Component):
         ],
     )
 
-    def provide(self, build_dep=False, extra_args=None, url=None):
-        raise NotImplementedError  ##### TODO
-
 
 @DataladInstaller.register_component("datalad")
-class DataladComponent(Component):
+class DataladComponent(InstallableComponent):
+    NAME = "datalad"
+
     OPTIONS = OptionParser(
         "datalad",
         versioned=True,
@@ -568,16 +603,6 @@ class DataladComponent(Component):
             ),
         ],
     )
-
-    def provide(self, method=None, **kwargs):
-        if method not in (None, "auto"):
-            try:
-                installer = self.manager.INSTALLERS[method]
-            except KeyError:
-                raise ValueError(f"Unknown installation method: {method}")
-            installer(self).install("datalad", **kwargs)
-        else:
-            raise NotImplementedError  ##### TODO
 
 
 class Installer(ABC):
