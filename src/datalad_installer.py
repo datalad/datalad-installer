@@ -517,6 +517,25 @@ class CondaEnvComponent(Component):
         ##### TODO: Add a CondaInstaller for the environment?
 
 
+@DataladInstaller.register_component("neurodebian")
+class NeurodebianComponent(Component):
+    OPTIONS = OptionParser(
+        "neurodebian",
+        versioned=False,
+        options=[Option("-e", "--extra-args", converter=shlex.split)],
+    )
+
+    def provide(self, extra_args=None):
+        runcmd(
+            "apt-get",
+            "install",
+            "-qy",
+            "neurodebian",
+            env=dict(os.environ, DEBIAN_FRONTENV="noninteractive"),
+        )
+        runcmd("nd-configurerepo", *(extra_args or []))
+
+
 class InstallableComponent(Component):
     @property
     @classmethod
@@ -567,7 +586,6 @@ class GitAnnexComponent(InstallableComponent):
                     "datalad/git-annex",
                     "deb-url",
                     "neurodebian",
-                    "neurodebian-devel",
                     "snapshot",
                 ],
             ),
@@ -596,8 +614,6 @@ class DataladComponent(InstallableComponent):
                     "apt",
                     "conda",
                     "deb-url",
-                    "neurodebian",
-                    "neurodebian-devel",
                     "pip",
                 ],
             ),
@@ -712,92 +728,13 @@ class PipInstaller(Installer):
 @DataladInstaller.register_installer("neurodebian")
 class NeurodebianInstaller(AptInstaller):
     COMPONENTS = {
-        "datalad": "datalad",
         "git-annex": "git-annex-standalone",
     }
 
-    # TODO: use nd_freeze_install for an arbitrary version specified
-    # we assume neurodebian is generally configured
-
-
-@DataladInstaller.register_installer("neurodebian-devel")
-class NeurodebianDevelInstaller(NeurodebianInstaller):
-    def install(self, component, extra_args=None):
-        try:
-            pkgname = self.COMPONENTS[component]
-        except KeyError:
-            raise MethodNotSupportedError()
-        # if debian-devel is not setup -- set it up
-        r = runcmd(
-            "apt-cache",
-            "policy",
-            pkgname,
-            stdout=subprocess.PIPE,
-            universal_newlines=True,
+    def is_supported(self):
+        return super().is_supported() and "l=NeuroDebian" in readcmd(
+            "apt-cache", "policy"
         )
-        if "/debian-devel " not in r.stdout:
-            # configure
-            with open("/etc/apt/sources.list.d/neurodebian.sources.list") as fp:
-                srclist = fp.read()
-            srclist = srclist.replace("/debian ", "/debian-devel ")
-            runcmd(
-                "sudo",
-                "tee",
-                "/etc/apt/sources.list.d/neurodebian-devel.sources.list",
-                input=srclist,
-                universal_newlines=True,
-            )
-            runcmd("sudo", "apt-get", "update")
-        # check versions
-        # devel:
-        r = runcmd(
-            "apt-cache",
-            "policy",
-            pkgname,
-            stdout=subprocess.PIPE,
-            universal_newlines=True,
-        )
-        policy = r.stdout
-        devel_annex_version = None
-        current_annex_version = None
-        prev = None
-        for line in policy.splitlines():
-            if "/debian-devel " in line:
-                assert prev is not None
-                if "ndall" in prev:
-                    assert devel_annex_version is None
-                    devel_annex_version = prev.split()[0]
-            if "***" in line:
-                assert current_annex_version is None
-                current_annex_version = line.split()[1]
-            prev = line
-        assert (
-            devel_annex_version is not None
-        ), f"Could not find devel version of {pkgname}"
-        if current_annex_version is None or (
-            subprocess.run(
-                [
-                    "dpkg",
-                    "--compare-versions",
-                    devel_annex_version,
-                    "gt",
-                    current_annex_version,
-                ]
-            ).returncode
-            == 0
-        ):
-            runcmd(
-                "sudo",
-                "apt-get",
-                "install",
-                f"{pkgname}={devel_annex_version}",
-            )
-        elif current_annex_version is not None:
-            log.info(
-                "devel version %s is not newer than installed %s",
-                devel_annex_version,
-                current_annex_version,
-            )
 
 
 @DataladInstaller.register_installer("deb-url")
@@ -1016,6 +953,10 @@ def runcmd(*args, **kwargs):
     args = [str(a) for a in args]
     log.info("Running: %s", " ".join(map(shlex.quote, args)))
     return subprocess.run(args, check=True, **kwargs)
+
+
+def readcmd(*args, **kwargs):
+    return runcmd(*args, stdout=subprocess.PIPE, universal_newlines=True).stdout
 
 
 def install_git_annex_dmg(dmgpath, manager):
