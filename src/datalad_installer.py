@@ -12,7 +12,6 @@ __license__ = "MIT"
 __url__ = "https://github.com/datalad/datalad-installer"
 
 from abc import ABC, abstractmethod
-from collections import namedtuple
 from getopt import GetoptError, getopt
 import json
 import logging
@@ -27,19 +26,33 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    List,
+    NamedTuple,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 from urllib.request import Request, urlopen
 from zipfile import ZipFile
 
 log = logging.getLogger("datalad_installer")
 
 
-def parse_log_level(level):
+def parse_log_level(level: str) -> int:
     try:
         lv = int(level)
     except ValueError:
         levelup = level.upper()
         if levelup in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}:
-            return getattr(logging, levelup)
+            ll = getattr(logging, levelup)
+            assert isinstance(ll, int)
+            return ll
         else:
             raise UsageError(f"Invalid log level: {level!r}")
     else:
@@ -56,12 +69,23 @@ class Immediate:
     pass
 
 
-class VersionRequest(namedtuple("VersionRequest", ""), Immediate):
-    pass
+class VersionRequest(Immediate):
+    def __eq__(self, other: Any) -> bool:
+        if type(self) is type(other):
+            return True
+        else:
+            return NotImplemented
 
 
-class HelpRequest(namedtuple("HelpRequest", "component"), Immediate):
-    pass
+class HelpRequest(Immediate):
+    def __init__(self, component: Optional[str]) -> None:
+        self.component: Optional[str] = component
+
+    def __eq__(self, other: Any) -> bool:
+        if type(self) is type(other):
+            return bool(self.component == other.component)
+        else:
+            return NotImplemented
 
 
 SHORT_RGX = re.compile(r"-[^-]")
@@ -71,25 +95,25 @@ LONG_RGX = re.compile(r"--[^-].*")
 class Option:
     def __init__(
         self,
-        *names,
-        is_flag=False,
-        converter=None,
-        multiple=False,
-        immediate=None,
-        metavar=None,
-        choices=None,
+        *names: str,
+        is_flag: bool = False,
+        converter: Optional[Callable[[str], Any]] = None,
+        multiple: bool = False,
+        immediate: Optional[Immediate] = None,
+        metavar: Optional[str] = None,
+        choices: Optional[List[str]] = None,
     ):
         #: List of individual option characters
-        self.shortopts = []
+        self.shortopts: List[str] = []
         #: List of long option names (sans leading "--")
-        self.longopts = []
-        self.dest = None
-        self.is_flag = is_flag
-        self.converter = converter
-        self.multiple = multiple
-        self.immediate = immediate
-        self.metavar = metavar
-        self.choices = choices
+        self.longopts: List[str] = []
+        dest: Optional[str] = None
+        self.is_flag: bool = is_flag
+        self.converter: Optional[Callable[[str], Any]] = converter
+        self.multiple: bool = multiple
+        self.immediate: Optional[Immediate] = immediate
+        self.metavar: Optional[str] = metavar
+        self.choices: Optional[List[str]] = choices
         for n in names:
             if n.startswith("-"):
                 if LONG_RGX.fullmatch(n):
@@ -98,24 +122,27 @@ class Option:
                     self.shortopts.append(n[1])
                 else:
                     raise ValueError(f"Invalid option: {n!r}")
-            elif self.dest is not None:
+            elif dest is not None:
                 raise ValueError("More than one option destination specified")
             else:
-                self.dest = n
+                dest = n
         if not self.shortopts and not self.longopts:
             raise ValueError("No options supplied to Option constructor")
-        if self.dest is None:
+        self.dest: str
+        if dest is None:
             self.dest = (self.longopts + self.shortopts)[0].replace("-", "_")
+        else:
+            self.dest = dest
 
     @property
-    def option_name(self):
+    def option_name(self) -> str:
         if self.longopts:
             return f"--{self.longopts[0]}"
         else:
             assert self.shortopts
             return f"-{self.shortopts[0]}"
 
-    def process(self, namespace, argument):
+    def process(self, namespace: Dict[str, Any], argument: str) -> Optional[Immediate]:
         if self.immediate is not None:
             return self.immediate
         if self.is_flag:
@@ -133,20 +160,26 @@ class Option:
                 namespace.setdefault(self.dest, []).append(value)
             else:
                 namespace[self.dest] = value
+        return None
 
 
 class OptionParser:
-    def __init__(self, component=None, versioned=False, options=None):
-        self.component = component
-        self.versioned = versioned
+    def __init__(
+        self,
+        component: Optional[str] = None,
+        versioned: bool = False,
+        options: Optional[List[Option]] = None,
+    ) -> None:
+        self.component: Optional[str] = component
+        self.versioned: bool = versioned
         #: Mapping from individual option characters to Option instances
-        self.short_options = {}
+        self.short_options: Dict[str, Option] = {}
         #: Mapping from long option names (sans leading "--") to Option
         #: instances
-        self.long_options = {}
+        self.long_options: Dict[str, Option] = {}
         #: Mapping from option names (including leading hyphens) to Option
         #: instances
-        self.options = {}
+        self.options: Dict[str, Option] = {}
         self.add_option(
             Option("-h", "--help", is_flag=True, immediate=HelpRequest(self.component))
         )
@@ -154,7 +187,7 @@ class OptionParser:
             for opt in options:
                 self.add_option(opt)
 
-    def add_option(self, option):
+    def add_option(self, option: Option) -> None:
         for o in option.shortopts:
             if o in self.short_options:
                 raise ValueError(f"Option -{o} registered more than once")
@@ -168,7 +201,9 @@ class OptionParser:
             self.long_options[o] = option
             self.options[f"--{o}"] = option
 
-    def parse_args(self, args):
+    def parse_args(
+        self, args: List[str]
+    ) -> Union[Immediate, Tuple[Dict[str, Any], List[str]]]:
         shortspec = ""
         for o, option in self.short_options.items():
             if option.is_flag:
@@ -185,7 +220,7 @@ class OptionParser:
             optlist, leftovers = getopt(args, shortspec, longspec)
         except GetoptError as e:
             raise UsageError(str(e), self.component)
-        kwargs = {}
+        kwargs: Dict[str, Any] = {}
         for (o, a) in optlist:
             option = self.options[o]
             try:
@@ -202,29 +237,31 @@ class OptionParser:
 
 
 class UsageError(Exception):
-    def __init__(self, message, component=None):
-        self.message = message
-        self.component = component
+    def __init__(self, message: str, component: Optional[str] = None) -> None:
+        self.message: str = message
+        self.component: Optional[str] = component
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.message
 
 
-ParsedArgs = namedtuple("ParsedArgs", "global_opts components")
+class ParsedArgs(NamedTuple):
+    global_opts: Dict[str, Any]
+    components: List["ComponentRequest"]
 
 
 class ComponentRequest:
-    def __init__(self, name, **kwargs):
-        self.name = name
-        self.kwargs = kwargs
+    def __init__(self, name: str, **kwargs: Any):
+        self.name: str = name
+        self.kwargs: Dict[str, Any] = kwargs
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if type(self) is type(other):
-            return self.name == other.name and self.kwargs == other.kwargs
+            return bool(self.name == other.name and self.kwargs == other.kwargs)
         else:
             return NotImplemented
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         attrs = [f"name={self.name!r}"]
         for k, v in self.kwargs.items():
             attrs.append(f"{k}={v!r}")
@@ -234,13 +271,19 @@ class ComponentRequest:
         )
 
 
-CondaInstance = namedtuple("CondaInstance", "basepath name")
-# `basepath` is the root of the Conda installation.
+class CondaInstance(NamedTuple):
+    #: The root of the Conda installation
+    basepath: Path
+    name: Optional[str]
+
+
+# A list of command names and the paths at which they are located
+CommandList = List[Tuple[str, Path]]
 
 
 class DataladInstaller:
-    COMPONENTS = {}
-    INSTALLERS = {}
+    COMPONENTS: ClassVar[Dict[str, Type["Component"]]] = {}
+    INSTALLERS: ClassVar[Dict[str, Type["Installer"]]] = {}
 
     OPTIONS = OptionParser(
         options=[
@@ -250,45 +293,48 @@ class DataladInstaller:
         ],
     )
 
-    def __init__(self, env_write_files=None):
+    def __init__(self, env_write_files: Optional[List[Union[str, os.PathLike]]] = None):
+        self.env_write_files: List[Path]
         if env_write_files is None:
             self.env_write_files = []
         else:
             self.env_write_files = [Path(p) for p in env_write_files]
-        self.installer_stack = [  # Lowest priority first
-            AutobuildInstaller,
-            HomebrewInstaller,
-            NeurodebianInstaller,
-            AptInstaller,
-            CondaInstaller,
+        self.installer_stack: List["Installer"] = [
+            # Lowest priority first
+            AutobuildInstaller(self),
+            HomebrewInstaller(self),
+            NeurodebianInstaller(self),
+            AptInstaller(self),
+            CondaInstaller(self),
         ]
-        self.conda_stack = []
-        self.new_commands = []
+        self.conda_stack: List[CondaInstance] = []
+        self.new_commands: CommandList = []
 
     @classmethod
-    def register_component(cls, name):
-        def decorator(component):
+    def register_component(
+        cls, name: str
+    ) -> Callable[[Type["Component"]], Type["Component"]]:
+        def decorator(component: Type["Component"]) -> Type["Component"]:
             cls.COMPONENTS[name] = component
             return component
 
         return decorator
 
     @classmethod
-    def register_installer(cls, installer):
+    def register_installer(cls, installer: Type["Installer"]) -> Type["Installer"]:
         cls.INSTALLERS[installer.NAME] = installer
         return installer
 
-    def __enter__(self):
+    def __enter__(self) -> "DataladInstaller":
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
         if exc_type is None:
             # Ensure env write files at least exist
             for p in self.env_write_files:
                 p.touch()
-        return False
 
-    def ensure_env_write_file(self):
+    def ensure_env_write_file(self) -> None:
         if not self.env_write_files:
             fd, fpath = tempfile.mkstemp(prefix="dl-env-", suffix=".sh")
             os.close(fd)
@@ -296,12 +342,12 @@ class DataladInstaller:
             self.env_write_files.append(Path(fpath))
 
     @classmethod
-    def parse_args(cls, args):
+    def parse_args(cls, args: List[str]) -> Union[Immediate, ParsedArgs]:
         r = cls.OPTIONS.parse_args(args)
         if isinstance(r, Immediate):
             return r
         global_opts, leftovers = r
-        components = []
+        components: List[ComponentRequest] = []
         while leftovers:
             c = leftovers.pop(0)
             name, eq, version = c.partition("=")
@@ -325,7 +371,7 @@ class DataladInstaller:
             components.append(ComponentRequest(name=name, **kwargs))
         return ParsedArgs(global_opts, components)
 
-    def main(self, argv=None):
+    def main(self, argv: Optional[List[str]] = None) -> int:
         if argv is None:
             argv = sys.argv
         progname, *args = argv
@@ -363,22 +409,22 @@ class DataladInstaller:
             if not os.access(path, os.X_OK):
                 log.error("Cannot execute program!")
                 ok = False
-        return not ok
+        return 0 if ok else 1
 
-    def addenv(self, line):
+    def addenv(self, line: str) -> None:
         log.debug("Adding line %r to env_write_files", line)
         for p in self.env_write_files:
             with p.open("a") as fp:
                 print(line, file=fp)
 
-    def addpath(self, p, last=False):
+    def addpath(self, p: Union[str, os.PathLike], last: bool = False) -> None:
         if not last:
             line = f'export PATH={shlex.quote(str(p))}:"$PATH"'
         else:
             line = f'export PATH="$PATH":{shlex.quote(str(p))}'
         self.addenv(line)
 
-    def addcomponent(self, name, **kwargs):
+    def addcomponent(self, name: str, **kwargs: Any) -> None:
         try:
             component = self.COMPONENTS[name]
         except AttributeError:
@@ -386,7 +432,7 @@ class DataladInstaller:
         log.info("Provisioning %s, args=%r", name, kwargs)
         component(self).provide(**kwargs)
 
-    def get_conda(self):
+    def get_conda(self) -> CondaInstance:
         if self.conda_stack:
             return self.conda_stack[-1]
         else:
@@ -399,17 +445,13 @@ class DataladInstaller:
 
 
 class Component(ABC):
-    @property
-    @classmethod
-    @abstractmethod
-    def OPTIONS(cls):
-        ...
+    OPTIONS: ClassVar[OptionParser]
 
-    def __init__(self, manager):
+    def __init__(self, manager: DataladInstaller) -> None:
         self.manager = manager
 
     @abstractmethod
-    def provide(self, **kwargs):
+    def provide(self, **kwargs: Any) -> None:
         ...
 
 
@@ -424,15 +466,22 @@ class VenvComponent(Component):
         ],
     )
 
-    def provide(self, path=None, extra_args=None):
+    def provide(
+        self,
+        path: Optional[Path] = None,
+        extra_args: Optional[List[str]] = None,
+        **kwargs: Any,
+    ) -> None:
+        if kwargs:
+            log.warning("Ignoring extra component arguments: %r", kwargs)
         if path is None:
             path = mktempdir("dl-venv-")
         cmd = [sys.executable, "-m", "venv"]
         if extra_args is not None:
             cmd.extend(extra_args)
-        cmd.append(path)
+        cmd.append(str(path))
         runcmd(*cmd)
-        self.manager.installer_stack.append(PipInstaller(self, path))
+        self.manager.installer_stack.append(PipInstaller(self.manager, path))
 
 
 @DataladInstaller.register_component("miniconda")
@@ -448,7 +497,16 @@ class MinicondaComponent(Component):
         ],
     )
 
-    def provide(self, path=None, batch=False, spec=None, extra_args=None):
+    def provide(
+        self,
+        path: Optional[Path] = None,
+        batch: bool = False,
+        spec: Optional[List[str]] = None,
+        extra_args: Optional[List[str]] = None,
+        **kwargs: Any,
+    ) -> None:
+        if kwargs:
+            log.warning("Ignoring extra component arguments: %r", kwargs)
         if path is None:
             path = mktempdir("dl-miniconda-")
         systype = platform.system()
@@ -494,21 +552,31 @@ class CondaEnvComponent(Component):
         ],
     )
 
-    def provide(self, name=None, spec=None, extra_args=None):
+    def provide(
+        self,
+        name: Optional[str] = None,
+        spec: Optional[List[str]] = None,
+        extra_args: Optional[List[str]] = None,
+        **kwargs: Any,
+    ) -> None:
+        if kwargs:
+            log.warning("Ignoring extra component arguments: %r", kwargs)
         conda = self.manager.get_conda()
-        if name is not None:
-            name = "datalad-installer-{:03d}".format(randrange(1000))
-            log.info("Using %s as name of conda environment", name)
-        cmd = [conda.basepath / "bin" / "conda", "create", "--name", name]
+        if name is None:
+            cname = "datalad-installer-{:03d}".format(randrange(1000))
+            log.info("Using %s as name of conda environment", cname)
+        else:
+            cname = name
+        cmd = [conda.basepath / "bin" / "conda", "create", "--name", cname]
         if extra_args is not None:
             cmd.extend(extra_args)
         if spec is not None:
             cmd.extend(spec)
         runcmd(*cmd)
         self.manager.conda_stack.append(
-            CondaInstance(basepath=conda.basepath, name=name)
+            CondaInstance(basepath=conda.basepath, name=cname)
         )
-        self.manager.addenv(f"conda activate {shlex.quote(name)}")
+        self.manager.addenv(f"conda activate {shlex.quote(cname)}")
 
 
 @DataladInstaller.register_component("neurodebian")
@@ -519,7 +587,9 @@ class NeurodebianComponent(Component):
         options=[Option("-e", "--extra-args", converter=shlex.split)],
     )
 
-    def provide(self, extra_args=None):
+    def provide(self, extra_args: Optional[List[str]] = None, **kwargs: Any) -> None:
+        if kwargs:
+            log.warning("Ignoring extra component arguments: %r", kwargs)
         runcmd(
             "apt-get",
             "install",
@@ -531,22 +601,17 @@ class NeurodebianComponent(Component):
 
 
 class InstallableComponent(Component):
-    @property
-    @classmethod
-    @abstractmethod
-    def NAME(cls):
-        ...
+    NAME: ClassVar[str]
 
-    def provide(self, method=None, **kwargs):
-        if method not in (None, "auto"):
+    def provide(self, method: Optional[str] = None, **kwargs: Any) -> None:
+        if method is not None and method != "auto":
             try:
                 installer = self.manager.INSTALLERS[method]
             except KeyError:
                 raise ValueError(f"Unknown installation method: {method}")
-            bins = installer(self).install(self.NAME, **kwargs)
+            bins = installer(self.manager).install(self.NAME, **kwargs)
         else:
-            for installer in reversed(self.manager.installer_stack):
-                inst = installer(self)
+            for inst in reversed(self.manager.installer_stack):
                 try:
                     log.debug("Attempting to install via %s", inst.NAME)
                     bins = inst.install(self.NAME, **kwargs)
@@ -618,26 +683,16 @@ class DataladComponent(InstallableComponent):
 
 
 class Installer(ABC):
-    @property
-    @classmethod
-    @abstractmethod
-    def NAME(cls):
-        ...
+    NAME: ClassVar[str]
 
-    @property
-    @classmethod
-    @abstractmethod
-    def PACKAGES(cls):
-        """
-        Mapping from supported installable component names to
-        (installer-specific package IDs, list of installed programs) pairs
-        """
-        ...
+    #: Mapping from supported installable component names to
+    #: (installer-specific package IDs, list of installed programs) pairs
+    PACKAGES: ClassVar[Dict[str, Tuple[str, List[str]]]]
 
-    def __init__(self, manager):
+    def __init__(self, manager: DataladInstaller) -> None:
         self.manager = manager
 
-    def install(self, component, **kwargs):
+    def install(self, component: str, **kwargs: Any) -> CommandList:
         """
         Returns a list of (command, Path) pairs for each installed program
         """
@@ -652,12 +707,12 @@ class Installer(ABC):
         return [(cmd, bindir / cmd) for cmd in commands]
 
     @abstractmethod
-    def install_package(self, package, **kwargs):
+    def install_package(self, package: str, **kwargs: Any) -> Path:
         """ Returns the binary installation directory """
         ...
 
     @abstractmethod
-    def assert_supported_system(self):
+    def assert_supported_system(self) -> None:
         ...
 
 
@@ -670,7 +725,16 @@ class AptInstaller(Installer):
         "git-annex": ("git-annex", ["git-annex"]),
     }
 
-    def install_package(self, package, version=None, extra_args=None, build_dep=False):
+    def install_package(
+        self,
+        package: str,
+        version: Optional[str] = None,
+        extra_args: Optional[List[str]] = None,
+        build_dep: bool = False,
+        **kwargs: Any,
+    ) -> Path:
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
         cmd = ["sudo", "apt-get"]
         if build_dep:
             cmd.append("build-dep")
@@ -685,7 +749,7 @@ class AptInstaller(Installer):
         runcmd(*cmd)
         return Path("/usr/bin")
 
-    def assert_supported_system(self):
+    def assert_supported_system(self) -> None:
         if shutil.which("apt-get") is None:
             raise MethodNotSupportedError("apt-get command not found")
 
@@ -698,7 +762,14 @@ class HomebrewInstaller(Installer):
         "git-annex": ("git-annex", ["git-annex"]),
     }
 
-    def install_package(self, package, extra_args=None):
+    def install_package(
+        self,
+        package: str,
+        extra_args: Optional[List[str]] = None,
+        **kwargs: Any,
+    ) -> Path:
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
         cmd = ["brew", "install"]
         if extra_args:
             cmd.extend(extra_args)
@@ -706,7 +777,7 @@ class HomebrewInstaller(Installer):
         runcmd(*cmd)
         return Path("/usr/local/bin")
 
-    def assert_supported_system(self):
+    def assert_supported_system(self) -> None:
         if shutil.which("brew") is None:
             raise MethodNotSupportedError("brew command not found")
 
@@ -723,20 +794,31 @@ class PipInstaller(Installer):
         "datalad": "git+https://github.com/datalad/datalad.git",
     }
 
-    def __init__(self, manager, venv_path=None):
-        super().__init__(self, manager)
-        self.venv_path = venv_path
+    def __init__(
+        self, manager: DataladInstaller, venv_path: Optional[Path] = None
+    ) -> None:
+        super().__init__(manager)
+        self.venv_path: Optional[Path] = venv_path
 
     @property
-    def python(self):
+    def python(self) -> Union[str, Path]:
         if self.venv_path is None:
             return sys.executable
         else:
             return self.venv_path / "bin" / "python"
 
     def install_package(
-        self, package, version=None, devel=False, extras=None, extra_args=None
-    ):
+        self,
+        package: str,
+        version: Optional[str] = None,
+        devel: bool = False,
+        extras: Optional[str] = None,
+        extra_args: Optional[List[str]] = None,
+        **kwargs: Any,
+    ) -> Path:
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
+        urlspec: Optional[str]
         if devel:
             try:
                 urlspec = self.DEVEL_PACKAGES[package]
@@ -745,7 +827,7 @@ class PipInstaller(Installer):
         else:
             urlspec = None
         cmd = [self.python, "-m", "pip", "install"]
-        if extra_args:
+        if extra_args is not None:
             cmd.extend(extra_args)
         cmd.append(
             compose_pip_requirement(
@@ -753,7 +835,7 @@ class PipInstaller(Installer):
             )
         )
         runcmd(*cmd)
-        if "--user" in (extra_args or []):
+        if extra_args is not None and "--user" in extra_args:
             return Path(
                 readcmd(self.python, "-m", "site", "--user-base").strip(),
                 "bin",
@@ -763,7 +845,7 @@ class PipInstaller(Installer):
         else:
             return Path("/usr/local/bin")
 
-    def assert_supported_system(self):
+    def assert_supported_system(self) -> None:
         ### TODO: Detect whether pip is installed in the current Python,
         ### preferrably without importing it
         pass
@@ -777,7 +859,7 @@ class NeurodebianInstaller(AptInstaller):
         "git-annex": ("git-annex-standalone", ["git-annex"]),
     }
 
-    def assert_supported_system(self):
+    def assert_supported_system(self) -> None:
         super().assert_supported_system()
         if "l=NeuroDebian" not in readcmd("apt-cache", "policy"):
             raise MethodNotSupportedError("Neurodebian not configured")
@@ -792,7 +874,17 @@ class DebURLInstaller(Installer):
         "datalad": ("datalad", ["datalad"]),
     }
 
-    def install_package(self, package, url, extra_args=None):
+    def install_package(
+        self,
+        package: str,
+        url: Optional[str] = None,
+        extra_args: Optional[List[str]] = None,
+        **kwargs: Any,
+    ) -> Path:
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
+        if url is None:
+            raise RuntimeError("deb-url method requires URL")
         with tempfile.TemporaryDirectory() as tmpdir:
             debpath = os.path.join(tmpdir, f"{package}.deb")
             download_file(url, debpath)
@@ -803,7 +895,7 @@ class DebURLInstaller(Installer):
             runcmd(*cmd)
             return Path("/usr/bin")
 
-    def assert_supported_system(self):
+    def assert_supported_system(self) -> None:
         if shutil.which("dpkg") is None:
             raise MethodNotSupportedError("dpkg command not found")
 
@@ -813,7 +905,7 @@ class AutobuildSnapshotInstaller(Installer):
         "git-annex": ("git-annex", ["git-annex"]),
     }
 
-    def _install_linux(self, path):
+    def _install_linux(self, path: str) -> Path:
         tmpdir = mktempdir("dl-build-")
         annex_bin = tmpdir / "git-annex.linux"
         log.info("Downloading and extracting under %s", annex_bin)
@@ -827,7 +919,7 @@ class AutobuildSnapshotInstaller(Installer):
         self.manager.addpath(annex_bin)
         return annex_bin
 
-    def _install_macos(self, path):
+    def _install_macos(self, path: str) -> Path:
         with tempfile.TemporaryDirectory() as tmpdir:
             dmgpath = os.path.join(tmpdir, "git-annex.dmg")
             download_file(
@@ -836,7 +928,7 @@ class AutobuildSnapshotInstaller(Installer):
             )
             return install_git_annex_dmg(dmgpath, self.manager)
 
-    def assert_supported_system(self):
+    def assert_supported_system(self) -> None:
         systype = platform.system()
         if systype not in ("Linux", "Darwin"):
             raise MethodNotSupportedError(f"{systype} OS not supported")
@@ -846,7 +938,9 @@ class AutobuildSnapshotInstaller(Installer):
 class AutobuildInstaller(AutobuildSnapshotInstaller):
     NAME = "autobuild"
 
-    def install_package(self, package):
+    def install_package(self, package: str, **kwargs: Any) -> Path:
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
         assert package == "git-annex"
         systype = platform.system()
         if systype == "Linux":
@@ -861,7 +955,9 @@ class AutobuildInstaller(AutobuildSnapshotInstaller):
 class SnapshotInstaller(AutobuildSnapshotInstaller):
     NAME = "snapshot"
 
-    def install_package(self, package):
+    def install_package(self, package: str, **kwargs: Any) -> Path:
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
         assert package == "git-annex"
         systype = platform.system()
         if systype == "Linux":
@@ -881,7 +977,15 @@ class CondaInstaller(Installer):
         "git-annex": ("git-annex", ["git-annex"]),
     }
 
-    def install_package(self, package, version=None, extra_args=None):
+    def install_package(
+        self,
+        package: str,
+        version: Optional[str] = None,
+        extra_args: Optional[List[str]] = None,
+        **kwargs: Any,
+    ) -> Path:
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
         conda = self.manager.get_conda()
         cmd = [conda.basepath / "bin" / "conda", "install"]
         if conda.name is not None:
@@ -900,7 +1004,7 @@ class CondaInstaller(Installer):
         else:
             return conda.basepath / "envs" / conda.name / "bin"
 
-    def assert_supported_system(self):
+    def assert_supported_system(self) -> None:
         if not self.manager.conda_stack or shutil.which("conda") is None:
             raise MethodNotSupportedError("Conda installation not found")
 
@@ -913,31 +1017,34 @@ class DataladGitAnnexBuildInstaller(Installer):
         "git-annex": ("git-annex", ["git-annex"]),
     }
 
-    def install_package(self, package):
+    def install_package(self, package: str, **kwargs: Any) -> Path:
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
         assert package == "git-annex"
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with tempfile.TemporaryDirectory() as tmpdir_:
+            tmpdir = Path(tmpdir_)
             systype = platform.system()
             if systype == "Linux":
                 self.download_latest_git_annex("ubuntu", tmpdir)
-                (debpath,) = Path(tmpdir).glob("*.deb")
+                (debpath,) = tmpdir.glob("*.deb")
                 runcmd("sudo", "dpkg", "-i", debpath)
                 return Path("/usr/bin")
             elif systype == "Darwin":
                 self.download_latest_git_annex("macos", tmpdir)
-                (dmgpath,) = Path(tmpdir).glob("*.dmg")
+                (dmgpath,) = tmpdir.glob("*.dmg")
                 return install_git_annex_dmg(dmgpath, self.manager)
             else:
                 raise AssertionError(
                     "Method should not be called on unsupported platforms"
                 )
 
-    def assert_supported_system(self):
+    def assert_supported_system(self) -> None:
         systype = platform.system()
         if systype not in ("Linux", "Darwin"):
             raise MethodNotSupportedError(f"{systype} OS not supported")
 
     @staticmethod
-    def download_latest_git_annex(ostype, target_path: Path):
+    def download_latest_git_annex(ostype: str, target_path: Path) -> None:
         repo = "datalad/git-annex"
         branch = "master"
         workflow = f"build-{ostype}.yaml"
@@ -955,7 +1062,7 @@ class DataladGitAnnexBuildInstaller(Installer):
                 )
             token = r.stdout.strip()
 
-        def apicall(url):
+        def apicall(url: str) -> Any:
             req = Request(url, headers={"Authorization": f"Bearer {token}"})
             with urlopen(req) as r:
                 return json.load(r)
@@ -996,7 +1103,9 @@ class MethodNotSupportedError(Exception):
     pass
 
 
-def download_file(url, path, headers=None):
+def download_file(
+    url: str, path: Union[str, os.PathLike], headers: Optional[Dict[str, str]] = None
+) -> None:
     if headers is None:
         headers = {}
     req = Request(url, headers=headers)
@@ -1005,7 +1114,12 @@ def download_file(url, path, headers=None):
             shutil.copyfileobj(r, fp)
 
 
-def compose_pip_requirement(package, version=None, urlspec=None, extras=None):
+def compose_pip_requirement(
+    package: str,
+    version: Optional[str] = None,
+    urlspec: Optional[str] = None,
+    extras: Optional[str] = None,
+) -> str:
     req = package
     if extras is not None:
         req += f"[{extras}]"
@@ -1019,21 +1133,25 @@ def compose_pip_requirement(package, version=None, urlspec=None, extras=None):
     return req
 
 
-def mktempdir(prefix):
+def mktempdir(prefix: str) -> Path:
     return Path(tempfile.mkdtemp(prefix=prefix))
 
 
-def runcmd(*args, **kwargs):
-    args = [str(a) for a in args]
+def runcmd(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess:
+    arglist = [str(a) for a in args]
     log.info("Running: %s", " ".join(map(shlex.quote, args)))
-    return subprocess.run(args, check=True, **kwargs)
+    return subprocess.run(arglist, check=True, **kwargs)
 
 
-def readcmd(*args, **kwargs):
-    return runcmd(*args, stdout=subprocess.PIPE, universal_newlines=True).stdout
+def readcmd(*args: Any, **kwargs: Any) -> str:
+    s = runcmd(*args, stdout=subprocess.PIPE, universal_newlines=True).stdout
+    assert isinstance(s, str)
+    return s
 
 
-def install_git_annex_dmg(dmgpath, manager):
+def install_git_annex_dmg(
+    dmgpath: Union[str, os.PathLike], manager: DataladInstaller
+) -> Path:
     runcmd("hdiutil", "attach", dmgpath)
     runcmd("rsync", "-a", "/Volumes/git-annex/git-annex.app", "/Applications/")
     runcmd("hdiutil", "detach", "/Volumes/git-annex/")
@@ -1042,7 +1160,7 @@ def install_git_annex_dmg(dmgpath, manager):
     return annex_bin
 
 
-def main(argv=None):  # Needed for console_script entry point
+def main(argv: Optional[List[str]] = None) -> int:
     with DataladInstaller() as manager:
         return manager.main(argv)
 
