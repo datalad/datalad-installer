@@ -881,7 +881,7 @@ class CondaInstaller(Installer):
         "git-annex": ("git-annex", ["git-annex"]),
     }
 
-    def install_package(self, package, version, extra_args=None):
+    def install_package(self, package, version=None, extra_args=None):
         conda = self.manager.get_conda()
         cmd = [conda.basepath / "bin" / "conda", "install"]
         if conda.name is not None:
