@@ -544,15 +544,14 @@ class InstallableComponent(Component):
         else:
             for installer in reversed(self.manager.installer_stack):
                 inst = installer(self)
-                if inst.is_supported():
-                    try:
-                        log.debug("Attempting to install via %s", inst.NAME)
-                        bins = inst.install(self.NAME, **kwargs)
-                    except MethodNotSupportedError as e:
-                        log.debug("Installation method not supported: %s", e)
-                        pass
-                    else:
-                        break
+                try:
+                    log.debug("Attempting to install via %s", inst.NAME)
+                    bins = inst.install(self.NAME, **kwargs)
+                except MethodNotSupportedError as e:
+                    log.debug("Installation method not supported: %s", e)
+                    pass
+                else:
+                    break
             else:
                 raise RuntimeError(f"No viable installation method for {self.NAME}")
         self.manager.new_commands.extend(bins)
@@ -622,18 +621,40 @@ class Installer(ABC):
     def NAME(cls):
         ...
 
+    @property
+    @classmethod
+    @abstractmethod
+    def PACKAGES(cls):
+        """
+        Mapping from supported installable component names to
+        (installer-specific package IDs, list of installed programs) pairs
+        """
+        ...
+
     def __init__(self, manager):
         self.manager = manager
 
-    @abstractmethod
     def install(self, component, **kwargs):
         """
         Returns a list of (command, Path) pairs for each installed program
         """
+        self.assert_supported_system()
+        try:
+            package, commands = self.PACKAGES[component]
+        except KeyError:
+            raise MethodNotSupportedError(
+                f"{self.NAME} does not know how to install {component}"
+            )
+        bindir = self.install_package(package, **kwargs)
+        return [(cmd, bindir / cmd) for cmd in commands]
+
+    @abstractmethod
+    def install_package(self, package, **kwargs):
+        """ Returns the binary installation directory """
         ...
 
     @abstractmethod
-    def is_supported(self):
+    def assert_supported_system(self):
         ...
 
 
@@ -642,17 +663,11 @@ class AptInstaller(Installer):
     NAME = "apt"
 
     PACKAGES = {
-        "datalad": "datalad",
-        "git-annex": "git-annex",
+        "datalad": ("datalad", ["datalad"]),
+        "git-annex": ("git-annex", ["git-annex"]),
     }
 
-    def install(self, component, version=None, extra_args=None, build_dep=False):
-        try:
-            pkgname = self.PACKAGES[component]
-        except KeyError:
-            raise MethodNotSupportedError(
-                f"Apt does not know how to install {component}"
-            )
+    def install_package(self, package, version=None, extra_args=None, build_dep=False):
         cmd = ["sudo", "apt-get"]
         if build_dep:
             cmd.append("build-dep")
@@ -661,14 +676,15 @@ class AptInstaller(Installer):
         if extra_args:
             cmd.extend(extra_args)
         if version is not None:
-            cmd.append(f"{pkgname}={version}")
+            cmd.append(f"{package}={version}")
         else:
-            cmd.append(pkgname)
+            cmd.append(package)
         runcmd(*cmd)
-        return [(component, Path("/", "usr", "bin", component))]
+        return Path("/usr/bin")
 
-    def is_supported(self):
-        return shutil.which("apt-get") is not None
+    def assert_supported_system(self):
+        if shutil.which("apt-get") is None:
+            raise MethodNotSupportedError("apt-get command not found")
 
 
 @DataladInstaller.register_installer
@@ -676,25 +692,20 @@ class HomebrewInstaller(Installer):
     NAME = "brew"
 
     PACKAGES = {
-        "git-annex": "git-annex",
+        "git-annex": ("git-annex", ["git-annex"]),
     }
 
-    def install(self, component, extra_args=None):
-        try:
-            pkgname = self.PACKAGES[component]
-        except KeyError:
-            raise MethodNotSupportedError(
-                f"Brew does not know how to install {component}"
-            )
+    def install_package(self, package, extra_args=None):
         cmd = ["brew", "install"]
         if extra_args:
             cmd.extend(extra_args)
-        cmd.append(pkgname)
+        cmd.append(package)
         runcmd(*cmd)
-        return [(component, Path("/", "usr", "local", "bin", component))]
+        return Path("/usr/local/bin")
 
-    def is_supported(self):
-        return shutil.which("brew") is not None
+    def assert_supported_system(self):
+        if shutil.which("brew") is None:
+            raise MethodNotSupportedError("brew command not found")
 
 
 @DataladInstaller.register_installer
@@ -702,7 +713,7 @@ class PipInstaller(Installer):
     NAME = "pip"
 
     PACKAGES = {
-        "datalad": "datalad",
+        "datalad": ("datalad", ["datalad"]),
     }
 
     DEVEL_PACKAGES = {
@@ -720,20 +731,14 @@ class PipInstaller(Installer):
         else:
             return self.venv_path / "bin" / "python"
 
-    def install(
-        self, component, version=None, devel=False, extras=None, extra_args=None
+    def install_package(
+        self, package, version=None, devel=False, extras=None, extra_args=None
     ):
-        try:
-            pkgname = self.PACKAGES[component]
-        except KeyError:
-            raise MethodNotSupportedError(
-                f"Pip does not know how to install {component}"
-            )
         if devel:
             try:
-                urlspec = self.DEVEL_PACKAGES[component]
+                urlspec = self.DEVEL_PACKAGES[package]
             except KeyError:
-                raise ValueError(f"No source repository known for {component}")
+                raise ValueError(f"No source repository known for {package}")
         else:
             urlspec = None
         cmd = [self.python, "-m", "pip", "install"]
@@ -741,24 +746,24 @@ class PipInstaller(Installer):
             cmd.extend(extra_args)
         cmd.append(
             compose_pip_requirement(
-                pkgname, version=version, urlspec=urlspec, extras=extras
+                package, version=version, urlspec=urlspec, extras=extras
             )
         )
         runcmd(*cmd)
         if "--user" in (extra_args or []):
-            binpath = Path(
+            return Path(
                 readcmd(self.python, "-m", "site", "--user-base").strip(),
                 "bin",
-                component,
             )
         elif self.venv_path is not None:
-            binpath = self.venv_path / "bin" / component
+            return self.venv_path / "bin"
         else:
-            binpath = Path("/", "usr", "local", "bin", component)
-        return [(component, binpath)]
+            return Path("/usr/local/bin")
 
-    def is_supported(self):
-        return True
+    def assert_supported_system(self):
+        ### TODO: Detect whether pip is installed in the current Python,
+        ### preferrably without importing it
+        pass
 
 
 @DataladInstaller.register_installer
@@ -766,35 +771,45 @@ class NeurodebianInstaller(AptInstaller):
     NAME = "neurodebian"
 
     PACKAGES = {
-        "git-annex": "git-annex-standalone",
+        "git-annex": ("git-annex-standalone", ["git-annex"]),
     }
 
-    def is_supported(self):
-        return super().is_supported() and "l=NeuroDebian" in readcmd(
-            "apt-cache", "policy"
-        )
+    def assert_supported_system(self):
+        super().assert_supported_system()
+        if "l=NeuroDebian" not in readcmd("apt-cache", "policy"):
+            raise MethodNotSupportedError("Neurodebian not configured")
 
 
 @DataladInstaller.register_installer
 class DebURLInstaller(Installer):
     NAME = "deb-url"
 
-    def install(self, component, url, extra_args=None):
+    PACKAGES = {
+        "git-annex": ("git-annex", ["git-annex"]),
+        "datalad": ("datalad", ["datalad"]),
+    }
+
+    def install_package(self, package, url, extra_args=None):
         with tempfile.TemporaryDirectory() as tmpdir:
-            debpath = os.path.join(tmpdir, f"{component}.deb")
+            debpath = os.path.join(tmpdir, f"{package}.deb")
             download_file(url, debpath)
             cmd = ["sudo", "dpkg", "-i"]
             if extra_args is not None:
                 cmd.extend(extra_args)
             cmd.append(debpath)
             runcmd(*cmd)
-            return [(component, Path("/", "usr", "bin", component))]
+            return Path("/usr/bin")
 
-    def is_supported(self):
-        return shutil.which("dpkg") is not None
+    def assert_supported_system(self):
+        if shutil.which("dpkg") is None:
+            raise MethodNotSupportedError("dpkg command not found")
 
 
 class AutobuildSnapshotInstaller(Installer):
+    PACKAGES = {
+        "git-annex": ("git-annex", ["git-annex"]),
+    }
+
     def _install_linux(self, path):
         tmpdir = mktempdir("dl-build-")
         annex_bin = tmpdir / "git-annex.linux"
@@ -807,7 +822,7 @@ class AutobuildSnapshotInstaller(Installer):
         )
         runcmd("tar", "-C", tmpdir, "-xzf", gzfile)
         self.manager.addpath(annex_bin)
-        return [("git-annex", annex_bin / "git-annex")]
+        return annex_bin
 
     def _install_macos(self, path):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -818,44 +833,40 @@ class AutobuildSnapshotInstaller(Installer):
             )
             return install_git_annex_dmg(dmgpath, self.manager)
 
-    def is_supported(self):
-        return platform.system() in ("Linux", "Darwin")
+    def assert_supported_system(self):
+        systype = platform.system()
+        if systype not in ("Linux", "Darwin"):
+            raise MethodNotSupportedError(f"{systype} OS not supported")
 
 
 @DataladInstaller.register_installer
 class AutobuildInstaller(AutobuildSnapshotInstaller):
     NAME = "autobuild"
 
-    def install(self, component):
-        if component != "git-annex":
-            raise MethodNotSupportedError(
-                f"Autobuild does not know how to install {component}"
-            )
+    def install_package(self, package):
+        assert package == "git-annex"
         systype = platform.system()
         if systype == "Linux":
             return self._install_linux("autobuild/amd64")
         elif systype == "Darwin":
             return self._install_macos("autobuild/x86_64-apple-yosemite")
         else:
-            raise MethodNotSupportedError(f"Autobuild does not support {systype}")
+            raise AssertionError("Method should not be called on unsupported platforms")
 
 
 @DataladInstaller.register_installer
 class SnapshotInstaller(AutobuildSnapshotInstaller):
     NAME = "snapshot"
 
-    def install(self, component):
-        if component != "git-annex":
-            raise MethodNotSupportedError(
-                f"Snapshot does not know how to install {component}"
-            )
+    def install_package(self, package):
+        assert package == "git-annex"
         systype = platform.system()
         if systype == "Linux":
             return self._install_linux("linux/current")
         elif systype == "Darwin":
             return self._install_macos("OSX/current/10.10_Yosemite")
         else:
-            raise MethodNotSupportedError(f"Snapshot does not support {systype}")
+            raise AssertionError("Method should not be called on unsupported platforms")
 
 
 @DataladInstaller.register_installer
@@ -863,8 +874,8 @@ class CondaInstaller(Installer):
     NAME = "conda"
 
     PACKAGES = {
-        "datalad": "datalad",
-        "git-annex": "git-annex",
+        "datalad": ("datalad", ["datalad"]),
+        "git-annex": ("git-annex", ["git-annex"]),
     }
 
     def install(self, component, version, extra_args=None):
@@ -888,42 +899,45 @@ class CondaInstaller(Installer):
             cmd.append(f"{pkgname}={version}")
         runcmd(*cmd)
         if conda.name is None:
-            bindir = conda.basepath / "bin"
+            return conda.basepath / "bin"
         else:
-            bindir = conda.basepath / "envs" / conda.name / "bin"
-        return [(component, bindir / component)]
+            return conda.basepath / "envs" / conda.name / "bin"
 
-    def is_supported(self):
-        return self.manager.conda_stack or shutil.which("conda") is not None
+    def assert_supported_system(self):
+        if not self.manager.conda_stack or shutil.which("conda") is None:
+            raise MethodNotSupportedError("Conda installation not found")
 
 
 @DataladInstaller.register_installer
 class DataladGitAnnexBuildInstaller(Installer):
     NAME = "datalad/git-annex"
 
-    def install(self, component):
-        if component != "git-annex":
-            raise MethodNotSupportedError(
-                f"Datalad/git-annex does not know how to install {component}"
-            )
+    PACKAGES = {
+        "git-annex": ("git-annex", ["git-annex"]),
+    }
+
+    def install_package(self, package):
+        assert package == "git-annex"
         with tempfile.TemporaryDirectory() as tmpdir:
             systype = platform.system()
             if systype == "Linux":
                 self.download_latest_git_annex("ubuntu", tmpdir)
                 (debpath,) = Path(tmpdir).glob("*.deb")
                 runcmd("sudo", "dpkg", "-i", debpath)
-                return [("git-annex", Path("/", "usr", "bin", "git-annex"))]
+                return Path("/usr/bin")
             elif systype == "Darwin":
                 self.download_latest_git_annex("macos", tmpdir)
                 (dmgpath,) = Path(tmpdir).glob("*.dmg")
                 return install_git_annex_dmg(dmgpath, self.manager)
             else:
-                raise MethodNotSupportedError(
-                    f"Datalad/git-annex does not support {systype}"
+                raise AssertionError(
+                    "Method should not be called on unsupported platforms"
                 )
 
-    def is_supported(self):
-        return platform.system() in ("Linux", "Darwin")
+    def assert_supported_system(self):
+        systype = platform.system()
+        if systype not in ("Linux", "Darwin"):
+            raise MethodNotSupportedError(f"{systype} OS not supported")
 
     @staticmethod
     def download_latest_git_annex(ostype, target_path: Path):
@@ -1028,7 +1042,7 @@ def install_git_annex_dmg(dmgpath, manager):
     runcmd("hdiutil", "detach", "/Volumes/git-annex/")
     annex_bin = Path("/Applications/git-annex.app/Contents/MacOS")
     manager.addpath(annex_bin)
-    return [("git-annex", annex_bin / "git-annex")]
+    return annex_bin
 
 
 def main(argv=None):  # Needed for console_script entry point
