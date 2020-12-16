@@ -1139,7 +1139,7 @@ def mktempdir(prefix: str) -> Path:
 
 def runcmd(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess:
     arglist = [str(a) for a in args]
-    log.info("Running: %s", " ".join(map(shlex.quote, args)))
+    log.info("Running: %s", " ".join(map(shlex.quote, arglist)))
     return subprocess.run(arglist, check=True, **kwargs)
 
 
