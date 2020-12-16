@@ -373,9 +373,9 @@ class DataladInstaller:
 
     def addpath(self, p, last=False):
         if not last:
-            line = f'export PATH={shlex.quote(p)}:"$PATH"'
+            line = f'export PATH={shlex.quote(str(p))}:"$PATH"'
         else:
-            line = f'export PATH="$PATH":{shlex.quote(p)}'
+            line = f'export PATH="$PATH":{shlex.quote(str(p))}'
         self.addenv(line)
 
     def addcomponent(self, name, **kwargs):
@@ -479,7 +479,7 @@ class MinicondaComponent(Component):
         if spec is not None:
             runcmd(path / "bin" / "conda", "install", *spec)
         self.manager.conda_stack.append(CondaInstance(basepath=path, name=None))
-        self.manager.addenv(f"source {shlex.quote(path)}/etc/profile.d/conda.sh")
+        self.manager.addenv(f"source {shlex.quote(str(path))}/etc/profile.d/conda.sh")
 
 
 @DataladInstaller.register_component("conda-env")
