@@ -432,6 +432,13 @@ class DataladInstaller:
         log.info("Provisioning %s, args=%r", name, kwargs)
         component(self).provide(**kwargs)
 
+    def get_installer(self, name: str) -> "Installer":
+        try:
+            installer_cls = self.INSTALLERS[name]
+        except KeyError:
+            raise ValueError(f"Unknown installation method: {name}")
+        return installer_cls(self)
+
     def get_conda(self) -> CondaInstance:
         if self.conda_stack:
             return self.conda_stack[-1]
@@ -605,16 +612,12 @@ class InstallableComponent(Component):
 
     def provide(self, method: Optional[str] = None, **kwargs: Any) -> None:
         if method is not None and method != "auto":
-            try:
-                installer = self.manager.INSTALLERS[method]
-            except KeyError:
-                raise ValueError(f"Unknown installation method: {method}")
-            bins = installer(self.manager).install(self.NAME, **kwargs)
+            bins = self.manager.get_installer(method).install(self.NAME, **kwargs)
         else:
-            for inst in reversed(self.manager.installer_stack):
+            for installer in reversed(self.manager.installer_stack):
                 try:
-                    log.debug("Attempting to install via %s", inst.NAME)
-                    bins = inst.install(self.NAME, **kwargs)
+                    log.debug("Attempting to install via %s", installer.NAME)
+                    bins = installer.install(self.NAME, **kwargs)
                 except MethodNotSupportedError as e:
                     log.debug("Installation method not supported: %s", e)
                     pass
