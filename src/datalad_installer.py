@@ -251,7 +251,6 @@ class DataladInstaller:
     )
 
     def __init__(self, env_write_files=None):
-        self.newpath = None
         if env_write_files is None:
             self.env_write_files = []
         else:
@@ -284,18 +283,17 @@ class DataladInstaller:
 
     def __exit__(self, exc_type, exc_value, traceback):
         if exc_type is None:
-            if self.newpath is not None:
-                pathline = f"PATH={':'.join(self.newpath)}\n"
-                for p in self.env_write_files:
-                    txt = p.read_text()
-                    if txt and not txt.endswith("\n"):
-                        txt += "\n"
-                    p.write_file(txt + pathline)
-            else:
-                # Ensure env write files at least exist
-                for p in self.env_write_files:
-                    p.touch()
+            # Ensure env write files at least exist
+            for p in self.env_write_files:
+                p.touch()
         return False
+
+    def ensure_env_write_file(self):
+        if not self.env_write_files:
+            fd, fpath = tempfile.mkstemp(prefix="dl-env-", suffix=".sh")
+            os.close(fd)
+            log.info("Writing environment modifications to %s", fpath)
+            self.env_write_files.append(Path(fpath))
 
     @classmethod
     def parse_args(cls, args):
@@ -353,6 +351,7 @@ class DataladInstaller:
         )
         if global_opts.get("env_write_file"):
             self.env_write_files.extend(global_opts["env_write_file"])
+        self.ensure_env_write_file()
         for cr in components:
             self.addcomponent(name=cr.name, **cr.kwargs)
         ok = True
@@ -366,22 +365,25 @@ class DataladInstaller:
                 ok = False
         return not ok
 
+    def addenv(self, line):
+        log.debug("Adding line %r to env_write_files", line)
+        for p in self.env_write_files:
+            with p.open("a") as fp:
+                print(line, file=fp)
+
     def addpath(self, p, last=False):
-        if self.newpath is None:
-            path = ['"$PATH"']
-        else:
-            path = self.newpath
         if not last:
-            path.insert(0, shlex.quote(p))
+            line = f'export PATH={shlex.quote(p)}:"$PATH"'
         else:
-            path.append(shlex.quote(p))
-        self.newpath = path
+            line = f'export PATH="$PATH":{shlex.quote(p)}'
+        self.addenv(line)
 
     def addcomponent(self, name, **kwargs):
         try:
             component = self.COMPONENTS[name]
         except AttributeError:
             raise ValueError(f"Unknown component: {name}")
+        log.info("Provisioning %s, args=%r", name, kwargs)
         component(self).provide(**kwargs)
 
     def get_conda(self):
@@ -477,7 +479,7 @@ class MinicondaComponent(Component):
         if spec is not None:
             runcmd(path / "bin" / "conda", "install", *spec)
         self.manager.conda_stack.append(CondaInstance(basepath=path, name=None))
-        ##### TODO: addpath?
+        self.manager.addenv(f"source {shlex.quote(path)}/etc/profile.d/conda.sh")
 
 
 @DataladInstaller.register_component("conda-env")
@@ -506,6 +508,7 @@ class CondaEnvComponent(Component):
         self.manager.conda_stack.append(
             CondaInstance(basepath=conda.basepath, name=name)
         )
+        self.manager.addenv(f"conda activate {shlex.quote(name)}")
 
 
 @DataladInstaller.register_component("neurodebian")
