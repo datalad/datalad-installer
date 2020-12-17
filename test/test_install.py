@@ -27,3 +27,18 @@ def test_install_miniconda(tmp_path):
         check=True,
     )
     assert "conda activate test" in r.stdout
+
+
+def test_install_venv_datalad(tmp_path):
+    venv_path = tmp_path / "venv"
+    r = main(
+        [
+            "datalad_installer.py",
+            "venv",
+            "--path",
+            str(venv_path),
+            "datalad",
+        ]
+    )
+    assert r == 0
+    assert (venv_path / "bin" / "datalad").exists()
