@@ -1191,7 +1191,7 @@ class CondaInstaller(Installer):
         return binpath
 
     def assert_supported_system(self) -> None:
-        if not self.manager.conda_stack or shutil.which("conda") is None:
+        if not self.manager.conda_stack and shutil.which("conda") is None:
             raise MethodNotSupportedError("Conda installation not found")
 
 
@@ -1314,7 +1314,7 @@ def download_file(
     Download a file from ``url``, saving it at ``path``.  Optional ``headers``
     are sent in the HTTP request.
     """
-    log.info("Downloading %", url)
+    log.info("Downloading %s", url)
     if headers is None:
         headers = {}
     req = Request(url, headers=headers)
