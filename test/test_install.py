@@ -46,6 +46,26 @@ def test_install_miniconda_datalad(tmp_path):
     assert (miniconda_path / "bin" / "datalad").exists()
 
 
+def test_install_miniconda_conda_env_datalad(tmp_path):
+    miniconda_path = tmp_path / "conda"
+    r = main(
+        [
+            "datalad_installer.py",
+            "miniconda",
+            "--batch",
+            "--path",
+            str(miniconda_path),
+            "conda-env",
+            "-n",
+            "foo",
+            "datalad",
+        ]
+    )
+    assert r == 0
+    assert not (miniconda_path / "bin" / "datalad").exists()
+    assert (miniconda_path / "envs" / "foo" / "bin" / "datalad").exists()
+
+
 def test_install_venv_datalad(tmp_path):
     venv_path = tmp_path / "venv"
     r = main(

@@ -159,6 +159,13 @@ from datalad_installer import (
                 [ComponentRequest(name="git-annex", method="apt")],
             ),
         ),
+        (
+            ["conda-env", "--name", "foo"],
+            ParsedArgs(
+                {},
+                [ComponentRequest(name="conda-env", envname="foo")],
+            ),
+        ),
     ],
 )
 def test_parse_args(args, parsed):

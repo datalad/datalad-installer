@@ -653,7 +653,7 @@ class CondaEnvComponent(Component):
         "conda-env",
         versioned=False,
         options=[
-            Option("-n", "--name", metavar="NAME"),
+            Option("-n", "--name", "envname", metavar="NAME"),
             Option("--spec", converter=str.split),
             Option("-e", "--extra-args", converter=shlex.split),
         ],
@@ -661,16 +661,16 @@ class CondaEnvComponent(Component):
 
     def provide(
         self,
-        name: Optional[str] = None,
+        envname: Optional[str] = None,
         spec: Optional[List[str]] = None,
         extra_args: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> None:
         log.info("Creating Conda environment")
-        if name is None:
+        if envname is None:
             cname = "datalad-installer-{:03d}".format(randrange(1000))
         else:
-            cname = name
+            cname = envname
         log.info("Name: %s", cname)
         log.info("Spec: %s", spec)
         log.info("Extra args: %s", extra_args)
