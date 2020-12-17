@@ -530,7 +530,8 @@ class MinicondaComponent(Component):
                 (
                     os.environ.get("ANACONDA_URL")
                     or "https://repo.anaconda.com/miniconda/"
-                )
+                ).rstrip("/")
+                + "/"
                 + miniconda_script,
                 script_path,
             )

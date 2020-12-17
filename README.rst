@@ -98,6 +98,11 @@ on the command line will use this installation, and subsequent ``datalad`` and
 ``git-annex`` components will be installed using this conda by default if not
 overridden by an intervening component.
 
+The Miniconda installation script is downloaded from
+``$ANACONDA_URL/Miniconda3-latest-$OS-x86_64.sh``, where ``$ANACONDA_URL`` is
+taken from the environment, defaulting to
+``https://repo.anaconda.com/miniconda``.
+
 Options
 '''''''
 
