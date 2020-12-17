@@ -5,6 +5,7 @@ from datalad_installer import (
     ComponentRequest,
     DataladInstaller,
     HelpRequest,
+    Option,
     ParsedArgs,
     UsageError,
     VersionRequest,
@@ -201,3 +202,136 @@ def test_parse_args_errors(args, message, component):
         DataladInstaller.parse_args(args)
     assert str(excinfo.value) == message
     assert excinfo.value.component == component
+
+
+@pytest.mark.parametrize(
+    "option,helptext",
+    [
+        (
+            Option("-f", "--foo"),
+            "  -f, --foo FOO",
+        ),
+        (
+            Option("-f", "--foo", is_flag=True),
+            "  -f, --foo",
+        ),
+        (
+            Option("-f", "--foo", help="Foo all the things"),
+            "  -f, --foo FOO                   Foo all the things",
+        ),
+        (
+            Option("-f", "--foo", is_flag=True, help="Foo all the things"),
+            "  -f, --foo                       Foo all the things",
+        ),
+        (
+            Option("-f", "--foo", metavar="PARAM", help="Foo all the things"),
+            "  -f, --foo PARAM                 Foo all the things",
+        ),
+        (
+            Option(
+                "-f",
+                "--foo",
+                choices=["apple", "banana", "coconut"],
+                help="Foo all the things",
+            ),
+            "  -f, --foo [apple|banana|coconut]\n"
+            "                                  Foo all the things",
+        ),
+        (
+            Option(
+                "-f",
+                "--foo",
+                help=(
+                    "Lorem ipsum dolor sit amet, consectetur adipisicing elit,"
+                    " sed do eiusmod tempor incididunt ut labore et dolore"
+                    " magna aliqua."
+                ),
+            ),
+            "  -f, --foo FOO                   Lorem ipsum dolor sit amet, consectetur\n"
+            "                                  adipisicing elit, sed do eiusmod tempor\n"
+            "                                  incididunt ut labore et dolore magna\n"
+            "                                  aliqua.",
+        ),
+    ],
+)
+def test_option_get_help(option, helptext):
+    assert option.get_help() == helptext
+
+
+def test_global_short_help():
+    assert DataladInstaller.short_help("datalad_installer") == (
+        "Usage: datalad_installer [<options>] [COMPONENT[=VERSION] [<options>]] ..."
+    )
+
+
+def test_component_short_help():
+    assert DataladInstaller.short_help("datalad_installer", "miniconda") == (
+        "Usage: datalad_installer [<options>] miniconda [<options>]"
+    )
+
+
+def test_versioned_component_short_help():
+    assert DataladInstaller.short_help("datalad_installer", "git-annex") == (
+        "Usage: datalad_installer [<options>] git-annex[=VERSION] [<options>]"
+    )
+
+
+def test_global_long_help():
+    assert DataladInstaller.long_help("datalad_installer") == (
+        "Usage: datalad_installer [<options>] [COMPONENT[=VERSION] [<options>]] ...\n"
+        "\n"
+        "  Installation script for Datalad and related components\n"
+        "\n"
+        "Options:\n"
+        "  -E, --env-write-file ENV_WRITE_FILE\n"
+        "                                  Append PATH modifications and other\n"
+        "                                  shell commands to the given file; can be\n"
+        "                                  given multiple times\n"
+        "  -l, --log-level LEVEL           Set logging level [default: INFO]\n"
+        "  -V, --version                   Show program version and exit\n"
+        "  -h, --help                      Show this help information and exit\n"
+        "\n"
+        "Components:\n"
+        "  conda-env    Create a Conda environment\n"
+        "  datalad      Install Datalad\n"
+        "  git-annex    Install git-annex\n"
+        "  miniconda    Install Miniconda\n"
+        "  neurodebian  Install & configure NeuroDebian\n"
+        "  venv         Create a Python virtual environment"
+    )
+
+
+def test_component_long_help():
+    assert DataladInstaller.long_help("datalad_installer", "miniconda") == (
+        "Usage: datalad_installer [<options>] miniconda [<options>]\n"
+        "\n"
+        "  Install Miniconda\n"
+        "\n"
+        "Options:\n"
+        "  --batch                         Run in batch (noninteractive) mode\n"
+        "  -e, --extra-args EXTRA_ARGS     Extra arguments to pass to the install\n"
+        "                                  command\n"
+        "  --path PATH                     Install Miniconda at the given path\n"
+        "  --spec SPEC                     Space-separated list of package\n"
+        "                                  specifiers to install in the Miniconda\n"
+        "                                  environment\n"
+        "  -h, --help                      Show this help information and exit"
+    )
+
+
+def test_versioned_component_long_help():
+    assert DataladInstaller.long_help("datalad_installer", "git-annex") == (
+        "Usage: datalad_installer [<options>] git-annex[=VERSION] [<options>]\n"
+        "\n"
+        "  Install git-annex\n"
+        "\n"
+        "Options:\n"
+        "  --build-dep                     Install build-dep instead of the package\n"
+        "  -e, --extra-args EXTRA_ARGS     Extra arguments to pass to the install\n"
+        "                                  command\n"
+        "  -m, --method [auto|apt|brew|neurodebian|deb-url|autobuild|snapshot|"
+        "conda|datalad/git-annex]\n"
+        "                                  Select the installation method to use\n"
+        "  --url URL                       URL from which to download `*.deb` file\n"
+        "  -h, --help                      Show this help information and exit"
+    )

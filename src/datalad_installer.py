@@ -19,6 +19,7 @@ __license__ = "MIT"
 __url__ = "https://github.com/datalad/datalad-installer"
 
 from abc import ABC, abstractmethod
+from functools import total_ordering
 from getopt import GetoptError, getopt
 import json
 import logging
@@ -33,6 +34,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 from typing import (
     Any,
     Callable,
@@ -107,7 +109,14 @@ class HelpRequest(Immediate):
 SHORT_RGX = re.compile(r"-[^-]")
 LONG_RGX = re.compile(r"--[^-].*")
 
+OPTION_COLUMN_WIDTH = 30
+OPTION_HELP_COLUMN_WIDTH = 40
+HELP_GUTTER = 2
+HELP_INDENT = 2
+HELP_WIDTH = 75
 
+
+@total_ordering
 class Option:
     def __init__(
         self,
@@ -118,6 +127,7 @@ class Option:
         immediate: Optional[Immediate] = None,
         metavar: Optional[str] = None,
         choices: Optional[List[str]] = None,
+        help: Optional[str] = None,
     ) -> None:
         #: List of individual option characters
         self.shortopts: List[str] = []
@@ -130,6 +140,7 @@ class Option:
         self.immediate: Optional[Immediate] = immediate
         self.metavar: Optional[str] = metavar
         self.choices: Optional[List[str]] = choices
+        self.help: Optional[str] = help
         for n in names:
             if n.startswith("-"):
                 if LONG_RGX.fullmatch(n):
@@ -155,6 +166,21 @@ class Option:
             return vars(self) == vars(other)
         else:
             return NotImplemented
+
+    def __lt__(self, other: Any) -> bool:
+        if type(self) is type(other):
+            return bool(self._cmp_key() < other._cmp_key())
+        else:
+            return NotImplemented
+
+    def _cmp_key(self) -> Tuple[int, str]:
+        name = self.option_name
+        if name == "--help":
+            return (2, "--help")
+        elif name == "--version":
+            return (1, "--version")
+        else:
+            return (0, name)
 
     @property
     def option_name(self) -> str:
@@ -185,16 +211,54 @@ class Option:
                 namespace[self.dest] = value
         return None
 
+    def get_help(self) -> str:
+        options = []
+        for o in self.shortopts:
+            options.append(f"-{o}")
+        for o in self.longopts:
+            options.append(f"--{o}")
+        header = ", ".join(options)
+        if not self.is_flag:
+            if self.metavar is not None:
+                metavar = self.metavar
+            elif self.choices is not None:
+                metavar = f"[{'|'.join(self.choices)}]"
+            elif self.longopts:
+                metavar = self.longopts[0].upper().replace("-", "_")
+            else:
+                metavar = "ARG"
+            header += " " + metavar
+        if self.help is not None:
+            helplines = textwrap.wrap(self.help, OPTION_HELP_COLUMN_WIDTH)
+        else:
+            helplines = []
+        if len(header) > OPTION_COLUMN_WIDTH:
+            lines2 = [header]
+            remainder = helplines
+        elif helplines:
+            lines2 = [
+                header.ljust(OPTION_COLUMN_WIDTH) + " " * HELP_GUTTER + helplines[0]
+            ]
+            remainder = helplines[1:]
+        else:
+            lines2 = [header]
+            remainder = []
+        for r in remainder:
+            lines2.append(" " * (OPTION_COLUMN_WIDTH + HELP_GUTTER) + r)
+        return textwrap.indent("\n".join(lines2), " " * HELP_INDENT)
+
 
 class OptionParser:
     def __init__(
         self,
         component: Optional[str] = None,
         versioned: bool = False,
+        help: Optional[str] = None,
         options: Optional[List[Option]] = None,
     ) -> None:
         self.component: Optional[str] = component
         self.versioned: bool = versioned
+        self.help: Optional[str] = help
         #: Mapping from individual option characters to Option instances
         self.short_options: Dict[str, Option] = {}
         #: Mapping from long option names (sans leading "--") to Option
@@ -203,8 +267,15 @@ class OptionParser:
         #: Mapping from option names (including leading hyphens) to Option
         #: instances
         self.options: Dict[str, Option] = {}
+        self.option_list: List[Option] = []
         self.add_option(
-            Option("-h", "--help", is_flag=True, immediate=HelpRequest(self.component))
+            Option(
+                "-h",
+                "--help",
+                is_flag=True,
+                immediate=HelpRequest(self.component),
+                help="Show this help information and exit",
+            )
         )
         if options is not None:
             for opt in options:
@@ -225,6 +296,7 @@ class OptionParser:
         for o in option.longopts:
             self.long_options[o] = option
             self.options[f"--{o}"] = option
+        self.option_list.append(option)
 
     def parse_args(
         self, args: List[str]
@@ -266,6 +338,32 @@ class OptionParser:
                 if ret is not None:
                     return ret
         return (kwargs, leftovers)
+
+    def short_help(self, progname: str) -> str:
+        if self.component is None:
+            return (
+                f"Usage: {progname} [<options>] [COMPONENT[=VERSION] [<options>]] ..."
+            )
+        else:
+            cmd = f"Usage: {progname} [<options>] {self.component}"
+            if self.versioned:
+                cmd += "[=VERSION]"
+            cmd += " [<options>]"
+            return cmd
+
+    def long_help(self, progname: str) -> str:
+        lines = [self.short_help(progname)]
+        if self.help is not None:
+            lines.append("")
+            lines.extend(
+                " " * HELP_INDENT + ln for ln in textwrap.wrap(self.help, HELP_WIDTH)
+            )
+        if self.options:
+            lines.append("")
+            lines.append("Options:")
+            for option in sorted(self.option_list):
+                lines.extend(option.get_help().splitlines())
+        return "\n".join(lines)
 
 
 class UsageError(Exception):
@@ -335,10 +433,32 @@ class DataladInstaller:
     COMPONENTS: ClassVar[Dict[str, Type["Component"]]] = {}
 
     OPTION_PARSER = OptionParser(
+        help="Installation script for Datalad and related components",
         options=[
-            Option("-V", "--version", is_flag=True, immediate=VersionRequest()),
-            Option("-l", "--log-level", converter=parse_log_level, metavar="LEVEL"),
-            Option("-E", "--env-write-file", converter=Path, multiple=True),
+            Option(
+                "-V",
+                "--version",
+                is_flag=True,
+                immediate=VersionRequest(),
+                help="Show program version and exit",
+            ),
+            Option(
+                "-l",
+                "--log-level",
+                converter=parse_log_level,
+                metavar="LEVEL",
+                help="Set logging level [default: INFO]",
+            ),
+            Option(
+                "-E",
+                "--env-write-file",
+                converter=Path,
+                multiple=True,
+                help=(
+                    "Append PATH modifications and other shell commands to the"
+                    " given file; can be given multiple times"
+                ),
+            ),
         ],
     )
 
@@ -435,7 +555,7 @@ class DataladInstaller:
     def main(self, argv: Optional[List[str]] = None) -> int:
         """
         Parsed command-line arguments and perform the requested actions.
-        Returns 0 if everything was OK, 1 otherwise.
+        Returns 0 if everything was OK, nonzero otherwise.
 
         :param List[str] argv: command-line arguments, including
             ``sys.argv[0]``
@@ -443,16 +563,23 @@ class DataladInstaller:
         if argv is None:
             argv = sys.argv
         progname, *args = argv
+        if not progname:
+            progname = "datalad_installer"
+        else:
+            progname = Path(progname).name
         try:
             r = self.parse_args(args)
         except UsageError as e:
-            ### TODO: Show short usage summary
-            sys.exit(str(e))
+            print(self.short_help(progname, e.component), file=sys.stderr)
+            print(file=sys.stderr)
+            print(str(e), file=sys.stderr)
+            return 2
         if isinstance(r, VersionRequest):
             print("datalad_installer", __version__)
             return 0
         elif isinstance(r, HelpRequest):
-            raise NotImplementedError("--help not yet implemented")  ### TODO
+            print(self.long_help(progname, r.component))
+            return 0
         else:
             assert isinstance(r, ParsedArgs)
         global_opts, components = r
@@ -522,6 +649,32 @@ class DataladInstaller:
             else:
                 raise RuntimeError("conda not installed")
 
+    @classmethod
+    def short_help(cls, progname: str, component: Optional[str] = None) -> str:
+        if component is None:
+            return cls.OPTION_PARSER.short_help(progname)
+        else:
+            return cls.COMPONENTS[component].OPTION_PARSER.short_help(progname)
+
+    @classmethod
+    def long_help(cls, progname: str, component: Optional[str] = None) -> str:
+        if component is None:
+            s = cls.OPTION_PARSER.long_help(progname)
+            s += "\n\nComponents:"
+            width = max(map(len, cls.COMPONENTS.keys()))
+            for name, cmpnt in sorted(cls.COMPONENTS.items()):
+                if cmpnt.OPTION_PARSER.help is not None:
+                    chelp = cmpnt.OPTION_PARSER.help
+                else:
+                    chelp = ""
+                s += (
+                    f"\n{' ' * HELP_INDENT}{name:{width}}{' ' * HELP_GUTTER}"
+                    + textwrap.shorten(chelp, HELP_WIDTH - width - HELP_GUTTER)
+                )
+            return s
+        else:
+            return cls.COMPONENTS[component].OPTION_PARSER.long_help(progname)
+
 
 class Component(ABC):
     """
@@ -546,9 +699,20 @@ class VenvComponent(Component):
     OPTION_PARSER = OptionParser(
         "venv",
         versioned=False,
+        help="Create a Python virtual environment",
         options=[
-            Option("--path", converter=Path, metavar="PATH"),
-            Option("-e", "--extra-args", converter=shlex.split),
+            Option(
+                "--path",
+                converter=Path,
+                metavar="PATH",
+                help="Create the venv at the given path",
+            ),
+            Option(
+                "-e",
+                "--extra-args",
+                converter=shlex.split,
+                help="Extra arguments to pass to the venv command",
+            ),
         ],
     )
 
@@ -581,11 +745,29 @@ class MinicondaComponent(Component):
     OPTION_PARSER = OptionParser(
         "miniconda",
         versioned=False,
+        help="Install Miniconda",
         options=[
-            Option("--path", converter=Path, metavar="PATH"),
-            Option("--batch", is_flag=True),
-            Option("--spec", converter=str.split),
-            Option("-e", "--extra-args", converter=shlex.split),
+            Option(
+                "--path",
+                converter=Path,
+                metavar="PATH",
+                help="Install Miniconda at the given path",
+            ),
+            Option("--batch", is_flag=True, help="Run in batch (noninteractive) mode"),
+            Option(
+                "--spec",
+                converter=str.split,
+                help=(
+                    "Space-separated list of package specifiers to install in"
+                    " the Miniconda environment"
+                ),
+            ),
+            Option(
+                "-e",
+                "--extra-args",
+                converter=shlex.split,
+                help="Extra arguments to pass to the install command",
+            ),
         ],
     )
 
@@ -649,10 +831,26 @@ class CondaEnvComponent(Component):
     OPTION_PARSER = OptionParser(
         "conda-env",
         versioned=False,
+        help="Create a Conda environment",
         options=[
-            Option("-n", "--name", "envname", metavar="NAME"),
-            Option("--spec", converter=str.split),
-            Option("-e", "--extra-args", converter=shlex.split),
+            Option(
+                "-n",
+                "--name",
+                "envname",
+                metavar="NAME",
+                help="Name of the environment",
+            ),
+            Option(
+                "--spec",
+                converter=str.split,
+                help="Space-separated list of package specifiers to install in the environment",
+            ),
+            Option(
+                "-e",
+                "--extra-args",
+                converter=shlex.split,
+                help="Extra arguments to pass to the `conda create` command",
+            ),
         ],
     )
 
@@ -695,7 +893,15 @@ class NeurodebianComponent(Component):
     OPTION_PARSER = OptionParser(
         "neurodebian",
         versioned=False,
-        options=[Option("-e", "--extra-args", converter=shlex.split)],
+        help="Install & configure NeuroDebian",
+        options=[
+            Option(
+                "-e",
+                "--extra-args",
+                converter=shlex.split,
+                help="Extra arguments to pass to the nd-configurerepo command",
+            )
+        ],
     )
 
     def provide(self, extra_args: Optional[List[str]] = None, **kwargs: Any) -> None:
@@ -768,8 +974,14 @@ class GitAnnexComponent(InstallableComponent):
     OPTION_PARSER = OptionParser(
         "git-annex",
         versioned=True,
+        help="Install git-annex",
         options=[
-            Option("-m", "--method", choices=["auto"]),
+            Option(
+                "-m",
+                "--method",
+                choices=["auto"],
+                help="Select the installation method to use",
+            ),
         ],
     )
 
@@ -783,8 +995,14 @@ class DataladComponent(InstallableComponent):
     OPTION_PARSER = OptionParser(
         "datalad",
         versioned=True,
+        help="Install Datalad",
         options=[
-            Option("-m", "--method", choices=["auto"]),
+            Option(
+                "-m",
+                "--method",
+                choices=["auto"],
+                help="Select the installation method to use",
+            ),
         ],
     )
 
@@ -837,6 +1055,14 @@ class Installer(ABC):
         ...
 
 
+EXTRA_ARGS_OPTION = Option(
+    "-e",
+    "--extra-args",
+    converter=shlex.split,
+    help="Extra arguments to pass to the install command",
+)
+
+
 @GitAnnexComponent.register_installer
 @DataladComponent.register_installer
 class AptInstaller(Installer):
@@ -845,8 +1071,10 @@ class AptInstaller(Installer):
     NAME = "apt"
 
     OPTIONS = [
-        Option("--build-dep", is_flag=True),
-        Option("-e", "--extra-args", converter=shlex.split),
+        Option(
+            "--build-dep", is_flag=True, help="Install build-dep instead of the package"
+        ),
+        EXTRA_ARGS_OPTION,
     ]
 
     PACKAGES = {
@@ -895,7 +1123,7 @@ class HomebrewInstaller(Installer):
     NAME = "brew"
 
     OPTIONS = [
-        Option("-e", "--extra-args", converter=shlex.split),
+        EXTRA_ARGS_OPTION,
     ]
 
     PACKAGES = {
@@ -936,9 +1164,9 @@ class PipInstaller(Installer):
     NAME = "pip"
 
     OPTIONS = [
-        Option("--devel", is_flag=True),
-        Option("-E", "--extras", metavar="EXTRAS"),
-        Option("-e", "--extra-args", converter=shlex.split),
+        Option("--devel", is_flag=True, help="Install from GitHub repository"),
+        Option("-E", "--extras", metavar="EXTRAS", help="Install package extras"),
+        EXTRA_ARGS_OPTION,
     ]
 
     PACKAGES = {
@@ -1040,8 +1268,8 @@ class DebURLInstaller(Installer):
     NAME = "deb-url"
 
     OPTIONS = [
-        Option("--url", metavar="URL"),
-        Option("-e", "--extra-args", converter=shlex.split),
+        Option("--url", metavar="URL", help="URL from which to download `*.deb` file"),
+        EXTRA_ARGS_OPTION,
     ]
 
     PACKAGES = {
@@ -1169,7 +1397,7 @@ class CondaInstaller(Installer):
     NAME = "conda"
 
     OPTIONS = [
-        Option("-e", "--extra-args", converter=shlex.split),
+        EXTRA_ARGS_OPTION,
     ]
 
     PACKAGES = {
