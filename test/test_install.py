@@ -1,5 +1,4 @@
 import logging
-import platform
 import subprocess
 import pytest
 from datalad_installer import main
@@ -10,10 +9,6 @@ def capture_all_logs(caplog):
     caplog.set_level(logging.DEBUG)
 
 
-@pytest.mark.xfail(
-    platform.system() == "Darwin",
-    reason="Failing on my laptop for some reason",
-)
 def test_install_miniconda(tmp_path):
     miniconda_path = tmp_path / "conda"
     r = main(
@@ -35,10 +30,6 @@ def test_install_miniconda(tmp_path):
     assert "conda activate test" in r.stdout
 
 
-@pytest.mark.xfail(
-    platform.system() == "Darwin",
-    reason="Failing on my laptop for some reason",
-)
 def test_install_miniconda_datalad(tmp_path):
     miniconda_path = tmp_path / "conda"
     r = main(
