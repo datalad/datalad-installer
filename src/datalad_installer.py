@@ -502,7 +502,6 @@ class DataladInstaller:
             component = self.COMPONENTS[name]
         except AttributeError:
             raise ValueError(f"Unknown component: {name}")
-        log.info("Provisioning %s, args=%r", name, kwargs)
         component(self).provide(**kwargs)
 
     def get_installer(self, name: str) -> "Installer":
@@ -566,10 +565,13 @@ class VenvComponent(Component):
         extra_args: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> None:
-        if kwargs:
-            log.warning("Ignoring extra component arguments: %r", kwargs)
+        log.info("Creating a virtual environment")
         if path is None:
             path = mktempdir("dl-venv-")
+        log.info("Path: %s", path)
+        log.info("Extra args: %s", extra_args)
+        if kwargs:
+            log.warning("Ignoring extra component arguments: %r", kwargs)
         ### TODO: Handle systems on which venv isn't installed
         cmd = [sys.executable, "-m", "venv"]
         if extra_args is not None:
@@ -602,10 +604,15 @@ class MinicondaComponent(Component):
         extra_args: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> None:
-        if kwargs:
-            log.warning("Ignoring extra component arguments: %r", kwargs)
+        log.info("Installing Miniconda")
         if path is None:
             path = mktempdir("dl-miniconda-")
+        log.info("Path: %s", path)
+        log.info("Batch: %s", batch)
+        log.info("Spec: %s", spec)
+        log.info("Extra args: %s", extra_args)
+        if kwargs:
+            log.warning("Ignoring extra component arguments: %r", kwargs)
         systype = platform.system()
         if systype == "Linux":
             miniconda_script = "Miniconda3-latest-Linux-x86_64.sh"
@@ -659,14 +666,17 @@ class CondaEnvComponent(Component):
         extra_args: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> None:
+        log.info("Creating Conda environment")
+        if name is None:
+            cname = "datalad-installer-{:03d}".format(randrange(1000))
+        else:
+            cname = name
+        log.info("Name: %s", cname)
+        log.info("Spec: %s", spec)
+        log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra component arguments: %r", kwargs)
         conda = self.manager.get_conda()
-        if name is None:
-            cname = "datalad-installer-{:03d}".format(randrange(1000))
-            log.info("Using %s as name of conda environment", cname)
-        else:
-            cname = name
         cmd = [conda.basepath / "bin" / "conda", "create", "--name", cname]
         if extra_args is not None:
             cmd.extend(extra_args)
@@ -690,6 +700,8 @@ class NeurodebianComponent(Component):
     )
 
     def provide(self, extra_args: Optional[List[str]] = None, **kwargs: Any) -> None:
+        log.info("Installing & configuring NeuroDebian")
+        log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra component arguments: %r", kwargs)
         runcmd(
@@ -853,6 +865,10 @@ class AptInstaller(Installer):
         build_dep: bool = False,
         **kwargs: Any,
     ) -> Path:
+        log.info("Installing %s via %s", package, self.NAME)
+        log.info("Version: %s", version)
+        log.info("Build dep: %s", build_dep)
+        log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         cmd = ["sudo", "apt-get"]
@@ -867,6 +883,7 @@ class AptInstaller(Installer):
         else:
             cmd.append(package)
         runcmd(*cmd)
+        log.debug("Installed program directory: /usr/bin")
         return Path("/usr/bin")
 
     def assert_supported_system(self) -> None:
@@ -890,6 +907,8 @@ class HomebrewInstaller(Installer):
         extra_args: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> Path:
+        log.info("Installing %s via brew", package)
+        log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         cmd = ["brew", "install"]
@@ -897,6 +916,8 @@ class HomebrewInstaller(Installer):
             cmd.extend(extra_args)
         cmd.append(package)
         runcmd(*cmd)
+        ### TODO: Handle variations in this path (Is it "$(brew --prefix)/bin"?)
+        log.debug("Installed program directory: /usr/local/bin")
         return Path("/usr/local/bin")
 
     def assert_supported_system(self) -> None:
@@ -945,6 +966,12 @@ class PipInstaller(Installer):
         extra_args: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> Path:
+        log.info("Installing %s via pip", package)
+        log.info("Venv path: %s", self.venv_path)
+        log.info("Version: %s", version)
+        log.info("Devel: %s", devel)
+        log.info("Extras: %s", extras)
+        log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         urlspec: Optional[str]
@@ -965,14 +992,16 @@ class PipInstaller(Installer):
         )
         runcmd(*cmd)
         if extra_args is not None and "--user" in extra_args:
-            return Path(
+            binpath = Path(
                 readcmd(self.python, "-m", "site", "--user-base").strip(),
                 "bin",
             )
         elif self.venv_path is not None:
-            return self.venv_path / "bin"
+            binpath = self.venv_path / "bin"
         else:
-            return Path("/usr/local/bin")
+            binpath = Path("/usr/local/bin")
+        log.debug("Installed program directory: %s", binpath)
+        return binpath
 
     def assert_supported_system(self) -> None:
         ### TODO: Detect whether pip is installed in the current Python,
@@ -1014,10 +1043,13 @@ class DebURLInstaller(Installer):
         extra_args: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> Path:
-        if kwargs:
-            log.warning("Ignoring extra installer arguments: %r", kwargs)
+        log.info("Installing %s via deb-url", package)
         if url is None:
             raise RuntimeError("deb-url method requires URL")
+        log.info("URL: %s", url)
+        log.info("Extra args: %s", extra_args)
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
         with tempfile.TemporaryDirectory() as tmpdir:
             debpath = os.path.join(tmpdir, f"{package}.deb")
             download_file(url, debpath)
@@ -1026,6 +1058,7 @@ class DebURLInstaller(Installer):
                 cmd.extend(extra_args)
             cmd.append(debpath)
             runcmd(*cmd)
+            log.debug("Installed program directory: /usr/bin")
             return Path("/usr/bin")
 
     def assert_supported_system(self) -> None:
@@ -1074,16 +1107,19 @@ class AutobuildInstaller(AutobuildSnapshotInstaller):
     NAME = "autobuild"
 
     def install_package(self, package: str, **kwargs: Any) -> Path:
+        log.info("Installing %s via autobuild", package)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         assert package == "git-annex"
         systype = platform.system()
         if systype == "Linux":
-            return self._install_linux("autobuild/amd64")
+            binpath = self._install_linux("autobuild/amd64")
         elif systype == "Darwin":
-            return self._install_macos("autobuild/x86_64-apple-yosemite")
+            binpath = self._install_macos("autobuild/x86_64-apple-yosemite")
         else:
             raise AssertionError("Method should not be called on unsupported platforms")
+        log.debug("Installed program directory: %s", binpath)
+        return binpath
 
 
 @DataladInstaller.register_installer
@@ -1095,16 +1131,19 @@ class SnapshotInstaller(AutobuildSnapshotInstaller):
     NAME = "snapshot"
 
     def install_package(self, package: str, **kwargs: Any) -> Path:
+        log.info("Installing %s via snapshot", package)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         assert package == "git-annex"
         systype = platform.system()
         if systype == "Linux":
-            return self._install_linux("linux/current")
+            binpath = self._install_linux("linux/current")
         elif systype == "Darwin":
-            return self._install_macos("OSX/current/10.10_Yosemite")
+            binpath = self._install_macos("OSX/current/10.10_Yosemite")
         else:
             raise AssertionError("Method should not be called on unsupported platforms")
+        log.debug("Installed program directory: %s", binpath)
+        return binpath
 
 
 @DataladInstaller.register_installer
@@ -1125,9 +1164,13 @@ class CondaInstaller(Installer):
         extra_args: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> Path:
+        log.info("Installing %s via conda", package)
+        conda = self.manager.get_conda()
+        log.info("Environment: %s", conda.name)
+        log.info("Version: %s", version)
+        log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
-        conda = self.manager.get_conda()
         cmd = [conda.basepath / "bin" / "conda", "install"]
         if conda.name is not None:
             cmd.append("--name")
@@ -1141,9 +1184,11 @@ class CondaInstaller(Installer):
             cmd.append(f"{package}={version}")
         runcmd(*cmd)
         if conda.name is None:
-            return conda.basepath / "bin"
+            binpath = conda.basepath / "bin"
         else:
-            return conda.basepath / "envs" / conda.name / "bin"
+            binpath = conda.basepath / "envs" / conda.name / "bin"
+        log.debug("Installed program directory: %s", binpath)
+        return binpath
 
     def assert_supported_system(self) -> None:
         if not self.manager.conda_stack or shutil.which("conda") is None:
@@ -1164,6 +1209,7 @@ class DataladGitAnnexBuildInstaller(Installer):
     }
 
     def install_package(self, package: str, **kwargs: Any) -> Path:
+        log.info("Installing %s via datalad/git-annex", package)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         assert package == "git-annex"
@@ -1174,15 +1220,17 @@ class DataladGitAnnexBuildInstaller(Installer):
                 self.download_latest_git_annex("ubuntu", tmpdir)
                 (debpath,) = tmpdir.glob("*.deb")
                 runcmd("sudo", "dpkg", "-i", debpath)
-                return Path("/usr/bin")
+                binpath = Path("/usr/bin")
             elif systype == "Darwin":
                 self.download_latest_git_annex("macos", tmpdir)
                 (dmgpath,) = tmpdir.glob("*.dmg")
-                return install_git_annex_dmg(dmgpath, self.manager)
+                binpath = install_git_annex_dmg(dmgpath, self.manager)
             else:
                 raise AssertionError(
                     "Method should not be called on unsupported platforms"
                 )
+        log.debug("Installed program directory: %s", binpath)
+        return binpath
 
     def assert_supported_system(self) -> None:
         systype = platform.system()
@@ -1213,6 +1261,7 @@ class DataladGitAnnexBuildInstaller(Installer):
             token = r.stdout.strip()
 
         def apicall(url: str) -> Any:
+            log.debug("HTTP request: GET %s", url)
             req = Request(url, headers={"Authorization": f"Bearer {token}"})
             with urlopen(req) as r:
                 return json.load(r)
@@ -1265,6 +1314,7 @@ def download_file(
     Download a file from ``url``, saving it at ``path``.  Optional ``headers``
     are sent in the HTTP request.
     """
+    log.info("Downloading %", url)
     if headers is None:
         headers = {}
     req = Request(url, headers=headers)
