@@ -150,6 +150,12 @@ class Option:
         else:
             self.dest = dest
 
+    def __eq__(self, other: Any) -> bool:
+        if type(self) is type(other):
+            return vars(self) == vars(other)
+        else:
+            return NotImplemented
+
     @property
     def option_name(self) -> str:
         """ Display name for the option """
@@ -205,6 +211,8 @@ class OptionParser:
                 self.add_option(opt)
 
     def add_option(self, option: Option) -> None:
+        if self.options.get(option.option_name) == option:
+            return
         for o in option.shortopts:
             if o in self.short_options:
                 raise ValueError(f"Option -{o} registered more than once")
@@ -322,14 +330,11 @@ CommandList = List[Tuple[str, Path]]
 
 
 class DataladInstaller:
-    """
-    The script's primary class, a manager & runner of components & installers
-    """
+    """ The script's primary class, a manager & runner of components """
 
     COMPONENTS: ClassVar[Dict[str, Type["Component"]]] = {}
-    INSTALLERS: ClassVar[Dict[str, Type["Installer"]]] = {}
 
-    OPTIONS = OptionParser(
+    OPTION_PARSER = OptionParser(
         options=[
             Option("-V", "--version", is_flag=True, immediate=VersionRequest()),
             Option("-l", "--log-level", converter=parse_log_level, metavar="LEVEL"),
@@ -375,12 +380,6 @@ class DataladInstaller:
 
         return decorator
 
-    @classmethod
-    def register_installer(cls, installer: Type["Installer"]) -> Type["Installer"]:
-        """ A decorator for registering concrete `Installer` subclasses """
-        cls.INSTALLERS[installer.NAME] = installer
-        return installer
-
     def __enter__(self) -> "DataladInstaller":
         return self
 
@@ -405,7 +404,7 @@ class DataladInstaller:
 
         :param List[str] args: command-line arguments without ``sys.argv[0]``
         """
-        r = cls.OPTIONS.parse_args(args)
+        r = cls.OPTION_PARSER.parse_args(args)
         if isinstance(r, Immediate):
             return r
         global_opts, leftovers = r
@@ -419,7 +418,7 @@ class DataladInstaller:
                 component = cls.COMPONENTS[name]
             except KeyError:
                 raise UsageError(f"Unknown component: {name!r}")
-            cparser = component.OPTIONS
+            cparser = component.OPTION_PARSER
             if version and not cparser.versioned:
                 raise UsageError(f"{name} component does not take a version", name)
             if eq and not version:
@@ -506,14 +505,6 @@ class DataladInstaller:
             raise ValueError(f"Unknown component: {name}")
         component(self).provide(**kwargs)
 
-    def get_installer(self, name: str) -> "Installer":
-        """ Retrieve & instantiate the installer with the given name """
-        try:
-            installer_cls = self.INSTALLERS[name]
-        except KeyError:
-            raise ValueError(f"Unknown installation method: {name}")
-        return installer_cls(self)
-
     def get_conda(self) -> CondaInstance:
         """
         Return the most-recently created Conda installation or environment.  If
@@ -538,7 +529,7 @@ class Component(ABC):
     line and provisioned
     """
 
-    OPTIONS: ClassVar[OptionParser]
+    OPTION_PARSER: ClassVar[OptionParser]
 
     def __init__(self, manager: DataladInstaller) -> None:
         self.manager = manager
@@ -552,7 +543,7 @@ class Component(ABC):
 class VenvComponent(Component):
     """ Creates a Python virtual environment using ``python -m venv`` """
 
-    OPTIONS = OptionParser(
+    OPTION_PARSER = OptionParser(
         "venv",
         versioned=False,
         options=[
@@ -587,7 +578,7 @@ class VenvComponent(Component):
 class MinicondaComponent(Component):
     """ Installs Miniconda """
 
-    OPTIONS = OptionParser(
+    OPTION_PARSER = OptionParser(
         "miniconda",
         versioned=False,
         options=[
@@ -655,7 +646,7 @@ class MinicondaComponent(Component):
 class CondaEnvComponent(Component):
     """ Creates a Conda environment """
 
-    OPTIONS = OptionParser(
+    OPTION_PARSER = OptionParser(
         "conda-env",
         versioned=False,
         options=[
@@ -701,7 +692,7 @@ class CondaEnvComponent(Component):
 class NeurodebianComponent(Component):
     """ Installs & configures NeuroDebian """
 
-    OPTIONS = OptionParser(
+    OPTION_PARSER = OptionParser(
         "neurodebian",
         versioned=False,
         options=[Option("-e", "--extra-args", converter=shlex.split)],
@@ -729,9 +720,30 @@ class InstallableComponent(Component):
 
     NAME: ClassVar[str]
 
+    INSTALLERS: ClassVar[Dict[str, Type["Installer"]]] = {}
+
+    @classmethod
+    def register_installer(cls, installer: Type["Installer"]) -> Type["Installer"]:
+        """ A decorator for registering concrete `Installer` subclasses """
+        cls.INSTALLERS[installer.NAME] = installer
+        methods = cls.OPTION_PARSER.options["--method"].choices
+        assert methods is not None
+        methods.append(installer.NAME)
+        for opt in installer.OPTIONS:
+            cls.OPTION_PARSER.add_option(opt)
+        return installer
+
+    def get_installer(self, name: str) -> "Installer":
+        """ Retrieve & instantiate the installer with the given name """
+        try:
+            installer_cls = self.INSTALLERS[name]
+        except KeyError:
+            raise ValueError(f"Unknown installation method: {name}")
+        return installer_cls(self.manager)
+
     def provide(self, method: Optional[str] = None, **kwargs: Any) -> None:
         if method is not None and method != "auto":
-            bins = self.manager.get_installer(method).install(self.NAME, **kwargs)
+            bins = self.get_installer(method).install(self.NAME, **kwargs)
         else:
             for installer in reversed(self.manager.installer_stack):
                 try:
@@ -753,28 +765,11 @@ class GitAnnexComponent(InstallableComponent):
 
     NAME = "git-annex"
 
-    OPTIONS = OptionParser(
+    OPTION_PARSER = OptionParser(
         "git-annex",
         versioned=True,
         options=[
-            Option("--build-dep", is_flag=True),
-            Option("-e", "--extra-args", converter=shlex.split),
-            Option(
-                "-m",
-                "--method",
-                choices=[
-                    "auto",
-                    "apt",
-                    "autobuild",
-                    "brew",
-                    "conda",
-                    "datalad/git-annex",
-                    "deb-url",
-                    "neurodebian",
-                    "snapshot",
-                ],
-            ),
-            Option("--url", metavar="URL"),
+            Option("-m", "--method", choices=["auto"]),
         ],
     )
 
@@ -785,25 +780,11 @@ class DataladComponent(InstallableComponent):
 
     NAME = "datalad"
 
-    OPTIONS = OptionParser(
+    OPTION_PARSER = OptionParser(
         "datalad",
         versioned=True,
         options=[
-            Option("--build-dep", is_flag=True),
-            Option("-e", "--extra-args", converter=shlex.split),
-            Option("--devel", is_flag=True),
-            Option("-E", "--extras", metavar="EXTRAS"),
-            Option(
-                "-m",
-                "--method",
-                choices=[
-                    "auto",
-                    "apt",
-                    "conda",
-                    "deb-url",
-                    "pip",
-                ],
-            ),
+            Option("-m", "--method", choices=["auto"]),
         ],
     )
 
@@ -812,6 +793,8 @@ class Installer(ABC):
     """ An abstract base class for installation methods for packages """
 
     NAME: ClassVar[str]
+
+    OPTIONS: ClassVar[List[Option]]
 
     #: Mapping from supported installable component names to
     #: (installer-specific package IDs, list of installed programs) pairs
@@ -854,11 +837,17 @@ class Installer(ABC):
         ...
 
 
-@DataladInstaller.register_installer
+@GitAnnexComponent.register_installer
+@DataladComponent.register_installer
 class AptInstaller(Installer):
     """ Installs via apt-get """
 
     NAME = "apt"
+
+    OPTIONS = [
+        Option("--build-dep", is_flag=True),
+        Option("-e", "--extra-args", converter=shlex.split),
+    ]
 
     PACKAGES = {
         "datalad": ("datalad", ["datalad"]),
@@ -869,8 +858,8 @@ class AptInstaller(Installer):
         self,
         package: str,
         version: Optional[str] = None,
-        extra_args: Optional[List[str]] = None,
         build_dep: bool = False,
+        extra_args: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> Path:
         log.info("Installing %s via %s", package, self.NAME)
@@ -899,11 +888,15 @@ class AptInstaller(Installer):
             raise MethodNotSupportedError("apt-get command not found")
 
 
-@DataladInstaller.register_installer
+@GitAnnexComponent.register_installer
 class HomebrewInstaller(Installer):
     """ Installs via brew (Homebrew) """
 
     NAME = "brew"
+
+    OPTIONS = [
+        Option("-e", "--extra-args", converter=shlex.split),
+    ]
 
     PACKAGES = {
         "git-annex": ("git-annex", ["git-annex"]),
@@ -933,7 +926,7 @@ class HomebrewInstaller(Installer):
             raise MethodNotSupportedError("brew command not found")
 
 
-@DataladInstaller.register_installer
+@DataladComponent.register_installer
 class PipInstaller(Installer):
     """
     Installs via pip, either at the system level or into a given virtual
@@ -941,6 +934,12 @@ class PipInstaller(Installer):
     """
 
     NAME = "pip"
+
+    OPTIONS = [
+        Option("--devel", is_flag=True),
+        Option("-E", "--extras", metavar="EXTRAS"),
+        Option("-e", "--extra-args", converter=shlex.split),
+    ]
 
     PACKAGES = {
         "datalad": ("datalad", ["datalad"]),
@@ -1017,7 +1016,7 @@ class PipInstaller(Installer):
         pass
 
 
-@DataladInstaller.register_installer
+@GitAnnexComponent.register_installer
 class NeurodebianInstaller(AptInstaller):
     """ Installs via apt-get and the NeuroDebian repositories """
 
@@ -1033,11 +1032,17 @@ class NeurodebianInstaller(AptInstaller):
             raise MethodNotSupportedError("Neurodebian not configured")
 
 
-@DataladInstaller.register_installer
+@GitAnnexComponent.register_installer
+@DataladComponent.register_installer
 class DebURLInstaller(Installer):
     """ Installs a ``*.deb`` package by URL """
 
     NAME = "deb-url"
+
+    OPTIONS = [
+        Option("--url", metavar="URL"),
+        Option("-e", "--extra-args", converter=shlex.split),
+    ]
 
     PACKAGES = {
         "git-annex": ("git-annex", ["git-annex"]),
@@ -1075,6 +1080,8 @@ class DebURLInstaller(Installer):
 
 
 class AutobuildSnapshotInstaller(Installer):
+    OPTIONS: ClassVar[List[Option]] = []
+
     PACKAGES = {
         "git-annex": ("git-annex", ["git-annex"]),
     }
@@ -1108,7 +1115,7 @@ class AutobuildSnapshotInstaller(Installer):
             raise MethodNotSupportedError(f"{systype} OS not supported")
 
 
-@DataladInstaller.register_installer
+@GitAnnexComponent.register_installer
 class AutobuildInstaller(AutobuildSnapshotInstaller):
     """ Installs the latest official build of git-annex from kitenet.net """
 
@@ -1130,7 +1137,7 @@ class AutobuildInstaller(AutobuildSnapshotInstaller):
         return binpath
 
 
-@DataladInstaller.register_installer
+@GitAnnexComponent.register_installer
 class SnapshotInstaller(AutobuildSnapshotInstaller):
     """
     Installs the latest official snapshot build of git-annex from kitenet.net
@@ -1154,11 +1161,16 @@ class SnapshotInstaller(AutobuildSnapshotInstaller):
         return binpath
 
 
-@DataladInstaller.register_installer
+@GitAnnexComponent.register_installer
+@DataladComponent.register_installer
 class CondaInstaller(Installer):
     """ Installs via conda """
 
     NAME = "conda"
+
+    OPTIONS = [
+        Option("-e", "--extra-args", converter=shlex.split),
+    ]
 
     PACKAGES = {
         "datalad": ("datalad", ["datalad"]),
@@ -1212,7 +1224,7 @@ class CondaInstaller(Installer):
             raise MethodNotSupportedError("Conda installation not found")
 
 
-@DataladInstaller.register_installer
+@GitAnnexComponent.register_installer
 class DataladGitAnnexBuildInstaller(Installer):
     """
     Installs git-annex via the artifact from the latest successful build of
@@ -1220,6 +1232,8 @@ class DataladGitAnnexBuildInstaller(Installer):
     """
 
     NAME = "datalad/git-annex"
+
+    OPTIONS: ClassVar[List[Option]] = []
 
     PACKAGES = {
         "git-annex": ("git-annex", ["git-annex"]),
