@@ -118,7 +118,7 @@ class Option:
         immediate: Optional[Immediate] = None,
         metavar: Optional[str] = None,
         choices: Optional[List[str]] = None,
-    ):
+    ) -> None:
         #: List of individual option characters
         self.shortopts: List[str] = []
         #: List of long option names (sans leading "--")
@@ -287,7 +287,7 @@ class ParsedArgs(NamedTuple):
 class ComponentRequest:
     """ A request for a component parsed from command-line arguments """
 
-    def __init__(self, name: str, **kwargs: Any):
+    def __init__(self, name: str, **kwargs: Any) -> None:
         self.name: str = name
         self.kwargs: Dict[str, Any] = kwargs
 
@@ -337,7 +337,9 @@ class DataladInstaller:
         ],
     )
 
-    def __init__(self, env_write_files: Optional[List[Union[str, os.PathLike]]] = None):
+    def __init__(
+        self, env_write_files: Optional[List[Union[str, os.PathLike]]] = None
+    ) -> None:
         #: A list of files to which to write ``PATH`` modifications and related
         #: shell commands
         self.env_write_files: List[Path]
@@ -641,7 +643,11 @@ class MinicondaComponent(Component):
             runcmd("bash", script_path, *args)
         if spec is not None:
             runcmd(path / "bin" / "conda", "install", *spec)
-        self.manager.conda_stack.append(CondaInstance(basepath=path, name=None))
+        conda_instance = CondaInstance(basepath=path, name=None)
+        self.manager.conda_stack.append(conda_instance)
+        self.manager.installer_stack.append(
+            CondaInstaller(self.manager, conda_instance)
+        )
         self.manager.addenv(f"source {shlex.quote(str(path))}/etc/profile.d/conda.sh")
 
 
@@ -683,8 +689,10 @@ class CondaEnvComponent(Component):
         if spec is not None:
             cmd.extend(spec)
         runcmd(*cmd)
-        self.manager.conda_stack.append(
-            CondaInstance(basepath=conda.basepath, name=cname)
+        conda_instance = CondaInstance(basepath=conda.basepath, name=cname)
+        self.manager.conda_stack.append(conda_instance)
+        self.manager.installer_stack.append(
+            CondaInstaller(self.manager, conda_instance)
         )
         self.manager.addenv(f"conda activate {shlex.quote(cname)}")
 
@@ -1157,6 +1165,12 @@ class CondaInstaller(Installer):
         "git-annex": ("git-annex", ["git-annex"]),
     }
 
+    def __init__(
+        self, manager: DataladInstaller, conda_instance: Optional[CondaInstance] = None
+    ) -> None:
+        super().__init__(manager)
+        self.conda_instance: Optional[CondaInstance] = conda_instance
+
     def install_package(
         self,
         package: str,
@@ -1165,7 +1179,10 @@ class CondaInstaller(Installer):
         **kwargs: Any,
     ) -> Path:
         log.info("Installing %s via conda", package)
-        conda = self.manager.get_conda()
+        if self.conda_instance is not None:
+            conda = self.conda_instance
+        else:
+            conda = self.manager.get_conda()
         log.info("Environment: %s", conda.name)
         log.info("Version: %s", version)
         log.info("Extra args: %s", extra_args)
