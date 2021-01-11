@@ -822,6 +822,7 @@ class MinicondaComponent(Component):
             CondaInstaller(self.manager, conda_instance)
         )
         self.manager.addenv(f"source {shlex.quote(str(path))}/etc/profile.d/conda.sh")
+        self.manager.addenv("conda activate base")
 
 
 @DataladInstaller.register_component("conda-env")
