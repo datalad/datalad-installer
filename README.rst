@@ -12,7 +12,7 @@
 `GitHub <https://github.com/datalad/datalad-installer>`_
 | `Issues <https://github.com/datalad/datalad-installer/issues>`_
 
-``datalad_installer`` is a script for installing Datalad_, git-annex_, and
+``datalad-installer`` is a script for installing Datalad_, git-annex_, and
 related components all in a single invocation.  It requires no third-party
 Python libraries, though it does make heavy use of external packaging commands.
 
@@ -38,9 +38,9 @@ Usage
 
 ::
 
-    datalad_installer [<global options>] <component>[=<version>] [<options>] <component>[=<version>] [<options>] ...
+    datalad-installer [<global options>] <component>[=<version>] [<options>] <component>[=<version>] [<options>] ...
 
-``datalad_installer`` provisions one or more *components* listed on the command
+``datalad-installer`` provisions one or more *components* listed on the command
 line.  Each component is either a software package (i.e., Datalad or git-annex)
 or an environment in which software packages can be installed.  If no
 components are specified on the command line, the script defaults to installing
@@ -319,7 +319,7 @@ Install with ``python -m pip``.  Supports installing specific versions.
 
 If a ``venv`` component is previously given on the command line, the
 installation will be performed in that virtual environment; otherwise, it will
-be performed using the same Python used to run ``datalad_installer``.
+be performed using the same Python used to run ``datalad-installer``.
 
 Options
 '''''''

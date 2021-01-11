@@ -2,7 +2,7 @@
 """
 Installation script for Datalad and related components
 
-``datalad_installer`` is a script for installing Datalad_, git-annex_, and
+``datalad-installer`` is a script for installing Datalad_, git-annex_, and
 related components all in a single invocation.  It requires no third-party
 Python libraries, though it does make heavy use of external packaging commands.
 
@@ -564,7 +564,7 @@ class DataladInstaller:
             argv = sys.argv
         progname, *args = argv
         if not progname:
-            progname = "datalad_installer"
+            progname = "datalad-installer"
         else:
             progname = Path(progname).name
         try:
@@ -575,7 +575,7 @@ class DataladInstaller:
             print(str(e), file=sys.stderr)
             return 2
         if isinstance(r, VersionRequest):
-            print("datalad_installer", __version__)
+            print("datalad-installer", __version__)
             return 0
         elif isinstance(r, HelpRequest):
             print(self.long_help(progname, r.component))
