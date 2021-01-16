@@ -1,5 +1,6 @@
 import logging
 import subprocess
+import tempfile
 import pytest
 from datalad_installer import main
 
@@ -29,6 +30,31 @@ def test_install_miniconda(tmp_path):
         check=True,
     )
     assert "conda activate test" in r.stdout
+
+
+def test_install_miniconda_autogen_path(monkeypatch, tmp_path):
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    tempfile.tempdir = None  # Reset cache
+    r = main(
+        [
+            "datalad_installer.py",
+            "miniconda",
+            "--batch",
+        ]
+    )
+    assert r == 0
+    (miniconda_path,) = [
+        p for p in tmp_path.iterdir() if p.name.startswith("dl-miniconda-")
+    ]
+    assert (miniconda_path / "bin" / "conda").exists()
+    r = subprocess.run(
+        [str(miniconda_path / "bin" / "conda"), "create", "-n", "test", "-y"],
+        stdout=subprocess.PIPE,
+        universal_newlines=True,
+        check=True,
+    )
+    assert "conda activate test" in r.stdout
+    tempfile.tempdir = None  # Reset cache
 
 
 def test_install_miniconda_datalad(tmp_path):

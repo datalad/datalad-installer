@@ -782,6 +782,12 @@ class MinicondaComponent(Component):
         log.info("Installing Miniconda")
         if path is None:
             path = mktempdir("dl-miniconda-")
+            # The Miniconda installer requires that the given path not already
+            # exist (unless -u is given); hence, we need to delete the new
+            # directory before using it.  (Yes, this is vulnerable to race
+            # conditions, but so is specifying a nonexistent directory on the
+            # command line.)
+            path.rmdir()
         log.info("Path: %s", path)
         log.info("Batch: %s", batch)
         log.info("Spec: %s", spec)
