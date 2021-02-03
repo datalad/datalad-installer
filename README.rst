@@ -5,11 +5,15 @@
 .. image:: https://codecov.io/gh/datalad/datalad-installer/branch/master/graph/badge.svg
     :target: https://codecov.io/gh/datalad/datalad-installer
 
+.. image:: https://img.shields.io/pypi/pyversions/datalad-installer.svg
+    :target: https://pypi.org/project/datalad-installer/
+
 .. image:: https://img.shields.io/github/license/datalad/datalad-installer.svg
     :target: https://opensource.org/licenses/MIT
     :alt: MIT License
 
 `GitHub <https://github.com/datalad/datalad-installer>`_
+| `PyPI <https://pypi.org/project/datalad-installer/>`_
 | `Issues <https://github.com/datalad/datalad-installer/issues>`_
 
 ``datalad-installer`` is a script for installing Datalad_, git-annex_, and
@@ -24,9 +28,6 @@ Installation
 ``datalad-installer`` requires Python 3.6 or higher.  Just use `pip
 <https://pip.pypa.io>`_ for Python 3 (You have pip, right?) to install it::
 
-    python3 -m pip install git+https://github.com/datalad/datalad_installer.git
-
-..
     python3 -m pip install datalad-installer
 
 Alternatively, download the latest version directly from
