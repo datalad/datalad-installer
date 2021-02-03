@@ -15,6 +15,7 @@
 `GitHub <https://github.com/datalad/datalad-installer>`_
 | `PyPI <https://pypi.org/project/datalad-installer/>`_
 | `Issues <https://github.com/datalad/datalad-installer/issues>`_
+| `Changelog <https://github.com/jwodder/datalad-installer/blob/master/CHANGELOG.md>`_
 
 ``datalad-installer`` is a script for installing Datalad_, git-annex_, and
 related components all in a single invocation.  It requires no third-party
