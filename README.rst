@@ -213,7 +213,7 @@ component from the following list will be used:
 - ``autobuild``
 
 A specific version to install can be specified for those methods that support
-it by suffixing "``git-annex``" with "``=``" and the version number on the
+it by suffixing "``datalad``" with "``=``" and the version number on the
 command line.
 
 The ``datalad`` component also accepts all options for the supported
