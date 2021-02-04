@@ -857,9 +857,9 @@ class MinicondaComponent(Component):
                 if extra_args is not None:
                     args.extend(extra_args)
                 runcmd("bash", script_path, *args)
-        if spec is not None:
-            runcmd(path / "bin" / "conda", "install", *spec)
         conda_instance = CondaInstance(basepath=path, name=None)
+        if spec is not None:
+            runcmd(conda_instance.conda_exe, "install", *spec)
         self.manager.conda_stack.append(conda_instance)
         self.manager.installer_stack.append(
             CondaInstaller(self.manager, conda_instance)
