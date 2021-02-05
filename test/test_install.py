@@ -52,9 +52,7 @@ def test_install_miniconda_autogen_path(monkeypatch, tmp_path):
         ]
     )
     assert r == 0
-    (miniconda_path,) = [
-        p for p in tmp_path.iterdir() if p.name.startswith("dl-miniconda-")
-    ]
+    (miniconda_path,) = tmp_path.glob("dl-miniconda-*")
     assert (miniconda_path / bin_path("conda")).exists()
     r = subprocess.run(
         [str(miniconda_path / bin_path("conda")), "create", "-n", "test", "-y"],

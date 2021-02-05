@@ -33,6 +33,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import textwrap
 from typing import (
@@ -618,9 +619,6 @@ class DataladInstaller:
         ok = True
         for name, path in self.new_commands:
             log.info("%s is now installed at %s", name, path)
-            if path.name != name:
-                log.error("Program does not have expected name!")
-                ok = False
             if not os.access(path, os.X_OK):
                 log.error("Cannot execute program!")
                 ok = False
@@ -1080,7 +1078,13 @@ class Installer(ABC):
                 f"{self.NAME} does not know how to install {component}"
             )
         bindir = self.install_package(package, **kwargs)
-        return [(cmd, bindir / cmd) for cmd in commands]
+        bins = []
+        for cmd in commands:
+            p = bindir / cmd
+            if platform.system() == "Windows" and p.suffix == "":
+                p = p.with_suffix(".exe")
+            bins.append((cmd, p))
+        return bins
 
     @abstractmethod
     def install_package(self, package: str, **kwargs: Any) -> Path:
@@ -1233,6 +1237,8 @@ class PipInstaller(Installer):
     def python(self) -> Union[str, Path]:
         if self.venv_path is None:
             return sys.executable
+        elif platform.system() == "Windows":
+            return self.venv_path / "Scripts" / "python.exe"
         else:
             return self.venv_path / "bin" / "python"
 
@@ -1270,13 +1276,18 @@ class PipInstaller(Installer):
             )
         )
         runcmd(*cmd)
+        bindirname = "Scripts" if platform.system() == "Windows" else "bin"
         if extra_args is not None and "--user" in extra_args:
             binpath = Path(
                 readcmd(self.python, "-m", "site", "--user-base").strip(),
-                "bin",
+                bindirname,
             )
         elif self.venv_path is not None:
-            binpath = self.venv_path / "bin"
+            binpath = self.venv_path / bindirname
+        elif platform.system() == "Windows":
+            script_path = sysconfig.get_path("scripts")
+            assert script_path is not None
+            binpath = Path(script_path)
         else:
             binpath = Path("/usr/local/bin")
         log.debug("Installed program directory: %s", binpath)
