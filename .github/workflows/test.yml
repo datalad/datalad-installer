@@ -6,12 +6,20 @@ on:
   schedule:
     - cron: '0 6 * * *'
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os:
+          - macos-latest
+          - windows-latest
+          - ubuntu-latest
         python-version:
           - '3.6'
           - '3.7'
@@ -22,6 +30,12 @@ jobs:
         include:
           - python-version: '3.6'
             toxenv: typing
+            os: ubuntu-latest
+        exclude:
+          # venv seems to be broken on pypy3 under Windows.
+          - python-version: 'pypy3'
+            toxenv: py
+            os: windows-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
@@ -36,9 +50,16 @@ jobs:
           python -m pip install --upgrade pip wheel
           python -m pip install --upgrade --upgrade-strategy=eager tox
 
+      - name: Set TMPDIR to C:\tmp on Windows
+        # To avoid <https://github.com/conda/conda/issues/10501>
+        if: startsWith(matrix.os, 'windows')
+        run: |
+          mkdir -p /c/tmp
+          printf 'TMPDIR=%s\n' 'C:\tmp' >> "$GITHUB_ENV"
+
       - name: Run tests
         if: matrix.toxenv == 'py'
-        run: tox -e py -- --cov-report=xml
+        run: ./run-tests.sh -e py -- --cov-report=xml
 
       - name: Run generic tests
         if: matrix.toxenv != 'py'

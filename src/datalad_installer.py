@@ -33,6 +33,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import textwrap
 from typing import (
@@ -422,6 +423,26 @@ class CondaInstance(NamedTuple):
     #: The name of the environment (`None` for the base environment)
     name: Optional[str]
 
+    @property
+    def conda_exe(self) -> Path:
+        """ The path to the Conda executable """
+        if platform.system() == "Windows":
+            return self.basepath / "Scripts" / "conda.exe"
+        else:
+            return self.basepath / "bin" / "conda"
+
+    @property
+    def bindir(self) -> Path:
+        """
+        The directory in which command-line programs provided by packages are
+        installed
+        """
+        dirname = "Scripts" if platform.system() == "Windows" else "bin"
+        if self.name is None:
+            return self.basepath / dirname
+        else:
+            return self.basepath / "envs" / self.name / dirname
+
 
 #: A list of command names and the paths at which they are located
 CommandList = List[Tuple[str, Path]]
@@ -598,9 +619,6 @@ class DataladInstaller:
         ok = True
         for name, path in self.new_commands:
             log.info("%s is now installed at %s", name, path)
-            if path.name != name:
-                log.error("Program does not have expected name!")
-                ok = False
             if not os.access(path, os.X_OK):
                 log.error("Cannot execute program!")
                 ok = False
@@ -779,6 +797,7 @@ class MinicondaComponent(Component):
         extra_args: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> None:
+        systype = platform.system()
         log.info("Installing Miniconda")
         if path is None:
             path = mktempdir("dl-miniconda-")
@@ -789,16 +808,20 @@ class MinicondaComponent(Component):
             # command line.)
             path.rmdir()
         log.info("Path: %s", path)
-        log.info("Batch: %s", batch)
+        if systype == "Windows":
+            log.info("Batch: True")
+        else:
+            log.info("Batch: %s", batch)
         log.info("Spec: %s", spec)
         log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra component arguments: %r", kwargs)
-        systype = platform.system()
         if systype == "Linux":
             miniconda_script = "Miniconda3-latest-Linux-x86_64.sh"
         elif systype == "Darwin":
             miniconda_script = "Miniconda3-latest-MacOSX-x86_64.sh"
+        elif systype == "Windows":
+            miniconda_script = "Miniconda3-latest-Windows-x86_64.exe"
         else:
             raise RuntimeError(f"E: Unsupported OS: {systype}")
         log.info("Downloading and running miniconda installer")
@@ -814,15 +837,27 @@ class MinicondaComponent(Component):
                 script_path,
             )
             log.info("Installing miniconda in %s", path)
-            args = ["-p", path, "-s"]
-            if batch:
-                args.append("-b")
-            if extra_args is not None:
-                args.extend(extra_args)
-            runcmd("bash", script_path, *args)
-        if spec is not None:
-            runcmd(path / "bin" / "conda", "install", *spec)
+            if systype == "Windows":
+                # `path` needs to be absolute when passing it to the installer,
+                # but Path.resolve() is a no-op for non-existent files on
+                # Windows.  Hence, we need to create the directory first.
+                path.mkdir(parents=True, exist_ok=True)
+                cmd = f'start /wait "" {script_path}'
+                if extra_args is not None:
+                    cmd += " ".join(extra_args)
+                cmd += f" /S /D={path.resolve()}"
+                log.info("Running: %s", cmd)
+                subprocess.run(cmd, check=True, shell=True)
+            else:
+                args = ["-p", path, "-s"]
+                if batch:
+                    args.append("-b")
+                if extra_args is not None:
+                    args.extend(extra_args)
+                runcmd("bash", script_path, *args)
         conda_instance = CondaInstance(basepath=path, name=None)
+        if spec is not None:
+            runcmd(conda_instance.conda_exe, "install", *spec)
         self.manager.conda_stack.append(conda_instance)
         self.manager.installer_stack.append(
             CondaInstaller(self.manager, conda_instance)
@@ -879,7 +914,7 @@ class CondaEnvComponent(Component):
         if kwargs:
             log.warning("Ignoring extra component arguments: %r", kwargs)
         conda = self.manager.get_conda()
-        cmd = [conda.basepath / "bin" / "conda", "create", "--name", cname]
+        cmd = [conda.conda_exe, "create", "--name", cname]
         if extra_args is not None:
             cmd.extend(extra_args)
         if spec is not None:
@@ -1043,7 +1078,13 @@ class Installer(ABC):
                 f"{self.NAME} does not know how to install {component}"
             )
         bindir = self.install_package(package, **kwargs)
-        return [(cmd, bindir / cmd) for cmd in commands]
+        bins = []
+        for cmd in commands:
+            p = bindir / cmd
+            if platform.system() == "Windows" and p.suffix == "":
+                p = p.with_suffix(".exe")
+            bins.append((cmd, p))
+        return bins
 
     @abstractmethod
     def install_package(self, package: str, **kwargs: Any) -> Path:
@@ -1196,6 +1237,8 @@ class PipInstaller(Installer):
     def python(self) -> Union[str, Path]:
         if self.venv_path is None:
             return sys.executable
+        elif platform.system() == "Windows":
+            return self.venv_path / "Scripts" / "python.exe"
         else:
             return self.venv_path / "bin" / "python"
 
@@ -1233,13 +1276,18 @@ class PipInstaller(Installer):
             )
         )
         runcmd(*cmd)
+        bindirname = "Scripts" if platform.system() == "Windows" else "bin"
         if extra_args is not None and "--user" in extra_args:
             binpath = Path(
                 readcmd(self.python, "-m", "site", "--user-base").strip(),
-                "bin",
+                bindirname,
             )
         elif self.venv_path is not None:
-            binpath = self.venv_path / "bin"
+            binpath = self.venv_path / bindirname
+        elif platform.system() == "Windows":
+            script_path = sysconfig.get_path("scripts")
+            assert script_path is not None
+            binpath = Path(script_path)
         else:
             binpath = Path("/usr/local/bin")
         log.debug("Installed program directory: %s", binpath)
@@ -1435,7 +1483,7 @@ class CondaInstaller(Installer):
         log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
-        cmd = [conda.basepath / "bin" / "conda", "install"]
+        cmd = [conda.conda_exe, "install"]
         if conda.name is not None:
             cmd.append("--name")
             cmd.append(conda.name)
@@ -1447,10 +1495,7 @@ class CondaInstaller(Installer):
         else:
             cmd.append(f"{package}={version}")
         runcmd(*cmd)
-        if conda.name is None:
-            binpath = conda.basepath / "bin"
-        else:
-            binpath = conda.basepath / "envs" / conda.name / "bin"
+        binpath = conda.bindir
         log.debug("Installed program directory: %s", binpath)
         return binpath
 

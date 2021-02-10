@@ -1,8 +1,17 @@
 import logging
+from pathlib import Path
+import platform
 import subprocess
 import tempfile
 import pytest
 from datalad_installer import main
+
+
+def bin_path(binname):
+    if platform.system() == "Windows":
+        return Path("Scripts", binname + ".exe")
+    else:
+        return Path("bin", binname)
 
 
 @pytest.fixture(autouse=True)
@@ -22,9 +31,9 @@ def test_install_miniconda(tmp_path):
         ]
     )
     assert r == 0
-    assert (miniconda_path / "bin" / "conda").exists()
+    assert (miniconda_path / bin_path("conda")).exists()
     r = subprocess.run(
-        [str(miniconda_path / "bin" / "conda"), "create", "-n", "test", "-y"],
+        [str(miniconda_path / bin_path("conda")), "create", "-n", "test", "-y"],
         stdout=subprocess.PIPE,
         universal_newlines=True,
         check=True,
@@ -32,28 +41,30 @@ def test_install_miniconda(tmp_path):
     assert "conda activate test" in r.stdout
 
 
-def test_install_miniconda_autogen_path(monkeypatch, tmp_path):
-    monkeypatch.setenv("TMPDIR", str(tmp_path))
-    tempfile.tempdir = None  # Reset cache
-    r = main(
-        [
-            "datalad_installer.py",
-            "miniconda",
-            "--batch",
-        ]
-    )
-    assert r == 0
-    (miniconda_path,) = [
-        p for p in tmp_path.iterdir() if p.name.startswith("dl-miniconda-")
-    ]
-    assert (miniconda_path / "bin" / "conda").exists()
-    r = subprocess.run(
-        [str(miniconda_path / "bin" / "conda"), "create", "-n", "test", "-y"],
-        stdout=subprocess.PIPE,
-        universal_newlines=True,
-        check=True,
-    )
-    assert "conda activate test" in r.stdout
+def test_install_miniconda_autogen_path(monkeypatch):
+    # Override TMPDIR with a path that will be cleaned up afterwards (We can't
+    # use tmp_path here, as that's apparently always in the user temp folder on
+    # Windows regardless of the external value of TMPDIR.)
+    with tempfile.TemporaryDirectory() as newtmp:
+        monkeypatch.setenv("TMPDIR", newtmp)
+        tempfile.tempdir = None  # Reset cache
+        r = main(
+            [
+                "datalad_installer.py",
+                "miniconda",
+                "--batch",
+            ]
+        )
+        assert r == 0
+        (miniconda_path,) = Path(newtmp).glob("dl-miniconda-*")
+        assert (miniconda_path / bin_path("conda")).exists()
+        r = subprocess.run(
+            [str(miniconda_path / bin_path("conda")), "create", "-n", "test", "-y"],
+            stdout=subprocess.PIPE,
+            universal_newlines=True,
+            check=True,
+        )
+        assert "conda activate test" in r.stdout
     tempfile.tempdir = None  # Reset cache
 
 
@@ -70,8 +81,8 @@ def test_install_miniconda_datalad(tmp_path):
         ]
     )
     assert r == 0
-    assert (miniconda_path / "bin" / "conda").exists()
-    assert (miniconda_path / "bin" / "datalad").exists()
+    assert (miniconda_path / bin_path("conda")).exists()
+    assert (miniconda_path / bin_path("datalad")).exists()
 
 
 def test_install_miniconda_conda_env_datalad(tmp_path):
@@ -90,10 +101,10 @@ def test_install_miniconda_conda_env_datalad(tmp_path):
         ]
     )
     assert r == 0
-    assert (miniconda_path / "bin" / "conda").exists()
-    assert not (miniconda_path / "bin" / "datalad").exists()
+    assert (miniconda_path / bin_path("conda")).exists()
+    assert not (miniconda_path / bin_path("datalad")).exists()
     assert (miniconda_path / "envs" / "foo").exists()
-    assert (miniconda_path / "envs" / "foo" / "bin" / "datalad").exists()
+    assert (miniconda_path / "envs" / "foo" / bin_path("datalad")).exists()
 
 
 def test_install_venv_miniconda_datalad(tmp_path):
@@ -113,10 +124,10 @@ def test_install_venv_miniconda_datalad(tmp_path):
         ]
     )
     assert r == 0
-    assert (venv_path / "bin" / "python").exists()
-    assert not (venv_path / "bin" / "datalad").exists()
-    assert (miniconda_path / "bin" / "conda").exists()
-    assert (miniconda_path / "bin" / "datalad").exists()
+    assert (venv_path / bin_path("python")).exists()
+    assert not (venv_path / bin_path("datalad")).exists()
+    assert (miniconda_path / bin_path("conda")).exists()
+    assert (miniconda_path / bin_path("datalad")).exists()
 
 
 def test_install_venv_miniconda_conda_env_datalad(tmp_path):
@@ -139,12 +150,12 @@ def test_install_venv_miniconda_conda_env_datalad(tmp_path):
         ]
     )
     assert r == 0
-    assert (venv_path / "bin" / "python").exists()
-    assert not (venv_path / "bin" / "datalad").exists()
-    assert (miniconda_path / "bin" / "conda").exists()
-    assert not (miniconda_path / "bin" / "datalad").exists()
+    assert (venv_path / bin_path("python")).exists()
+    assert not (venv_path / bin_path("datalad")).exists()
+    assert (miniconda_path / bin_path("conda")).exists()
+    assert not (miniconda_path / bin_path("datalad")).exists()
     assert (miniconda_path / "envs" / "foo").exists()
-    assert (miniconda_path / "envs" / "foo" / "bin" / "datalad").exists()
+    assert (miniconda_path / "envs" / "foo" / bin_path("datalad")).exists()
 
 
 def test_install_venv_datalad(tmp_path):
@@ -159,8 +170,8 @@ def test_install_venv_datalad(tmp_path):
         ]
     )
     assert r == 0
-    assert (venv_path / "bin" / "python").exists()
-    assert (venv_path / "bin" / "datalad").exists()
+    assert (venv_path / bin_path("python")).exists()
+    assert (venv_path / bin_path("datalad")).exists()
 
 
 def test_install_miniconda_conda_env_venv_datalad(tmp_path):
@@ -183,9 +194,9 @@ def test_install_miniconda_conda_env_venv_datalad(tmp_path):
         ]
     )
     assert r == 0
-    assert (venv_path / "bin" / "python").exists()
-    assert (venv_path / "bin" / "datalad").exists()
-    assert (miniconda_path / "bin" / "conda").exists()
-    assert not (miniconda_path / "bin" / "datalad").exists()
+    assert (venv_path / bin_path("python")).exists()
+    assert (venv_path / bin_path("datalad")).exists()
+    assert (miniconda_path / bin_path("conda")).exists()
+    assert not (miniconda_path / bin_path("datalad")).exists()
     assert (miniconda_path / "envs" / "foo").exists()
-    assert not (miniconda_path / "envs" / "foo" / "bin" / "datalad").exists()
+    assert not (miniconda_path / "envs" / "foo" / bin_path("datalad")).exists()
