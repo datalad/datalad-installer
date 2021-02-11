@@ -50,13 +50,6 @@ jobs:
           python -m pip install --upgrade pip wheel
           python -m pip install --upgrade --upgrade-strategy=eager tox
 
-      - name: Set TMPDIR to C:\tmp on Windows
-        # To avoid <https://github.com/conda/conda/issues/10501>
-        if: startsWith(matrix.os, 'windows')
-        run: |
-          mkdir -p /c/tmp
-          printf 'TMPDIR=%s\n' 'C:\tmp' >> "$GITHUB_ENV"
-
       - name: Run tests
         if: matrix.toxenv == 'py'
         run: ./run-tests.sh -e py -- --cov-report=xml
