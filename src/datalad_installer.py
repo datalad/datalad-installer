@@ -1536,6 +1536,12 @@ class DataladGitAnnexBuildInstaller(Installer):
                 self.download_latest_git_annex("macos", tmpdir)
                 (dmgpath,) = tmpdir.glob("*.dmg")
                 binpath = install_git_annex_dmg(dmgpath, self.manager)
+            elif systype == "Windows":
+                self.download_latest_git_annex("windows", tmpdir)
+                (exepath,) = tmpdir.glob("*.exe")
+                runcmd(exepath, "/S")
+                binpath = Path("C:/Program Files", "Git", "usr", "bin")
+                self.manager.addpath(binpath)
             else:
                 raise AssertionError(
                     "Method should not be called on unsupported platforms"
@@ -1545,7 +1551,7 @@ class DataladGitAnnexBuildInstaller(Installer):
 
     def assert_supported_system(self) -> None:
         systype = platform.system()
-        if systype not in ("Linux", "Darwin"):
+        if systype not in ("Linux", "Darwin", "Windows"):
             raise MethodNotSupportedError(f"{systype} OS not supported")
 
     @staticmethod
