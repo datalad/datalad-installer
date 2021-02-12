@@ -33,7 +33,6 @@ import shlex
 import shutil
 import subprocess
 import sys
-import sysconfig
 import tempfile
 import textwrap
 from typing import (
@@ -1276,20 +1275,15 @@ class PipInstaller(Installer):
             )
         )
         runcmd(*cmd)
-        bindirname = "Scripts" if platform.system() == "Windows" else "bin"
-        if extra_args is not None and "--user" in extra_args:
-            binpath = Path(
-                readcmd(self.python, "-m", "site", "--user-base").strip(),
-                bindirname,
+        user = extra_args is not None and "--user" in extra_args
+        binpath = Path(
+            readcmd(
+                self.python,
+                "-c",
+                "from pip._internal.locations import distutils_scheme;"
+                f" print(distutils_scheme({package!r}, user={user!r})['scripts'], end='')",
             )
-        elif self.venv_path is not None:
-            binpath = self.venv_path / bindirname
-        elif platform.system() == "Windows":
-            script_path = sysconfig.get_path("scripts")
-            assert script_path is not None
-            binpath = Path(script_path)
-        else:
-            binpath = Path("/usr/local/bin")
+        )
         log.debug("Installed program directory: %s", binpath)
         return binpath
 
