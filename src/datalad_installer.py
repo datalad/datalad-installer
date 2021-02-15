@@ -1473,9 +1473,9 @@ class CondaInstaller(Installer):
         extra_args: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> Path:
-        if package == "git-annex" and platform.system() == "Windows":
+        if package == "git-annex" and platform.system() != "Linux":
             raise MethodNotSupportedError(
-                "Conda does not support installing git-annex on Windows"
+                "Conda only supports installing git-annex on Linux"
             )
         log.info("Installing %s via conda", package)
         if self.conda_instance is not None:

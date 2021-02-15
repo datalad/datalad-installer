@@ -165,7 +165,7 @@ specifying the installation method to use; the supported methods are:
 - ``apt``
 - ``autobuild``
 - ``brew``
-- ``conda`` (not supported on Windows)
+- ``conda`` (only supported on Linux)
 - ``datalad/git-annex``
 - ``deb-url``
 - ``neurodebian``
