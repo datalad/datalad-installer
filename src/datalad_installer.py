@@ -1163,6 +1163,7 @@ class AptInstaller(Installer):
             raise MethodNotSupportedError("apt-get command not found")
 
 
+@DataladComponent.register_installer
 @GitAnnexComponent.register_installer
 class HomebrewInstaller(Installer):
     """ Installs via brew (Homebrew) """
@@ -1174,6 +1175,7 @@ class HomebrewInstaller(Installer):
     ]
 
     PACKAGES = {
+        "datalad": ("datalad", ["datalad"]),
         "git-annex": ("git-annex", ["git-annex"]),
     }
 

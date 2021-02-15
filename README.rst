@@ -198,6 +198,7 @@ Installs Datalad_.  The component takes an ``-m``, ``--method`` option
 specifying the installation method to use; the supported methods are:
 
 - ``apt``
+- ``brew``
 - ``conda``
 - ``deb-url``
 - ``pip``
