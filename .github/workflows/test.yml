@@ -31,6 +31,9 @@ jobs:
           - python-version: '3.6'
             toxenv: typing
             os: ubuntu-latest
+          - python-version: '3.6'
+            toxenv: py-pipdev
+            os: ubuntu-latest
         exclude:
           # venv seems to be broken on pypy3 under Windows.
           - python-version: 'pypy3'
