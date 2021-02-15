@@ -1611,6 +1611,58 @@ class DataladGitAnnexBuildInstaller(Installer):
         artifact_path.unlink()
 
 
+@GitAnnexComponent.register_installer
+class DataladPackagesBuildInstaller(Installer):
+    """
+    Installs git-annex via artifacts uploaded to
+    <https://datasets.datalad.org/?dir=/datalad/packages>
+    """
+
+    NAME = "datalad/packages"
+
+    OPTIONS: ClassVar[List[Option]] = []
+
+    PACKAGES = {
+        "git-annex": ("git-annex", ["git-annex"]),
+    }
+
+    def install_package(
+        self, package: str, version: Optional[str] = None, **kwargs: Any
+    ) -> Path:
+        log.info("Installing %s via datalad/packages", package)
+        log.info("Version: %s", version)
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
+        assert package == "git-annex"
+        with tempfile.TemporaryDirectory() as tmpdir_:
+            tmpdir = Path(tmpdir_)
+            systype = platform.system()
+            if systype == "Windows":
+                if version is None:
+                    exefile = "git-annex-installer_latest-snapshot_x64.exe"
+                else:
+                    exefile = f"git-annex-installer_{version}_x64.exe"
+                exepath = tmpdir / exefile
+                download_file(
+                    f"https://datasets.datalad.org/datalad/packages/windows/{exefile}",
+                    exepath,
+                )
+                runcmd(exepath, "/S")
+                binpath = Path("C:/Program Files", "Git", "usr", "bin")
+                self.manager.addpath(binpath)
+            else:
+                raise AssertionError(
+                    "Method should not be called on unsupported platforms"
+                )
+        log.debug("Installed program directory: %s", binpath)
+        return binpath
+
+    def assert_supported_system(self) -> None:
+        systype = platform.system()
+        if systype != "Windows":
+            raise MethodNotSupportedError(f"{systype} OS not supported")
+
+
 class MethodNotSupportedError(Exception):
     """
     Raised when an installer's `install()` method is called on an unsupported

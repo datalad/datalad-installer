@@ -167,6 +167,7 @@ specifying the installation method to use; the supported methods are:
 - ``brew``
 - ``conda``
 - ``datalad/git-annex``
+- ``datalad/packages``
 - ``deb-url``
 - ``neurodebian``
 - ``snapshot``
@@ -283,6 +284,17 @@ Does not support installing specific versions.
 This installation method requires a GitHub OAuth token with appropriate
 permissions.  It must be specified either via the ``GITHUB_TOKEN`` environment
 variable or as the value of the ``hub.oauthtoken`` Git config option.
+
+``datalad/packages``
+~~~~~~~~~~~~~~~~~~~~~
+
+Downloads & installs the artifact from
+<https://datasets.datalad.org/?dir=/datalad/packages> for the running OS.
+Supports installing specific versions (though note that the version strings for
+this method tend to include Git commit information, e.g.,
+"``8.20210127+git111-gbe5a0e4b8``").
+
+This installation method is only supported on Windows.
 
 ``deb-url``
 ~~~~~~~~~~~
