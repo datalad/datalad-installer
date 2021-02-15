@@ -165,7 +165,7 @@ specifying the installation method to use; the supported methods are:
 - ``apt``
 - ``autobuild``
 - ``brew``
-- ``conda``
+- ``conda`` (only supported on Linux)
 - ``datalad/git-annex``
 - ``datalad/packages``
 - ``deb-url``
