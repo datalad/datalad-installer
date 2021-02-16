@@ -101,8 +101,8 @@ on the command line will use this installation, and subsequent ``datalad`` and
 overridden by an intervening component.
 
 The Miniconda installation script is downloaded from
-``$ANACONDA_URL/Miniconda3-latest-$OS-x86_64.sh``, where ``$ANACONDA_URL`` is
-taken from the environment, defaulting to
+``$ANACONDA_URL/Miniconda3-latest-$OS-x86_64.{sh,exe}``, where
+``$ANACONDA_URL`` is taken from the environment, defaulting to
 ``https://repo.anaconda.com/miniconda``.
 
 Options
@@ -127,9 +127,12 @@ Options
 ``conda-env``
 ~~~~~~~~~~~~~
 
-Creates a Conda environment.  Subsequent ``datalad`` and ``git-annex``
-components will be installed into this environment by default if not overridden
-by an intervening component.
+Creates a Conda environment.  If there is no preceding ``miniconda`` component
+on the command line, Conda must already be installed on the system, and this
+installation will be used to create the environment.
+
+Subsequent ``datalad`` and ``git-annex`` components will be installed into this
+environment by default if not overridden by an intervening component.
 
 Options
 '''''''
@@ -248,6 +251,8 @@ Options
 Downloads & installs the latest official build of ``git-annex`` from
 kitenet.net.  Does not support installing specific versions.
 
+This installation method is only supported on Linux and macOS.
+
 
 ``brew``
 ~~~~~~~~
@@ -355,3 +360,5 @@ Options
 
 Downloads & installs the latest official snapshot build of ``git-annex`` from
 kitenet.net.  Does not support installing specific versions.
+
+This installation method is only supported on Linux and macOS.
