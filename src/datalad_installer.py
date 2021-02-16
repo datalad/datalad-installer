@@ -52,6 +52,12 @@ from zipfile import ZipFile
 
 log = logging.getLogger("datalad_installer")
 
+SYSTEM = platform.system()
+ON_LINUX = SYSTEM == "Linux"
+ON_MACOS = SYSTEM == "Darwin"
+ON_WINDOWS = SYSTEM == "Windows"
+ON_POSIX = ON_LINUX or ON_MACOS
+
 
 def parse_log_level(level: str) -> int:
     """
@@ -425,7 +431,7 @@ class CondaInstance(NamedTuple):
     @property
     def conda_exe(self) -> Path:
         """ The path to the Conda executable """
-        if platform.system() == "Windows":
+        if ON_WINDOWS:
             return self.basepath / "Scripts" / "conda.exe"
         else:
             return self.basepath / "bin" / "conda"
@@ -436,7 +442,7 @@ class CondaInstance(NamedTuple):
         The directory in which command-line programs provided by packages are
         installed
         """
-        dirname = "Scripts" if platform.system() == "Windows" else "bin"
+        dirname = "Scripts" if ON_WINDOWS else "bin"
         if self.name is None:
             return self.basepath / dirname
         else:
@@ -796,7 +802,6 @@ class MinicondaComponent(Component):
         extra_args: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> None:
-        systype = platform.system()
         log.info("Installing Miniconda")
         if path is None:
             path = mktempdir("dl-miniconda-")
@@ -807,7 +812,7 @@ class MinicondaComponent(Component):
             # command line.)
             path.rmdir()
         log.info("Path: %s", path)
-        if systype == "Windows":
+        if ON_WINDOWS:
             log.info("Batch: True")
         else:
             log.info("Batch: %s", batch)
@@ -815,14 +820,14 @@ class MinicondaComponent(Component):
         log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra component arguments: %r", kwargs)
-        if systype == "Linux":
+        if ON_LINUX:
             miniconda_script = "Miniconda3-latest-Linux-x86_64.sh"
-        elif systype == "Darwin":
+        elif ON_MACOS:
             miniconda_script = "Miniconda3-latest-MacOSX-x86_64.sh"
-        elif systype == "Windows":
+        elif ON_WINDOWS:
             miniconda_script = "Miniconda3-latest-Windows-x86_64.exe"
         else:
-            raise RuntimeError(f"E: Unsupported OS: {systype}")
+            raise RuntimeError(f"E: Unsupported OS: {SYSTEM}")
         log.info("Downloading and running miniconda installer")
         with tempfile.TemporaryDirectory() as tmpdir:
             script_path = os.path.join(tmpdir, miniconda_script)
@@ -836,7 +841,7 @@ class MinicondaComponent(Component):
                 script_path,
             )
             log.info("Installing miniconda in %s", path)
-            if systype == "Windows":
+            if ON_WINDOWS:
                 # `path` needs to be absolute when passing it to the installer,
                 # but Path.resolve() is a no-op for non-existent files on
                 # Windows.  Hence, we need to create the directory first.
@@ -1080,7 +1085,7 @@ class Installer(ABC):
         bins = []
         for cmd in commands:
             p = bindir / cmd
-            if platform.system() == "Windows" and p.suffix == "":
+            if ON_WINDOWS and p.suffix == "":
                 p = p.with_suffix(".exe")
             bins.append((cmd, p))
         return bins
@@ -1238,7 +1243,7 @@ class PipInstaller(Installer):
     def python(self) -> Union[str, Path]:
         if self.venv_path is None:
             return sys.executable
-        elif platform.system() == "Windows":
+        elif ON_WINDOWS:
             return self.venv_path / "Scripts" / "python.exe"
         else:
             return self.venv_path / "bin" / "python"
@@ -1389,9 +1394,8 @@ class AutobuildSnapshotInstaller(Installer):
             return install_git_annex_dmg(dmgpath, self.manager)
 
     def assert_supported_system(self) -> None:
-        systype = platform.system()
-        if systype not in ("Linux", "Darwin"):
-            raise MethodNotSupportedError(f"{systype} OS not supported")
+        if not ON_POSIX:
+            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
 
 
 @GitAnnexComponent.register_installer
@@ -1405,10 +1409,9 @@ class AutobuildInstaller(AutobuildSnapshotInstaller):
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         assert package == "git-annex"
-        systype = platform.system()
-        if systype == "Linux":
+        if ON_LINUX:
             binpath = self._install_linux("autobuild/amd64")
-        elif systype == "Darwin":
+        elif ON_MACOS:
             binpath = self._install_macos("autobuild/x86_64-apple-yosemite")
         else:
             raise AssertionError("Method should not be called on unsupported platforms")
@@ -1429,10 +1432,9 @@ class SnapshotInstaller(AutobuildSnapshotInstaller):
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         assert package == "git-annex"
-        systype = platform.system()
-        if systype == "Linux":
+        if ON_LINUX:
             binpath = self._install_linux("linux/current")
-        elif systype == "Darwin":
+        elif ON_MACOS:
             binpath = self._install_macos("OSX/current/10.10_Yosemite")
         else:
             raise AssertionError("Method should not be called on unsupported platforms")
@@ -1469,7 +1471,7 @@ class CondaInstaller(Installer):
         extra_args: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> Path:
-        if package == "git-annex" and platform.system() != "Linux":
+        if package == "git-annex" and not ON_LINUX:
             raise MethodNotSupportedError(
                 "Conda only supports installing git-annex on Linux"
             )
@@ -1526,17 +1528,16 @@ class DataladGitAnnexBuildInstaller(Installer):
         assert package == "git-annex"
         with tempfile.TemporaryDirectory() as tmpdir_:
             tmpdir = Path(tmpdir_)
-            systype = platform.system()
-            if systype == "Linux":
+            if ON_LINUX:
                 self.download_latest_git_annex("ubuntu", tmpdir)
                 (debpath,) = tmpdir.glob("*.deb")
                 runcmd("sudo", "dpkg", "-i", debpath)
                 binpath = Path("/usr/bin")
-            elif systype == "Darwin":
+            elif ON_MACOS:
                 self.download_latest_git_annex("macos", tmpdir)
                 (dmgpath,) = tmpdir.glob("*.dmg")
                 binpath = install_git_annex_dmg(dmgpath, self.manager)
-            elif systype == "Windows":
+            elif ON_WINDOWS:
                 self.download_latest_git_annex("windows", tmpdir)
                 (exepath,) = tmpdir.glob("*.exe")
                 runcmd(exepath, "/S")
@@ -1550,9 +1551,8 @@ class DataladGitAnnexBuildInstaller(Installer):
         return binpath
 
     def assert_supported_system(self) -> None:
-        systype = platform.system()
-        if systype not in ("Linux", "Darwin", "Windows"):
-            raise MethodNotSupportedError(f"{systype} OS not supported")
+        if not (ON_LINUX or ON_MACOS or ON_WINDOWS):
+            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
 
     @staticmethod
     def download_latest_git_annex(ostype: str, target_dir: Path) -> None:
@@ -1640,8 +1640,7 @@ class DataladPackagesBuildInstaller(Installer):
         assert package == "git-annex"
         with tempfile.TemporaryDirectory() as tmpdir_:
             tmpdir = Path(tmpdir_)
-            systype = platform.system()
-            if systype == "Windows":
+            if ON_WINDOWS:
                 if version is None:
                     exefile = "git-annex-installer_latest-snapshot_x64.exe"
                 else:
@@ -1662,9 +1661,8 @@ class DataladPackagesBuildInstaller(Installer):
         return binpath
 
     def assert_supported_system(self) -> None:
-        systype = platform.system()
-        if systype != "Windows":
-            raise MethodNotSupportedError(f"{systype} OS not supported")
+        if not ON_WINDOWS:
+            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
 
 
 class MethodNotSupportedError(Exception):
