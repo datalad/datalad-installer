@@ -956,6 +956,7 @@ class NeurodebianComponent(Component):
         if kwargs:
             log.warning("Ignoring extra component arguments: %r", kwargs)
         runcmd(
+            "sudo",
             "apt-get",
             "install",
             "-qy",
