@@ -19,6 +19,7 @@ __license__ = "MIT"
 __url__ = "https://github.com/datalad/datalad-installer"
 
 from abc import ABC, abstractmethod
+from enum import Enum
 from functools import total_ordering
 from getopt import GetoptError, getopt
 import json
@@ -57,6 +58,12 @@ ON_LINUX = SYSTEM == "Linux"
 ON_MACOS = SYSTEM == "Darwin"
 ON_WINDOWS = SYSTEM == "Windows"
 ON_POSIX = ON_LINUX or ON_MACOS
+
+
+class SudoConfirm(Enum):
+    ASK = "ask"
+    ERROR = "error"
+    OK = "ok"
 
 
 def parse_log_level(level: str) -> int:
@@ -203,14 +210,14 @@ class Option:
         if self.is_flag:
             namespace[self.dest] = True
         else:
+            if self.choices is not None and argument not in self.choices:
+                raise UsageError(
+                    f"Invalid choice for {self.option_name} option: {argument!r}"
+                )
             if self.converter is None:
                 value = argument
             else:
                 value = self.converter(argument)
-            if self.choices is not None and value not in self.choices:
-                raise UsageError(
-                    f"Invalid choice for {self.option_name} option: {value!r}"
-                )
             if self.multiple:
                 namespace.setdefault(self.dest, []).append(value)
             else:
@@ -485,11 +492,19 @@ class DataladInstaller:
                     " given file; can be given multiple times"
                 ),
             ),
+            Option(
+                "--sudo",
+                choices=[v.value for v in SudoConfirm],
+                converter=SudoConfirm,
+                help="How to handle sudo commands [default: ask]",
+            ),
         ],
     )
 
     def __init__(
-        self, env_write_files: Optional[List[Union[str, os.PathLike]]] = None
+        self,
+        env_write_files: Optional[List[Union[str, os.PathLike]]] = None,
+        sudo_confirm: SudoConfirm = SudoConfirm.ASK,
     ) -> None:
         #: A list of files to which to write ``PATH`` modifications and related
         #: shell commands
@@ -498,6 +513,7 @@ class DataladInstaller:
             self.env_write_files = []
         else:
             self.env_write_files = [Path(p) for p in env_write_files]
+        self.sudo_confirm: SudoConfirm = sudo_confirm
         #: The default installers to fall back on for the "auto" installation
         #: method
         self.installer_stack: List["Installer"] = [
@@ -542,6 +558,22 @@ class DataladInstaller:
             os.close(fd)
             log.info("Writing environment modifications to %s", fpath)
             self.env_write_files.append(Path(fpath))
+
+    def sudo(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess:
+        arglist = [str(a) for a in args]
+        cmd = " ".join(map(shlex.quote, arglist))
+        if self.sudo_confirm is SudoConfirm.ERROR:
+            log.error("Not running sudo command: %s", cmd)
+            sys.exit(1)
+        elif self.sudo_confirm is SudoConfirm.ASK:
+            print("About to run the following sudo command:")
+            print(f"    {cmd}")
+            yan = ask("Proceed?", ["y", "a", "n"])
+            if yan == "n":
+                sys.exit(0)
+            elif yan == "a":
+                self.sudo_confirm = SudoConfirm.OK
+        return runcmd("sudo", *args, **kwargs)
 
     @classmethod
     def parse_args(cls, args: List[str]) -> Union[Immediate, ParsedArgs]:
@@ -619,6 +651,8 @@ class DataladInstaller:
         if global_opts.get("env_write_file"):
             self.env_write_files.extend(global_opts["env_write_file"])
         self.ensure_env_write_file()
+        if global_opts.get("sudo"):
+            self.sudo_confirm = global_opts["sudo"]
         for cr in components:
             self.addcomponent(name=cr.name, **cr.kwargs)
         ok = True
@@ -955,8 +989,7 @@ class NeurodebianComponent(Component):
         log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra component arguments: %r", kwargs)
-        runcmd(
-            "sudo",
+        self.manager.sudo(
             "apt-get",
             "install",
             "-qy",
@@ -1149,7 +1182,7 @@ class AptInstaller(Installer):
         log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
-        cmd = ["sudo", "apt-get"]
+        cmd = ["apt-get"]
         if build_dep:
             cmd.append("build-dep")
         else:
@@ -1160,7 +1193,7 @@ class AptInstaller(Installer):
             cmd.append(f"{package}={version}")
         else:
             cmd.append(package)
-        runcmd(*cmd)
+        self.manager.sudo(*cmd)
         log.debug("Installed program directory: /usr/bin")
         return Path("/usr/bin")
 
@@ -1351,11 +1384,11 @@ class DebURLInstaller(Installer):
         with tempfile.TemporaryDirectory() as tmpdir:
             debpath = os.path.join(tmpdir, f"{package}.deb")
             download_file(url, debpath)
-            cmd = ["sudo", "dpkg", "-i"]
+            cmd = ["dpkg", "-i"]
             if extra_args is not None:
                 cmd.extend(extra_args)
             cmd.append(debpath)
-            runcmd(*cmd)
+            self.manager.sudo(*cmd)
             log.debug("Installed program directory: /usr/bin")
             return Path("/usr/bin")
 
@@ -1532,7 +1565,7 @@ class DataladGitAnnexBuildInstaller(Installer):
             if ON_LINUX:
                 self.download_latest_git_annex("ubuntu", tmpdir)
                 (debpath,) = tmpdir.glob("*.deb")
-                runcmd("sudo", "dpkg", "-i", debpath)
+                self.manager.sudo("dpkg", "-i", debpath)
                 binpath = Path("/usr/bin")
             elif ON_MACOS:
                 self.download_latest_git_annex("macos", tmpdir)
@@ -1740,6 +1773,14 @@ def install_git_annex_dmg(
     annex_bin = Path("/Applications/git-annex.app/Contents/MacOS")
     manager.addpath(annex_bin)
     return annex_bin
+
+
+def ask(prompt: str, choices: List[str]) -> str:
+    full_prompt = f"{prompt} [{'/'.join(choices)}] "
+    while True:
+        answer = input(full_prompt)
+        if answer in choices:
+            return answer
 
 
 def main(argv: Optional[List[str]] = None) -> int:

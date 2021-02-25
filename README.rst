@@ -66,6 +66,10 @@ Global Options
                                 case-insensitive) and their Python integer
                                 equivalents.  [default value: INFO]
 
+--sudo [ask|error|ok]           What to do when the script needs to run a
+                                command with ``sudo``: ask for confirmation
+                                (default), error, or run without confirmation
+
 -V, --version                   Display the script version and exit
 
 -h, --help                      Display usage information and exit
