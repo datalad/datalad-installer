@@ -4,7 +4,8 @@ import platform
 import subprocess
 import tempfile
 import pytest
-from datalad_installer import main
+import datalad_installer
+from datalad_installer import ON_LINUX, main
 
 
 def bin_path(binname):
@@ -200,3 +201,28 @@ def test_install_miniconda_conda_env_venv_datalad(tmp_path):
     assert not (miniconda_path / bin_path("datalad")).exists()
     assert (miniconda_path / "envs" / "foo").exists()
     assert not (miniconda_path / "envs" / "foo" / bin_path("datalad")).exists()
+
+
+@pytest.mark.invasive
+@pytest.mark.skipif(not ON_LINUX, reason="requires Debian-based system")
+def test_install_neurodebian_sudo_ok(mocker):
+    spy = mocker.spy(datalad_installer, "runcmd")
+    r = main(["datalad_installer.py", "--sudo=ok", "neurodebian"])
+    assert r == 0
+    assert spy.call_args_list == [
+        mocker.call("sudo", "apt-get", "install", "-qy", "neurodebian", env=mocker.ANY),
+        mocker.call("nd-configurerepo"),
+    ]
+    assert spy.call_args_list[0][1]["env"]["DEBIAN_FRONTEND"] == "noninteractive"
+    r = subprocess.run(
+        [
+            "dpkg-query",
+            "-Wf",
+            "${db:Status-Abbrev}",
+            "neurodebian",
+        ],
+        stdout=subprocess.PIPE,
+        universal_newlines=True,
+        check=True,
+    )
+    assert r.stdout == "ii "

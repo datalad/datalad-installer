@@ -994,7 +994,7 @@ class NeurodebianComponent(Component):
             "install",
             "-qy",
             "neurodebian",
-            env=dict(os.environ, DEBIAN_FRONTENV="noninteractive"),
+            env=dict(os.environ, DEBIAN_FRONTEND="noninteractive"),
         )
         runcmd("nd-configurerepo", *(extra_args or []))
 
