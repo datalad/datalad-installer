@@ -7,6 +7,7 @@ from datalad_installer import (
     HelpRequest,
     Option,
     ParsedArgs,
+    SudoConfirm,
     UsageError,
     VersionRequest,
 )
@@ -35,6 +36,27 @@ from datalad_installer import (
             ["--log-level", "15", "datalad"],
             ParsedArgs(
                 {"log_level": 15},
+                [ComponentRequest(name="datalad")],
+            ),
+        ),
+        (
+            ["--sudo", "ask", "datalad"],
+            ParsedArgs(
+                {"sudo": SudoConfirm.ASK},
+                [ComponentRequest(name="datalad")],
+            ),
+        ),
+        (
+            ["--sudo", "error", "datalad"],
+            ParsedArgs(
+                {"sudo": SudoConfirm.ERROR},
+                [ComponentRequest(name="datalad")],
+            ),
+        ),
+        (
+            ["--sudo", "ok", "datalad"],
+            ParsedArgs(
+                {"sudo": SudoConfirm.OK},
                 [ComponentRequest(name="datalad")],
             ),
         ),
@@ -195,6 +217,7 @@ def test_parse_args(args, parsed):
             '"--foo \'bar": No closing quotation',
             "venv",
         ),
+        (["--sudo", "invalid"], "Invalid choice for --sudo option: 'invalid'", None),
     ],
 )
 def test_parse_args_errors(args, message, component):
@@ -288,6 +311,8 @@ def test_global_long_help():
         "                                  shell commands to the given file; can be\n"
         "                                  given multiple times\n"
         "  -l, --log-level LEVEL           Set logging level [default: INFO]\n"
+        "  --sudo [ask|error|ok]           How to handle sudo commands [default:\n"
+        "                                  ask]\n"
         "  -V, --version                   Show program version and exit\n"
         "  -h, --help                      Show this help information and exit\n"
         "\n"

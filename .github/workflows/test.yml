@@ -55,7 +55,7 @@ jobs:
 
       - name: Run tests
         if: matrix.toxenv == 'py'
-        run: ./run-tests.sh -e py -- --cov-report=xml
+        run: ./run-tests.sh --ci -e py -- --cov-report=xml
 
       - name: Run generic tests
         if: matrix.toxenv != 'py'
