@@ -203,7 +203,7 @@ def test_install_miniconda_conda_env_venv_datalad(tmp_path):
     assert not (miniconda_path / "envs" / "foo" / bin_path("datalad")).exists()
 
 
-@pytest.mark.invasive
+@pytest.mark.ci_only
 @pytest.mark.skipif(not ON_LINUX, reason="requires Debian-based system")
 def test_install_neurodebian_sudo_ok(mocker):
     spy = mocker.spy(datalad_installer, "runcmd")
