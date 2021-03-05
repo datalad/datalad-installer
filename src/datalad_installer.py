@@ -985,6 +985,7 @@ class NeurodebianComponent(Component):
     )
 
     KEY_FINGERPRINT = "0xA5D32F012649A5A9"
+    KEY_URL = "http://neuro.debian.net/_static/neuro.debian.net.asc"
     DOWNLOAD_SERVER = "us-nh"
 
     def provide(self, extra_args: Optional[List[str]] = None, **kwargs: Any) -> None:
@@ -1019,14 +1020,20 @@ class NeurodebianComponent(Component):
                     sources_file,
                     "/etc/apt/sources.list.d/neurodebian.sources.list",
                 )
-            self.manager.sudo(
-                "apt-key",
-                "adv",
-                "--recv-keys",
-                "--keyserver",
-                "hkp://pool.sks-keyservers.net:80",
-                self.KEY_FINGERPRINT,
-            )
+                try:
+                    self.manager.sudo(
+                        "apt-key",
+                        "adv",
+                        "--recv-keys",
+                        "--keyserver",
+                        "hkp://pool.sks-keyservers.net:80",
+                        self.KEY_FINGERPRINT,
+                    )
+                except subprocess.CalledProcessError:
+                    log.info("apt-key command failed; downloading key directly")
+                    keyfile = os.path.join(tmpdir, "neuro.debian.net.asc")
+                    download_file(self.KEY_URL, keyfile)
+                    self.manager.sudo("apt-key", "add", keyfile)
             self.manager.sudo("apt-get", "update")
         self.manager.sudo(
             "apt-get",
