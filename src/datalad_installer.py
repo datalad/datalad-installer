@@ -984,11 +984,41 @@ class NeurodebianComponent(Component):
         ],
     )
 
+    KEY_FINGERPRINT = "0xA5D32F012649A5A9"
+    DOWNLOAD_SERVER = "us-nh"
+
     def provide(self, extra_args: Optional[List[str]] = None, **kwargs: Any) -> None:
         log.info("Installing & configuring NeuroDebian")
         log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra component arguments: %r", kwargs)
+        release = readcmd("lsb_release", "-cs").strip()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sources_file = os.path.join(tmpdir, "neurodebian.sources.list")
+            download_file(
+                f"http://neuro.debian.net/lists/{release}.{self.DOWNLOAD_SERVER}.libre",
+                sources_file,
+            )
+            with open(sources_file) as fp:
+                log.info(
+                    "Adding the following contents to sources.list.d:\n\n%s",
+                    textwrap.indent(fp.read(), " " * 4),
+                )
+            self.manager.sudo(
+                "cp",
+                "-i",
+                sources_file,
+                "/etc/apt/sources.list.d/neurodebian.sources.list",
+            )
+        self.manager.sudo(
+            "apt-key",
+            "adv",
+            "--recv-keys",
+            "--keyserver",
+            "hkp://pool.sks-keyservers.net:80",
+            self.KEY_FINGERPRINT,
+        )
+        self.manager.sudo("apt-get", "update")
         self.manager.sudo(
             "apt-get",
             "install",
