@@ -989,13 +989,24 @@ class NeurodebianComponent(Component):
         log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra component arguments: %r", kwargs)
-        self.manager.sudo(
-            "apt-get",
-            "install",
-            "-qy",
-            "neurodebian",
-            env=dict(os.environ, DEBIAN_FRONTEND="noninteractive"),
+        download_base = (
+            "http://snapshot-neuro.debian.net/archive/neurodebian/"
+            "20210221T060502Z/pool/main/n/neurodebian"
         )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for deb in [
+                "neurodebian-archive-keyring_0.41.0~nd20.04%2B1_all.deb",
+                "neurodebian-popularity-contest_0.41.0~nd20.04%2B1_all.deb",
+                "neurodebian_0.41.0~nd20.04%2B1_all.deb",
+            ]:
+                debpath = os.path.join(tmpdir, deb)
+                download_file(f"{download_base}/{deb}", debpath)
+                self.manager.sudo(
+                    "dpkg",
+                    "-i",
+                    debpath,
+                    env=dict(os.environ, DEBIAN_FRONTEND="noninteractive"),
+                )
         runcmd("nd-configurerepo", *(extra_args or []))
 
 

@@ -1,4 +1,5 @@
 import logging
+import os.path
 from pathlib import Path
 import platform
 import subprocess
@@ -210,10 +211,20 @@ def test_install_neurodebian_sudo_ok(mocker):
     r = main(["datalad_installer.py", "--sudo=ok", "neurodebian"])
     assert r == 0
     assert spy.call_args_list == [
-        mocker.call("sudo", "apt-get", "install", "-qy", "neurodebian", env=mocker.ANY),
+        mocker.call("sudo", "dpkg", "-i", mocker.ANY, env=mocker.ANY),
+        mocker.call("sudo", "dpkg", "-i", mocker.ANY, env=mocker.ANY),
+        mocker.call("sudo", "dpkg", "-i", mocker.ANY, env=mocker.ANY),
         mocker.call("nd-configurerepo"),
     ]
-    assert spy.call_args_list[0][1]["env"]["DEBIAN_FRONTEND"] == "noninteractive"
+    for i, deb in enumerate(
+        [
+            "neurodebian-archive-keyring_0.41.0~nd20.04%2B1_all.deb",
+            "neurodebian-popularity-contest_0.41.0~nd20.04%2B1_all.deb",
+            "neurodebian_0.41.0~nd20.04%2B1_all.deb",
+        ]
+    ):
+        assert os.path.basename(spy.call_args_list[i][0][3]) == deb
+        assert spy.call_args_list[i][1]["env"]["DEBIAN_FRONTEND"] == "noninteractive"
     r = subprocess.run(
         [
             "dpkg-query",
