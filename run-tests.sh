@@ -17,9 +17,4 @@ case "$(uname)" in
         ;;
 esac
 
-if [ "$1" = "--ci" ]
-then shift
-else set -- "$@" -m 'not invasive'
-fi
-
 exec tox "$@"
