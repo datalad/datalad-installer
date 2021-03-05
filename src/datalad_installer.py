@@ -992,7 +992,7 @@ class NeurodebianComponent(Component):
         log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra component arguments: %r", kwargs)
-        release = readcmd("lsb_release", "-cs").strip()
+        release = get_version_codename()
         with tempfile.TemporaryDirectory() as tmpdir:
             sources_file = os.path.join(tmpdir, "neurodebian.sources.list")
             download_file(
@@ -1811,6 +1811,17 @@ def ask(prompt: str, choices: List[str]) -> str:
         answer = input(full_prompt)
         if answer in choices:
             return answer
+
+
+def get_version_codename() -> str:
+    with open("/etc/os-release") as fp:
+        for line in fp:
+            m = re.fullmatch(
+                r'VERSION_CODENAME=(")(?P<value>[^"]+)(?(1)"|)', line.strip()
+            )
+            if m:
+                return m["value"]
+    raise RuntimeError("Could not determine version codename")
 
 
 def main(argv: Optional[List[str]] = None) -> int:
