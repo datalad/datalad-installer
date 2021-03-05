@@ -1,6 +1,8 @@
+import json
 import logging
 from pathlib import Path
 import platform
+import shlex
 import subprocess
 import tempfile
 import pytest
@@ -67,6 +69,41 @@ def test_install_miniconda_autogen_path(monkeypatch):
         )
         assert "conda activate test" in r.stdout
     tempfile.tempdir = None  # Reset cache
+
+
+def test_install_env_write_file_miniconda_conda_env(tmp_path):
+    env_write_file = tmp_path / "env.sh"
+    miniconda_path = tmp_path / "conda"
+    r = main(
+        [
+            "datalad_installer.py",
+            "-E",
+            str(env_write_file),
+            "miniconda",
+            "--batch",
+            "--path",
+            str(miniconda_path),
+            "conda-env",
+            "-n",
+            "foo",
+        ]
+    )
+    assert r == 0
+    assert (miniconda_path / bin_path("conda")).exists()
+    assert (miniconda_path / "envs" / "foo").exists()
+    r = subprocess.run(
+        [
+            "bash",
+            "-c",
+            f"source {shlex.quote(str(env_write_file))} && conda info --json",
+        ],
+        stdout=subprocess.PIPE,
+        universal_newlines=True,
+        check=True,
+    )
+    info = json.loads(r.stdout)
+    assert info["active_prefix_name"] == "foo"
+    assert info["conda_prefix"] == str(miniconda_path)
 
 
 def test_install_miniconda_datalad(tmp_path):
