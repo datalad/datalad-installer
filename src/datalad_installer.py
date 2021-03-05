@@ -1001,6 +1001,7 @@ class NeurodebianComponent(Component):
             log.info("NeuroDebian not available in APT and repository not configured")
             log.info("Configuring NeuroDebian APT repository")
             release = get_version_codename()
+            log.debug("Detected version codename: %r", release)
             with tempfile.TemporaryDirectory() as tmpdir:
                 sources_file = os.path.join(tmpdir, "neurodebian.sources.list")
                 download_file(
@@ -1829,7 +1830,10 @@ def get_version_codename() -> str:
             )
             if m:
                 return m["value"]
-    raise RuntimeError("Could not determine version codename")
+    # If VERSION_CODENAME is not set in /etc/os-release, then the contents of
+    # /etc/debian_version should be of the form "$VERSION/sid".
+    with open("/etc/debian_version") as fp:
+        return fp.read().partition("/")[0]
 
 
 def main(argv: Optional[List[str]] = None) -> int:
