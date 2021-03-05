@@ -1,17 +1,16 @@
 import json
 import logging
 from pathlib import Path
-import platform
 import shlex
 import subprocess
 import tempfile
 import pytest
 import datalad_installer
-from datalad_installer import ON_LINUX, main
+from datalad_installer import ON_LINUX, ON_WINDOWS, main
 
 
 def bin_path(binname):
-    if platform.system() == "Windows":
+    if ON_WINDOWS:
         return Path("Scripts", binname + ".exe")
     else:
         return Path("bin", binname)
@@ -91,11 +90,14 @@ def test_install_env_write_file_miniconda_conda_env(tmp_path):
     assert r == 0
     assert (miniconda_path / bin_path("conda")).exists()
     assert (miniconda_path / "envs" / "foo").exists()
+    ewf_path = str(env_write_file)
+    if ON_WINDOWS:
+        ewf_path = "/" + ewf_path.replace("\\", "/")
     r = subprocess.run(
         [
             "bash",
             "-c",
-            f"source {shlex.quote(str(env_write_file))} && conda info --json",
+            f"source {shlex.quote(ewf_path)} && conda info --json",
         ],
         stdout=subprocess.PIPE,
         universal_newlines=True,
