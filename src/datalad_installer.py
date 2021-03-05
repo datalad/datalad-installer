@@ -1825,7 +1825,7 @@ def get_version_codename() -> str:
     with open("/etc/os-release") as fp:
         for line in fp:
             m = re.fullmatch(
-                r'VERSION_CODENAME=(")(?P<value>[^"]+)(?(1)"|)', line.strip()
+                r'VERSION_CODENAME=(")?(?P<value>[^"]+)(?(1)"|)', line.strip()
             )
             if m:
                 return m["value"]
