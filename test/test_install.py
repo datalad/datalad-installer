@@ -209,11 +209,11 @@ def test_install_neurodebian_sudo_ok(mocker):
     spy = mocker.spy(datalad_installer, "runcmd")
     r = main(["datalad_installer.py", "--sudo=ok", "neurodebian"])
     assert r == 0
-    assert spy.call_args_list == [
-        mocker.call("sudo", "apt-get", "install", "-qy", "neurodebian", env=mocker.ANY),
-        mocker.call("nd-configurerepo"),
-    ]
-    assert spy.call_args_list[0][1]["env"]["DEBIAN_FRONTEND"] == "noninteractive"
+    assert spy.call_args_list[-2] == mocker.call(
+        "sudo", "apt-get", "install", "-qy", "neurodebian", env=mocker.ANY
+    )
+    assert spy.call_args_list[-2][1]["env"]["DEBIAN_FRONTEND"] == "noninteractive"
+    assert spy.call_args_list[-1] == mocker.call("nd-configurerepo")
     r = subprocess.run(
         [
             "dpkg-query",

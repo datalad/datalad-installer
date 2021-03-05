@@ -984,11 +984,57 @@ class NeurodebianComponent(Component):
         ],
     )
 
+    KEY_FINGERPRINT = "0xA5D32F012649A5A9"
+    KEY_URL = "http://neuro.debian.net/_static/neuro.debian.net.asc"
+    DOWNLOAD_SERVER = "us-nh"
+
     def provide(self, extra_args: Optional[List[str]] = None, **kwargs: Any) -> None:
         log.info("Installing & configuring NeuroDebian")
         log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra component arguments: %r", kwargs)
+        r = subprocess.run(
+            ["apt-cache", "show", "neurodebian"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if r.returncode != 0 and "o=NeuroDebian" not in readcmd("apt-cache", "policy"):
+            log.info("NeuroDebian not available in APT and repository not configured")
+            log.info("Configuring NeuroDebian APT repository")
+            release = get_version_codename()
+            log.debug("Detected version codename: %r", release)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                sources_file = os.path.join(tmpdir, "neurodebian.sources.list")
+                download_file(
+                    f"http://neuro.debian.net/lists/{release}.{self.DOWNLOAD_SERVER}.libre",
+                    sources_file,
+                )
+                with open(sources_file) as fp:
+                    log.info(
+                        "Adding the following contents to sources.list.d:\n\n%s",
+                        textwrap.indent(fp.read(), " " * 4),
+                    )
+                self.manager.sudo(
+                    "cp",
+                    "-i",
+                    sources_file,
+                    "/etc/apt/sources.list.d/neurodebian.sources.list",
+                )
+                try:
+                    self.manager.sudo(
+                        "apt-key",
+                        "adv",
+                        "--recv-keys",
+                        "--keyserver",
+                        "hkp://pool.sks-keyservers.net:80",
+                        self.KEY_FINGERPRINT,
+                    )
+                except subprocess.CalledProcessError:
+                    log.info("apt-key command failed; downloading key directly")
+                    keyfile = os.path.join(tmpdir, "neuro.debian.net.asc")
+                    download_file(self.KEY_URL, keyfile)
+                    self.manager.sudo("apt-key", "add", keyfile)
+            self.manager.sudo("apt-get", "update")
         self.manager.sudo(
             "apt-get",
             "install",
@@ -1781,6 +1827,20 @@ def ask(prompt: str, choices: List[str]) -> str:
         answer = input(full_prompt)
         if answer in choices:
             return answer
+
+
+def get_version_codename() -> str:
+    with open("/etc/os-release") as fp:
+        for line in fp:
+            m = re.fullmatch(
+                r'VERSION_CODENAME=(")?(?P<value>[^"]+)(?(1)"|)', line.strip()
+            )
+            if m:
+                return m["value"]
+    # If VERSION_CODENAME is not set in /etc/os-release, then the contents of
+    # /etc/debian_version should be of the form "$VERSION/sid".
+    with open("/etc/debian_version") as fp:
+        return fp.read().partition("/")[0]
 
 
 def main(argv: Optional[List[str]] = None) -> int:
