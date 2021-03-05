@@ -209,31 +209,11 @@ def test_install_neurodebian_sudo_ok(mocker):
     spy = mocker.spy(datalad_installer, "runcmd")
     r = main(["datalad_installer.py", "--sudo=ok", "neurodebian"])
     assert r == 0
-    assert spy.call_args_list == [
-        mocker.call(
-            "lsb_release", "-cs", stdout=subprocess.PIPE, universal_newlines=True
-        ),
-        mocker.call(
-            "sudo",
-            "cp",
-            "-i",
-            mocker.ANY,
-            "/etc/apt/sources.list.d/neurodebian.sources.list",
-        ),
-        mocker.call(
-            "sudo",
-            "apt-key",
-            "adv",
-            "--recv-keys",
-            "--keyserver",
-            "hkp://pool.sks-keyservers.net:80",
-            datalad_installer.NeurodebianComponent.KEY_FINGERPRINT,
-        ),
-        mocker.call("sudo", "apt-get", "update"),
-        mocker.call("sudo", "apt-get", "install", "-qy", "neurodebian", env=mocker.ANY),
-        mocker.call("nd-configurerepo"),
-    ]
+    assert spy.call_args_list[-2] == mocker.call(
+        "sudo", "apt-get", "install", "-qy", "neurodebian", env=mocker.ANY
+    )
     assert spy.call_args_list[-2][1]["env"]["DEBIAN_FRONTEND"] == "noninteractive"
+    assert spy.call_args_list[-1] == mocker.call("nd-configurerepo")
     r = subprocess.run(
         [
             "dpkg-query",
