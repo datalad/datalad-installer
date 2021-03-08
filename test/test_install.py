@@ -92,10 +92,13 @@ def test_install_env_write_file_miniconda_conda_env(tmp_path):
     assert (miniconda_path / "envs" / "foo").exists()
     ewf_path = str(env_write_file)
     if ON_WINDOWS:
-        ewf_path = "/" + ewf_path.replace("\\", "/")
+        ewf_path = "/" + ewf_path.replace("\\", "/").replace(":", "", 1)
+        bash = r"C:\Program Files\Git\bin\bash.EXE"
+    else:
+        bash = "bash"
     r = subprocess.run(
         [
-            "bash",
+            bash,
             "-c",
             f"source {shlex.quote(ewf_path)} && conda info --json",
         ],
