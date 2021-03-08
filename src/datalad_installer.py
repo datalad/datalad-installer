@@ -564,22 +564,25 @@ class DataladInstaller:
     def sudo(self, *args: Any, **kwargs: Any) -> None:
         arglist = [str(a) for a in args]
         cmd = " ".join(map(shlex.quote, arglist))
-        if self.sudo_confirm is SudoConfirm.ERROR:
-            log.error("Not running sudo command: %s", cmd)
-            sys.exit(1)
-        elif self.sudo_confirm is SudoConfirm.ASK:
-            print("About to run the following command as an administrator:")
-            print(f"    {cmd}")
-            yan = ask("Proceed?", ["y", "a", "n"])
-            if yan == "n":
-                sys.exit(0)
-            elif yan == "a":
-                self.sudo_confirm = SudoConfirm.OK
         if ON_WINDOWS:
+            # The OS will ask the user for confirmation anyway, so there's no
+            # need for us to ask anything.
+            log.info("Running as administrator: %s", " ".join(arglist))
             ctypes.windll.shell32.ShellExecuteW(  # type: ignore[attr-defined]
                 None, "runas", arglist[0], " ".join(arglist[1:]), None, 1
             )
         else:
+            if self.sudo_confirm is SudoConfirm.ERROR:
+                log.error("Not running sudo command: %s", cmd)
+                sys.exit(1)
+            elif self.sudo_confirm is SudoConfirm.ASK:
+                print("About to run the following command as an administrator:")
+                print(f"    {cmd}")
+                yan = ask("Proceed?", ["y", "a", "n"])
+                if yan == "n":
+                    sys.exit(0)
+                elif yan == "a":
+                    self.sudo_confirm = SudoConfirm.OK
             runcmd("sudo", *args, **kwargs)
 
     @classmethod

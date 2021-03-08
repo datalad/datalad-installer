@@ -69,7 +69,9 @@ Global Options
 --sudo <ask|error|ok>           What to do when the script needs to run a
                                 command with ``sudo`` or privilege escalation:
                                 ask for confirmation (default), error, or run
-                                without confirmation
+                                without confirmation.  This is always "``ok``"
+                                on Windows, where the system always asks for
+                                confirmation.
 
 -V, --version                   Display the script version and exit
 
