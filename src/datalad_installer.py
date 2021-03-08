@@ -561,7 +561,7 @@ class DataladInstaller:
             log.info("Writing environment modifications to %s", fpath)
             self.env_write_files.append(Path(fpath))
 
-    def sudo(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess:
+    def sudo(self, *args: Any, **kwargs: Any) -> None:
         arglist = [str(a) for a in args]
         cmd = " ".join(map(shlex.quote, arglist))
         if self.sudo_confirm is SudoConfirm.ERROR:
@@ -576,11 +576,11 @@ class DataladInstaller:
             elif yan == "a":
                 self.sudo_confirm = SudoConfirm.OK
         if ON_WINDOWS:
-            ctypes.windll.shell32.ShellExecuteW(
+            ctypes.windll.shell32.ShellExecuteW(  # type: ignore[attr-defined]
                 None, "runas", arglist[0], " ".join(arglist[1:]), None, 1
             )
         else:
-            return runcmd("sudo", *args, **kwargs)
+            runcmd("sudo", *args, **kwargs)
 
     @classmethod
     def parse_args(cls, args: List[str]) -> Union[Immediate, ParsedArgs]:
@@ -1742,7 +1742,7 @@ class DataladPackagesBuildInstaller(Installer):
             try:
                 runcmd(exepath, "/S")
             except OSError as e:
-                if e.winerror == 740:
+                if e.winerror == 740:  # type: ignore[attr-defined]
                     log.info("Operation requires elevation; rerunning as administrator")
                     self.manager.sudo(exepath, "/S")
                 else:
