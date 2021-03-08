@@ -518,6 +518,7 @@ class DataladInstaller:
         #: method
         self.installer_stack: List["Installer"] = [
             # Lowest priority first
+            DataladPackagesBuildInstaller(self),
             AutobuildInstaller(self),
             HomebrewInstaller(self),
             NeurodebianInstaller(self),
