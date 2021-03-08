@@ -1,15 +1,16 @@
+import json
 import logging
 from pathlib import Path
-import platform
+import shlex
 import subprocess
 import tempfile
 import pytest
 import datalad_installer
-from datalad_installer import ON_LINUX, main
+from datalad_installer import ON_LINUX, ON_WINDOWS, main
 
 
 def bin_path(binname):
-    if platform.system() == "Windows":
+    if ON_WINDOWS:
         return Path("Scripts", binname + ".exe")
     else:
         return Path("bin", binname)
@@ -67,6 +68,47 @@ def test_install_miniconda_autogen_path(monkeypatch):
         )
         assert "conda activate test" in r.stdout
     tempfile.tempdir = None  # Reset cache
+
+
+def test_install_env_write_file_miniconda_conda_env(tmp_path):
+    env_write_file = tmp_path / "env.sh"
+    miniconda_path = tmp_path / "conda"
+    r = main(
+        [
+            "datalad_installer.py",
+            "-E",
+            str(env_write_file),
+            "miniconda",
+            "--batch",
+            "--path",
+            str(miniconda_path),
+            "conda-env",
+            "-n",
+            "foo",
+        ]
+    )
+    assert r == 0
+    assert (miniconda_path / bin_path("conda")).exists()
+    assert (miniconda_path / "envs" / "foo").exists()
+    ewf_path = str(env_write_file)
+    if ON_WINDOWS:
+        ewf_path = "/" + ewf_path.replace("\\", "/").replace(":", "", 1)
+        bash = r"C:\Program Files\Git\bin\bash.EXE"
+    else:
+        bash = "bash"
+    r = subprocess.run(
+        [
+            bash,
+            "-c",
+            f"source {shlex.quote(ewf_path)} && conda info --json",
+        ],
+        stdout=subprocess.PIPE,
+        universal_newlines=True,
+        check=True,
+    )
+    info = json.loads(r.stdout)
+    assert info["active_prefix_name"] == "foo"
+    assert info["conda_prefix"] == str(miniconda_path)
 
 
 def test_install_miniconda_datalad(tmp_path):
