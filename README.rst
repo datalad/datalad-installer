@@ -67,8 +67,9 @@ Global Options
                                 equivalents.  [default value: INFO]
 
 --sudo <ask|error|ok>           What to do when the script needs to run a
-                                command with ``sudo``: ask for confirmation
-                                (default), error, or run without confirmation
+                                command with ``sudo`` or privilege escalation:
+                                ask for confirmation (default), error, or run
+                                without confirmation
 
 -V, --version                   Display the script version and exit
 

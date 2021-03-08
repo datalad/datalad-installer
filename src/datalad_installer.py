@@ -19,6 +19,7 @@ __license__ = "MIT"
 __url__ = "https://github.com/datalad/datalad-installer"
 
 from abc import ABC, abstractmethod
+import ctypes
 from enum import Enum
 from functools import total_ordering
 from getopt import GetoptError, getopt
@@ -567,14 +568,19 @@ class DataladInstaller:
             log.error("Not running sudo command: %s", cmd)
             sys.exit(1)
         elif self.sudo_confirm is SudoConfirm.ASK:
-            print("About to run the following sudo command:")
+            print("About to run the following command as an administrator:")
             print(f"    {cmd}")
             yan = ask("Proceed?", ["y", "a", "n"])
             if yan == "n":
                 sys.exit(0)
             elif yan == "a":
                 self.sudo_confirm = SudoConfirm.OK
-        return runcmd("sudo", *args, **kwargs)
+        if ON_WINDOWS:
+            ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", arglist[0], " ".join(arglist[1:]), None, 1
+            )
+        else:
+            return runcmd("sudo", *args, **kwargs)
 
     @classmethod
     def parse_args(cls, args: List[str]) -> Union[Immediate, ParsedArgs]:
@@ -1731,7 +1737,16 @@ class DataladPackagesBuildInstaller(Installer):
                     f"https://datasets.datalad.org/datalad/packages/windows/{exefile}",
                     exepath,
                 )
-                runcmd(exepath, "/S")
+                try:
+                    runcmd(exepath, "/S")
+                except OSError as e:
+                    if e.winerror == 740:
+                        log.info(
+                            "Operation requires elevation; rerunning as administrator"
+                        )
+                        self.manager.sudo(exepath, "/S")
+                    else:
+                        raise
                 binpath = Path("C:/Program Files", "Git", "usr", "bin")
                 self.manager.addpath(binpath)
             else:
