@@ -1,3 +1,28 @@
+# v0.3.0 (Tue Mar 09 2021)
+
+#### 🚀 Enhancement
+
+- Install git-annex on Windows via datalad/packages with privilege elevation [#44](https://github.com/datalad/datalad-installer/pull/44) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Install NeuroDebian following the instructions on neuro.debian.net [#41](https://github.com/datalad/datalad-installer/pull/41) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Fix formatting of --sudo option in README [#35](https://github.com/datalad/datalad-installer/pull/35) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Test that sourcing env files activates conda environments [#42](https://github.com/datalad/datalad-installer/pull/42) ([@jwodder](https://github.com/jwodder))
+- Add a --ci option to pytest (off by default) [#36](https://github.com/datalad/datalad-installer/pull/36) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.2.0 (Fri Feb 26 2021)
 
 #### 🚀 Enhancement
