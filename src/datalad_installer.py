@@ -19,6 +19,7 @@ __license__ = "MIT"
 __url__ = "https://github.com/datalad/datalad-installer"
 
 from abc import ABC, abstractmethod
+import ctypes
 from enum import Enum
 from functools import total_ordering
 from getopt import GetoptError, getopt
@@ -518,6 +519,7 @@ class DataladInstaller:
         #: method
         self.installer_stack: List["Installer"] = [
             # Lowest priority first
+            DataladPackagesBuildInstaller(self),
             AutobuildInstaller(self),
             HomebrewInstaller(self),
             NeurodebianInstaller(self),
@@ -559,21 +561,29 @@ class DataladInstaller:
             log.info("Writing environment modifications to %s", fpath)
             self.env_write_files.append(Path(fpath))
 
-    def sudo(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess:
+    def sudo(self, *args: Any, **kwargs: Any) -> None:
         arglist = [str(a) for a in args]
         cmd = " ".join(map(shlex.quote, arglist))
-        if self.sudo_confirm is SudoConfirm.ERROR:
-            log.error("Not running sudo command: %s", cmd)
-            sys.exit(1)
-        elif self.sudo_confirm is SudoConfirm.ASK:
-            print("About to run the following sudo command:")
-            print(f"    {cmd}")
-            yan = ask("Proceed?", ["y", "a", "n"])
-            if yan == "n":
-                sys.exit(0)
-            elif yan == "a":
-                self.sudo_confirm = SudoConfirm.OK
-        return runcmd("sudo", *args, **kwargs)
+        if ON_WINDOWS:
+            # The OS will ask the user for confirmation anyway, so there's no
+            # need for us to ask anything.
+            log.info("Running as administrator: %s", " ".join(arglist))
+            ctypes.windll.shell32.ShellExecuteW(  # type: ignore[attr-defined]
+                None, "runas", arglist[0], " ".join(arglist[1:]), None, 1
+            )
+        else:
+            if self.sudo_confirm is SudoConfirm.ERROR:
+                log.error("Not running sudo command: %s", cmd)
+                sys.exit(1)
+            elif self.sudo_confirm is SudoConfirm.ASK:
+                print("About to run the following command as an administrator:")
+                print(f"    {cmd}")
+                yan = ask("Proceed?", ["y", "a", "n"])
+                if yan == "n":
+                    sys.exit(0)
+                elif yan == "a":
+                    self.sudo_confirm = SudoConfirm.OK
+            runcmd("sudo", *args, **kwargs)
 
     @classmethod
     def parse_args(cls, args: List[str]) -> Union[Immediate, ParsedArgs]:
@@ -1718,25 +1728,32 @@ class DataladPackagesBuildInstaller(Installer):
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         assert package == "git-annex"
-        with tempfile.TemporaryDirectory() as tmpdir_:
-            tmpdir = Path(tmpdir_)
-            if ON_WINDOWS:
-                if version is None:
-                    exefile = "git-annex-installer_latest-snapshot_x64.exe"
-                else:
-                    exefile = f"git-annex-installer_{version}_x64.exe"
-                exepath = tmpdir / exefile
-                download_file(
-                    f"https://datasets.datalad.org/datalad/packages/windows/{exefile}",
-                    exepath,
-                )
-                runcmd(exepath, "/S")
-                binpath = Path("C:/Program Files", "Git", "usr", "bin")
-                self.manager.addpath(binpath)
+        # Installing under a tempfile.TemporaryDirectory() leads to an error
+        # when Python tries to clean up the directory, so we'll just leave the
+        # .exe file alone.
+        tmpdir = mktempdir("dl-datalad-package-")
+        if ON_WINDOWS:
+            if version is None:
+                exefile = "git-annex-installer_latest-snapshot_x64.exe"
             else:
-                raise AssertionError(
-                    "Method should not be called on unsupported platforms"
-                )
+                exefile = f"git-annex-installer_{version}_x64.exe"
+            exepath = tmpdir / exefile
+            download_file(
+                f"https://datasets.datalad.org/datalad/packages/windows/{exefile}",
+                exepath,
+            )
+            try:
+                runcmd(exepath, "/S")
+            except OSError as e:
+                if e.winerror == 740:  # type: ignore[attr-defined]
+                    log.info("Operation requires elevation; rerunning as administrator")
+                    self.manager.sudo(exepath, "/S")
+                else:
+                    raise
+            binpath = Path("C:/Program Files", "Git", "usr", "bin")
+            self.manager.addpath(binpath)
+        else:
+            raise AssertionError("Method should not be called on unsupported platforms")
         log.debug("Installed program directory: %s", binpath)
         return binpath
 

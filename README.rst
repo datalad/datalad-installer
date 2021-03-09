@@ -67,8 +67,11 @@ Global Options
                                 equivalents.  [default value: INFO]
 
 --sudo <ask|error|ok>           What to do when the script needs to run a
-                                command with ``sudo``: ask for confirmation
-                                (default), error, or run without confirmation
+                                command with ``sudo`` or privilege escalation:
+                                ask for confirmation (default), error, or run
+                                without confirmation.  This is always "``ok``"
+                                on Windows, where the system always asks for
+                                confirmation.
 
 -V, --version                   Display the script version and exit
 
@@ -189,6 +192,7 @@ component from the following list will be used:
 - ``neurodebian``
 - ``brew``
 - ``autobuild``
+- ``datalad/packages``
 
 A specific version to install can be specified for those methods that support
 it by suffixing "``git-annex``" with "``=``" and the version number on the
@@ -221,6 +225,7 @@ component from the following list will be used:
 - ``neurodebian``
 - ``brew``
 - ``autobuild``
+- ``datalad/packages``
 
 A specific version to install can be specified for those methods that support
 it by suffixing "``datalad``" with "``=``" and the version number on the
