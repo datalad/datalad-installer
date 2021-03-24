@@ -668,8 +668,11 @@ class DataladInstaller:
         ok = True
         for name, path in self.new_commands:
             log.info("%s is now installed at %s", name, path)
-            if not os.access(path, os.X_OK):
-                log.error("Cannot execute program!")
+            if not os.path.exists(path):
+                log.error("%s does not exist!", path)
+                ok = False
+            elif not os.access(path, os.X_OK):
+                log.error("%s is not executable!", path)
                 ok = False
         return 0 if ok else 1
 
