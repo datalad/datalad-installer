@@ -1291,7 +1291,15 @@ class HomebrewInstaller(Installer):
         if extra_args:
             cmd.extend(extra_args)
         cmd.append(package)
-        runcmd(*cmd)
+        try:
+            runcmd(*cmd)
+        except subprocess.CalledProcessError:
+            log.error(
+                "brew command failed; printing diagnostic output for reporting issue"
+            )
+            runcmd("brew", "config")
+            runcmd("brew", "doctor")
+            raise
         ### TODO: Handle variations in this path (Is it "$(brew --prefix)/bin"?)
         log.debug("Installed program directory: /usr/local/bin")
         return Path("/usr/local/bin")
