@@ -1287,6 +1287,7 @@ class HomebrewInstaller(Installer):
         log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
+        runcmd("brew", "update")
         cmd = ["brew", "install"]
         if extra_args:
             cmd.extend(extra_args)
