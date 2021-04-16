@@ -531,6 +531,8 @@ class DataladInstaller:
         self.conda_stack: List[CondaInstance] = []
         #: A list of commands installed via the instance
         self.new_commands: CommandList = []
+        #: Whether "brew update" has been run
+        self.brew_updated: bool = False
 
     @classmethod
     def register_component(
@@ -1287,7 +1289,9 @@ class HomebrewInstaller(Installer):
         log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
-        runcmd("brew", "update")
+        if not self.manager.brew_updated:
+            runcmd("brew", "update")
+            self.manager.brew_updated = True
         cmd = ["brew", "install"]
         if extra_args:
             cmd.extend(extra_args)
