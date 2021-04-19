@@ -2,11 +2,12 @@ import json
 import logging
 from pathlib import Path
 import shlex
+import shutil
 import subprocess
 import tempfile
 import pytest
 import datalad_installer
-from datalad_installer import ON_LINUX, ON_WINDOWS, main
+from datalad_installer import ON_LINUX, ON_MACOS, ON_WINDOWS, main
 
 
 def bin_path(binname):
@@ -268,3 +269,13 @@ def test_install_neurodebian_sudo_ok(mocker):
         check=True,
     )
     assert r.stdout == "ii "
+
+
+@pytest.mark.ci_only
+@pytest.mark.skipif(not ON_MACOS, reason="requires macOS")
+def test_install_git_annex_brew(mocker):
+    spy = mocker.spy(datalad_installer, "runcmd")
+    r = main(["datalad_installer.py", "git-annex", "-m", "brew"])
+    assert r == 0
+    assert spy.call_args_list[-1] == mocker.call("brew", "install", "git-annex")
+    assert shutil.which("git-annex") is not None
