@@ -678,12 +678,12 @@ class DataladInstaller:
                 ok = False
             else:
                 try:
-                    r = subprocess.run([path, "--help"], stdout=subprocess.DEVNULL)
+                    sr = subprocess.run([path, "--help"], stdout=subprocess.DEVNULL)
                 except Exception as e:
                     log.error("Failed to run `%s --help`: %s", path, e)
                     ok = False
                 else:
-                    if r.returncode != 0:
+                    if sr.returncode != 0:
                         log.error("`%s --help` command failed!", path)
                         ok = False
         return 0 if ok else 1
