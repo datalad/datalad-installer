@@ -1389,14 +1389,21 @@ class PipInstaller(Installer):
         )
         runcmd(*cmd)
         user = extra_args is not None and "--user" in extra_args
-        binpath = Path(
-            readcmd(
-                self.python,
-                "-c",
-                "from pip._internal.locations import distutils_scheme;"
-                f" print(distutils_scheme({package!r}, user={user!r})['scripts'], end='')",
+        with tempfile.NamedTemporaryFile("w+") as script:
+            # Passing this code to Python with `input` doesn't work for some
+            # reason, so we need to save it as a script instead.
+            print(
+                "try:\n"
+                "    from pip._internal.locations import get_scheme\n"
+                f"    path = get_scheme({package!r}, user={user!r}).scripts\n"
+                "except ImportError:\n"
+                "    from pip._internal.locations import distutils_scheme\n"
+                f"    path = distutils_scheme({package!r}, user={user!r})['scripts']\n"
+                "print(path, end='')\n",
+                file=script,
+                flush=True,
             )
-        )
+            binpath = Path(readcmd(self.python, script.name))
         log.debug("Installed program directory: %s", binpath)
         return binpath
 
