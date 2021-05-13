@@ -676,6 +676,16 @@ class DataladInstaller:
             elif not ON_WINDOWS and not os.access(path, os.X_OK):
                 log.error("%s is not executable!", path)
                 ok = False
+            else:
+                try:
+                    r = subprocess.run([path, "--help"], stdout=subprocess.DEVNULL)
+                except Exception as e:
+                    log.error("Failed to run `%s --help`: %s", path, e)
+                    ok = False
+                else:
+                    if r.returncode != 0:
+                        log.error("`%s --help` command failed!", path)
+                        ok = False
         return 0 if ok else 1
 
     def addenv(self, line: str) -> None:
