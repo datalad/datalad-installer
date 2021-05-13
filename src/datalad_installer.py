@@ -678,7 +678,9 @@ class DataladInstaller:
                 ok = False
             else:
                 try:
-                    sr = subprocess.run([path, "--help"], stdout=subprocess.DEVNULL)
+                    sr = subprocess.run(
+                        [str(path), "--help"], stdout=subprocess.DEVNULL
+                    )
                 except Exception as e:
                     log.error("Failed to run `%s --help`: %s", path, e)
                     ok = False
