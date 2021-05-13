@@ -1,3 +1,26 @@
+# v0.3.1 (Thu May 13 2021)
+
+#### 🐛 Bug Fix
+
+- Adjust post-install checks of program executability [#65](https://github.com/datalad/datalad-installer/pull/65) ([@jwodder](https://github.com/jwodder))
+- Update for pip 21.1 [#66](https://github.com/datalad/datalad-installer/pull/66) ([@jwodder](https://github.com/jwodder))
+- Don't run "brew update" more than once [#59](https://github.com/datalad/datalad-installer/pull/59) ([@jwodder](https://github.com/jwodder))
+- Run `brew update` before `brew install` [#58](https://github.com/datalad/datalad-installer/pull/58) ([@jwodder](https://github.com/jwodder))
+- Print brew diagnostic output on failure [#51](https://github.com/datalad/datalad-installer/pull/51) ([@jwodder](https://github.com/jwodder))
+- Improve "Cannot execute program!" error message [#49](https://github.com/datalad/datalad-installer/pull/49) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Add tests on Appveyor [#63](https://github.com/datalad/datalad-installer/pull/63) ([@jwodder](https://github.com/jwodder))
+- Add a test of installing git-annex with brew on macOS [#57](https://github.com/datalad/datalad-installer/pull/57) ([@jwodder](https://github.com/jwodder))
+- Only run push tests on push to master [#56](https://github.com/datalad/datalad-installer/pull/56) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.3.0 (Tue Mar 09 2021)
 
 #### 🚀 Enhancement
