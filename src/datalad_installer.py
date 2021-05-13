@@ -1389,7 +1389,7 @@ class PipInstaller(Installer):
         )
         runcmd(*cmd)
         user = extra_args is not None and "--user" in extra_args
-        with tempfile.NamedTemporaryFile("w+") as script:
+        with tempfile.NamedTemporaryFile("w+", delete=False) as script:
             # Passing this code to Python with `input` doesn't work for some
             # reason, so we need to save it as a script instead.
             print(
@@ -1403,6 +1403,7 @@ class PipInstaller(Installer):
                 file=script,
                 flush=True,
             )
+            script.close()
             binpath = Path(readcmd(self.python, script.name))
         log.debug("Installed program directory: %s", binpath)
         return binpath
