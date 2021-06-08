@@ -179,6 +179,7 @@ specifying the installation method to use; the supported methods are:
 - ``datalad/git-annex``
 - ``datalad/packages``
 - ``deb-url``
+- ``dmg``
 - ``neurodebian``
 - ``snapshot``
 
@@ -323,6 +324,21 @@ Options
                                 the installation command.
 
 --url URL                       Specify the URL of the ``*.deb`` package.  This
+                                option is required for this installation
+                                method.
+
+``dmg``
+~~~~~~~
+
+Install git-annex to the ``/Applications`` directory from a properly-built
+``*.dmg`` image.  Does not support installing specific versions.
+
+This installation method is only supported on macOS.
+
+Options
+'''''''
+
+--file FILE                     Specify the path to the ``*.dmg`` image.  This
                                 option is required for this installation
                                 method.
 
