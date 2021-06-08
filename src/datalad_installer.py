@@ -1422,7 +1422,7 @@ class PipInstaller(Installer):
 
     def assert_supported_system(self) -> None:
         ### TODO: Detect whether pip is installed in the current Python,
-        ### preferrably without importing it
+        ### preferably without importing it
         pass
 
 
