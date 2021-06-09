@@ -1798,6 +1798,46 @@ class DataladPackagesBuildInstaller(Installer):
             raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
 
 
+@GitAnnexComponent.register_installer
+class DMGInstaller(Installer):
+    """ Installs a local ``*.dmg`` file """
+
+    NAME = "dmg"
+
+    OPTIONS = [
+        Option(
+            "--path",
+            converter=Path,
+            metavar="PATH",
+            help="Path to local `*.dmg` to install",
+        ),
+    ]
+
+    PACKAGES = {
+        "git-annex": ("git-annex", ["git-annex"]),
+    }
+
+    def install_package(
+        self,
+        package: str,
+        path: Optional[Path] = None,
+        **kwargs: Any,
+    ) -> Path:
+        log.info("Installing %s via dmg", package)
+        if path is None:
+            raise RuntimeError("dmg method requires path")
+        log.info("Path: %s", path)
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
+        binpath = install_git_annex_dmg(path, self.manager)
+        log.debug("Installed program directory: %s", binpath)
+        return binpath
+
+    def assert_supported_system(self) -> None:
+        if not ON_MACOS:
+            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
+
+
 class MethodNotSupportedError(Exception):
     """
     Raised when an installer's `install()` method is called on an unsupported

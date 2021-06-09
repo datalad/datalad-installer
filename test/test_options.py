@@ -355,8 +355,9 @@ def test_versioned_component_long_help():
         "  -e, --extra-args EXTRA_ARGS     Extra arguments to pass to the install\n"
         "                                  command\n"
         "  -m, --method [auto|apt|brew|neurodebian|deb-url|autobuild|snapshot|"
-        "conda|datalad/git-annex|datalad/packages]\n"
+        "conda|datalad/git-annex|datalad/packages|dmg]\n"
         "                                  Select the installation method to use\n"
+        "  --path PATH                     Path to local `*.dmg` to install\n"
         "  --url URL                       URL from which to download `*.deb` file\n"
         "  -h, --help                      Show this help information and exit"
     )
