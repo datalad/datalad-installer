@@ -338,7 +338,7 @@ This installation method is only supported on macOS.
 Options
 '''''''
 
---file FILE                     Specify the path to the ``*.dmg`` image.  This
+--path PATH                     Specify the path to the ``*.dmg`` image.  This
                                 option is required for this installation
                                 method.
 

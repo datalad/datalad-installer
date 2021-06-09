@@ -1805,7 +1805,12 @@ class DMGInstaller(Installer):
     NAME = "dmg"
 
     OPTIONS = [
-        Option("-f", "--file", metavar="FILE", help="Path to local `*.dmg` to install"),
+        Option(
+            "--path",
+            converter=Path,
+            metavar="PATH",
+            help="Path to local `*.dmg` to install",
+        ),
     ]
 
     PACKAGES = {
@@ -1815,16 +1820,16 @@ class DMGInstaller(Installer):
     def install_package(
         self,
         package: str,
-        file: Optional[str] = None,
+        path: Optional[Path] = None,
         **kwargs: Any,
     ) -> Path:
         log.info("Installing %s via dmg", package)
-        if file is None:
-            raise RuntimeError("dmg method requires file")
-        log.info("File: %s", file)
+        if path is None:
+            raise RuntimeError("dmg method requires path")
+        log.info("Path: %s", path)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
-        binpath = install_git_annex_dmg(file, self.manager)
+        binpath = install_git_annex_dmg(path, self.manager)
         log.debug("Installed program directory: %s", binpath)
         return binpath
 
