@@ -312,6 +312,13 @@ This installation method requires a GitHub OAuth token with appropriate
 permissions.  It must be specified either via the ``GITHUB_TOKEN`` environment
 variable or as the value of the ``hub.oauthtoken`` Git config option.
 
+Options
+'''''''
+
+--install-dir DIR               Directory in which to unpack the ``*.deb``
+                                package instead of installing it system-wide
+                                (Linux only)
+
 ``datalad/packages``
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -334,6 +341,10 @@ Options
 
 -e ARGS, --extra-args ARGS      Specify extra command-line arguments to pass to
                                 the installation command.
+
+--install-dir DIR               Directory in which to unpack the ``*.deb``
+                                package instead of installing it system-wide
+                                (``git-annex`` only)
 
 --url URL                       Specify the URL of the ``*.deb`` package.  This
                                 option is required for this installation

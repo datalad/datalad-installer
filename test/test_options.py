@@ -354,6 +354,7 @@ def test_versioned_component_long_help():
         "  --build-dep                     Install build-dep instead of the package\n"
         "  -e, --extra-args EXTRA_ARGS     Extra arguments to pass to the install\n"
         "                                  command\n"
+        "  --install-dir DIR               Directory in which to unpack the `*.deb`\n"
         "  -m, --method [auto|apt|brew|neurodebian|deb-url|autobuild|snapshot|"
         "conda|datalad/git-annex:tested|datalad/git-annex|datalad/packages|dmg]\n"
         "                                  Select the installation method to use\n"
