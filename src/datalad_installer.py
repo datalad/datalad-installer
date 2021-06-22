@@ -1415,8 +1415,11 @@ class PipInstaller(Installer):
                 file=script,
                 flush=True,
             )
+            # We need to close before passing to Python for Windows
+            # compatibility
             script.close()
             binpath = Path(readcmd(self.python, script.name))
+            os.unlink(script.name)
         log.debug("Installed program directory: %s", binpath)
         return binpath
 
