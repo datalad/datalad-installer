@@ -1,3 +1,25 @@
+# v0.4.0 (Tue Jun 29 2021)
+
+#### 🚀 Enhancement
+
+- Add installation method for getting latest build of datalad/git-annex; rename datalad/git-annex to datalad/git-annex:tested [#76](https://github.com/datalad/datalad-installer/pull/76) ([@jwodder](https://github.com/jwodder))
+- Add "dmg" installation method for git-annex [#69](https://github.com/datalad/datalad-installer/pull/69) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Delete a certain tempfile once we're done with it [#72](https://github.com/datalad/datalad-installer/pull/72) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- [DATALAD RUNCMD] codespell is lucky to find a typo [#67](https://github.com/datalad/datalad-installer/pull/67) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # v0.3.1 (Thu May 13 2021)
 
 #### 🐛 Bug Fix
