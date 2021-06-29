@@ -1644,7 +1644,7 @@ class DataladGitAnnexBuildInstaller(Installer):
     datalad/git-annex
     """
 
-    NAME = "datalad/git-annex"
+    NAME = "datalad/git-annex:tested"
 
     OPTIONS: ClassVar[List[Option]] = []
 
@@ -1703,7 +1703,7 @@ class DataladGitAnnexLatestBuildInstaller(DataladGitAnnexBuildInstaller):
     build (successful or unsuccessful) of datalad/git-annex
     """
 
-    NAME = "datalad/git-annex:latest"
+    NAME = "datalad/git-annex"
 
     @staticmethod
     def download(ostype: str, target_dir: Path) -> None:

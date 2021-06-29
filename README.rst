@@ -176,8 +176,8 @@ specifying the installation method to use; the supported methods are:
 - ``autobuild``
 - ``brew``
 - ``conda`` (only supported on Linux)
+- ``datalad/git-annex:tested``
 - ``datalad/git-annex``
-- ``datalad/git-annex:latest``
 - ``datalad/packages``
 - ``deb-url``
 - ``dmg``
@@ -290,8 +290,8 @@ Options
                                 the installation command.
 
 
-``datalad/git-annex``
-~~~~~~~~~~~~~~~~~~~~~
+``datalad/git-annex:tested``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Downloads & installs the artifact from the latest successful build of
 `datalad/git-annex <https://github.com/datalad/git-annex>`_ for the running OS.
@@ -301,8 +301,8 @@ This installation method requires a GitHub OAuth token with appropriate
 permissions.  It must be specified either via the ``GITHUB_TOKEN`` environment
 variable or as the value of the ``hub.oauthtoken`` Git config option.
 
-``datalad/git-annex:latest``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``datalad/git-annex``
+~~~~~~~~~~~~~~~~~~~~~
 
 Downloads & installs the artifact from the latest build of `datalad/git-annex
 <https://github.com/datalad/git-annex>`_ that produced artifacts for the
