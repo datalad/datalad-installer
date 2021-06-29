@@ -19,6 +19,7 @@ __license__ = "MIT"
 __url__ = "https://github.com/datalad/datalad-installer"
 
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 import ctypes
 from enum import Enum
 from functools import total_ordering
@@ -42,6 +43,7 @@ from typing import (
     Callable,
     ClassVar,
     Dict,
+    Iterator,
     List,
     NamedTuple,
     Optional,
@@ -1651,23 +1653,23 @@ class DataladGitAnnexBuildInstaller(Installer):
     }
 
     def install_package(self, package: str, **kwargs: Any) -> Path:
-        log.info("Installing %s via datalad/git-annex", package)
+        log.info("Installing %s via %s", package, self.NAME)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         assert package == "git-annex"
         with tempfile.TemporaryDirectory() as tmpdir_:
             tmpdir = Path(tmpdir_)
             if ON_LINUX:
-                self.download_latest_git_annex("ubuntu", tmpdir)
+                self.download("ubuntu", tmpdir)
                 (debpath,) = tmpdir.glob("*.deb")
                 self.manager.sudo("dpkg", "-i", debpath)
                 binpath = Path("/usr/bin")
             elif ON_MACOS:
-                self.download_latest_git_annex("macos", tmpdir)
+                self.download("macos", tmpdir)
                 (dmgpath,) = tmpdir.glob("*.dmg")
                 binpath = install_git_annex_dmg(dmgpath, self.manager)
             elif ON_WINDOWS:
-                self.download_latest_git_annex("windows", tmpdir)
+                self.download("windows", tmpdir)
                 (exepath,) = tmpdir.glob("*.exe")
                 runcmd(exepath, "/S")
                 binpath = Path("C:/Program Files", "Git", "usr", "bin")
@@ -1684,14 +1686,38 @@ class DataladGitAnnexBuildInstaller(Installer):
             raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
 
     @staticmethod
-    def download_latest_git_annex(ostype: str, target_dir: Path) -> None:
+    def download(ostype: str, target_dir: Path) -> None:
         """
         Download & unzip the artifact from the latest successful build of
         datalad/git-annex for the given OS in the given directory
         """
-        repo = "datalad/git-annex"
-        branch = "master"
-        workflow = f"build-{ostype}.yaml"
+        GitHubArtifactDownloader().download_last_successful_artifact(
+            target_dir, repo="datalad/git-annex", workflow=f"build-{ostype}.yaml"
+        )
+
+
+@GitAnnexComponent.register_installer
+class DataladGitAnnexLatestBuildInstaller(DataladGitAnnexBuildInstaller):
+    """
+    Installs git-annex via the artifact from the latest artifact-producing
+    build (successful or unsuccessful) of datalad/git-annex
+    """
+
+    NAME = "datalad/git-annex:latest"
+
+    @staticmethod
+    def download(ostype: str, target_dir: Path) -> None:
+        """
+        Download & unzip the artifact from the latest build of
+        datalad/git-annex for the given OS in the given directory
+        """
+        GitHubArtifactDownloader().download_latest_artifact(
+            target_dir, repo="datalad/git-annex", workflow=f"build-{ostype}.yaml"
+        )
+
+
+class GitHubArtifactDownloader:
+    def __init__(self) -> None:
         token = os.environ.get("GITHUB_TOKEN")
         if not token:
             r = subprocess.run(
@@ -1705,43 +1731,109 @@ class DataladGitAnnexBuildInstaller(Installer):
                     " environment variable or hub.oauthtoken Git config option."
                 )
             token = r.stdout.strip()
+        self.token: str = token
 
-        def apicall(url: str) -> Any:
-            log.debug("HTTP request: GET %s", url)
-            req = Request(url, headers={"Authorization": f"Bearer {token}"})
-            with urlopen(req) as r:
-                return json.load(r)
+    @contextmanager
+    def get(self, url: str) -> Iterator[Any]:
+        log.debug("HTTP request: GET %s", url)
+        req = Request(url, headers={"Authorization": f"Bearer {self.token}"})
+        with urlopen(req) as r:
+            yield r
 
-        jobs_url = (
-            f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}"
-            f"/runs?status=success&branch={branch}"
-        )
-        log.info("Getting artifacts_url from %s", jobs_url)
-        jobs = apicall(jobs_url)
-        try:
-            artifacts_url = jobs["workflow_runs"][0]["artifacts_url"]
-        except LookupError:
-            log.exception("Unable to get artifacts_url")
-            raise
+    def getjson(self, url: str) -> Any:
+        with self.get(url) as r:
+            return json.load(r)
+
+    def get_workflow_runs(self, url: str) -> Iterator[dict]:
+        while True:
+            with self.get(url) as r:
+                data = json.load(r)
+                for run in data["workflow_runs"]:
+                    assert isinstance(run, dict)
+                    yield run
+                links = parse_header_links(r.headers.get("Link"))
+                url2 = links.get("next", {}).get("url")
+                if url2 is None:
+                    break
+                url = url2
+
+    def get_archive_download_url(self, artifacts_url: str) -> Optional[str]:
+        """
+        Given a workflow run's ``artifacts_url``, returns the
+        ``archive_download_url`` for the one & only artifact.  If there are no
+        artifacts, `None` is returned.  If there is more than one artifact, a
+        `RuntimeError` is raised.
+        """
         log.info("Getting archive download URL from %s", artifacts_url)
-        artifacts = apicall(artifacts_url)
+        artifacts = self.getjson(artifacts_url)
         if artifacts["total_count"] < 1:
-            raise RuntimeError("No artifacts found!")
+            log.debug("No artifacts found")
+            return None
         elif artifacts["total_count"] > 1:
             raise RuntimeError("Too many artifacts found!")
         else:
-            archive_download_url = artifacts["artifacts"][0]["archive_download_url"]
+            url = artifacts["artifacts"][0]["archive_download_url"]
+            assert isinstance(url, str)
+            return url
+
+    def download_archive(self, target_dir: Path, archive_download_url: str) -> None:
+        """
+        Downloads the workflow build artifact zip from ``archive_download_url``
+        and expands it in ``target_dir``
+        """
         log.info("Downloading artifact package from %s", archive_download_url)
         target_dir.mkdir(parents=True, exist_ok=True)
         artifact_path = target_dir / ".artifact.zip"
         download_file(
             archive_download_url,
             artifact_path,
-            headers={"Authorization": f"Bearer {token}"},
+            headers={"Authorization": f"Bearer {self.token}"},
         )
         with ZipFile(str(artifact_path)) as zipf:
             zipf.extractall(str(target_dir))
         artifact_path.unlink()
+
+    def download_latest_artifact(
+        self, target_dir: Path, repo: str, workflow: str, branch: str = "master"
+    ) -> None:
+        """
+        Downloads the most recent artifact built by ``workflow`` on ``branch``
+        in ``repo`` to ``target_dir``
+        """
+        runs_url = (
+            f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}"
+            f"/runs?branch={branch}"
+        )
+        log.info("Getting artifacts_url from %s", runs_url)
+        for run in self.get_workflow_runs(runs_url):
+            artifacts_url = run["artifacts_url"]
+            archive_download_url = self.get_archive_download_url(artifacts_url)
+            if archive_download_url is not None:
+                self.download_archive(target_dir, archive_download_url)
+                return
+        else:
+            raise RuntimeError("No workflow runs with artifacts found!")
+
+    def download_last_successful_artifact(
+        self, target_dir: Path, repo: str, workflow: str, branch: str = "master"
+    ) -> None:
+        """
+        Downloads the most recent artifact built by a succesful run of
+        ``workflow`` on ``branch`` in ``repo`` to ``target_dir``
+        """
+        runs_url = (
+            f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}"
+            f"/runs?status=success&branch={branch}"
+        )
+        log.info("Getting artifacts_url from %s", runs_url)
+        for run in self.get_workflow_runs(runs_url):
+            artifacts_url = run["artifacts_url"]
+            archive_download_url = self.get_archive_download_url(artifacts_url)
+            if archive_download_url is not None:
+                self.download_archive(target_dir, archive_download_url)
+                return
+        else:
+            raise RuntimeError("No workflow runs with artifacts found!")
 
 
 @GitAnnexComponent.register_installer
@@ -1937,6 +2029,36 @@ def get_version_codename() -> str:
     # /etc/debian_version should be of the form "$VERSION/sid".
     with open("/etc/debian_version") as fp:
         return fp.read().partition("/")[0]
+
+
+def parse_header_links(links_header: str) -> Dict[str, Dict[str, str]]:
+    """
+    Parse a "Link" header from an HTTP response into a `dict` of the form::
+
+        {"next": {"url": "...", "rel": "next"}, "last": { ... }}
+    """
+    # <https://git.io/JcYZi>
+    links: Dict[str, Dict[str, str]] = {}
+    replace_chars = " '\""
+    value = links_header.strip(replace_chars)
+    if not value:
+        return links
+    for val in re.split(r", *<", value):
+        try:
+            url, params = val.split(";", 1)
+        except ValueError:
+            url, params = val, ""
+        link: Dict[str, str] = {"url": url.strip("<> '\"")}
+        for param in params.split(";"):
+            try:
+                key, value = param.split("=")
+            except ValueError:
+                break
+            link[key.strip(replace_chars)] = value.strip(replace_chars)
+        key = link.get("rel") or link.get("url")
+        assert key is not None
+        links[key] = link
+    return links
 
 
 def main(argv: Optional[List[str]] = None) -> int:
