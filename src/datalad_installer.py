@@ -704,10 +704,11 @@ class DataladInstaller:
         Add a line to the env write files that prepends (or appends, if
         ``last`` is true) a given path to ``PATH``
         """
+        path = Path(p).resolve()
         if not last:
-            line = f'export PATH={shlex.quote(str(p))}:"$PATH"'
+            line = f'export PATH={shlex.quote(str(path))}:"$PATH"'
         else:
-            line = f'export PATH="$PATH":{shlex.quote(str(p))}'
+            line = f'export PATH="$PATH":{shlex.quote(str(path))}'
         self.addenv(line)
 
     def addcomponent(self, name: str, **kwargs: Any) -> None:
