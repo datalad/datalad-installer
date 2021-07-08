@@ -1480,17 +1480,26 @@ class DebURLInstaller(Installer):
         **kwargs: Any,
     ) -> Path:
         log.info("Installing %s via deb-url", package)
-        if install_dir is not None and package != "git-annex":
-            raise RuntimeError("--install-dir is only supported for git-annex")
         if url is None:
             raise RuntimeError("deb-url method requires URL")
         log.info("URL: %s", url)
+        if install_dir is not None:
+            if package != "git-annex":
+                raise RuntimeError("--install-dir is only supported for git-annex")
+            install_dir = untmppath(install_dir)
+            log.info("Install dir: %s", install_dir)
         log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         with tempfile.TemporaryDirectory() as tmpdir:
             debpath = os.path.join(tmpdir, f"{package}.deb")
             download_file(url, debpath)
+            if install_dir is not None and "{version}" in str(install_dir):
+                deb_version = readcmd(
+                    "dpkg-deb", "--showformat", "${Version}", "-W", debpath
+                )
+                install_dir = Path(str(install_dir).format(version=deb_version))
+                log.info("Expanded install dir to %s", install_dir)
             binpath = install_deb(
                 debpath,
                 self.manager,
@@ -1675,6 +1684,11 @@ class DataladGitAnnexBuildInstaller(Installer):
         self, package: str, install_dir: Optional[Path] = None, **kwargs: Any
     ) -> Path:
         log.info("Installing %s via %s", package, self.NAME)
+        if install_dir is not None:
+            if not ON_LINUX:
+                raise RuntimeError("--install-dir is only supported on Linux")
+            install_dir = untmppath(install_dir)
+            log.info("Install dir: %s", install_dir)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         assert package == "git-annex"
@@ -2109,6 +2123,13 @@ def parse_header_links(links_header: str) -> Dict[str, Dict[str, str]]:
         assert key is not None
         links[key] = link
     return links
+
+
+def untmppath(path: Path) -> Path:
+    if "{tmpdir}" in str(path):
+        return Path(str(path).format(tmpdir=mktempdir("dl-")))
+    else:
+        return path
 
 
 def main(argv: Optional[List[str]] = None) -> int:
