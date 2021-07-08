@@ -15,7 +15,7 @@
 `GitHub <https://github.com/datalad/datalad-installer>`_
 | `PyPI <https://pypi.org/project/datalad-installer/>`_
 | `Issues <https://github.com/datalad/datalad-installer/issues>`_
-| `Changelog <https://github.com/jwodder/datalad-installer/blob/master/CHANGELOG.md>`_
+| `Changelog <https://github.com/datalad/datalad-installer/blob/master/CHANGELOG.md>`_
 
 ``datalad-installer`` is a script for installing Datalad_, git-annex_, and
 related components all in a single invocation.  It requires no third-party
@@ -301,6 +301,15 @@ This installation method requires a GitHub OAuth token with appropriate
 permissions.  It must be specified either via the ``GITHUB_TOKEN`` environment
 variable or as the value of the ``hub.oauthtoken`` Git config option.
 
+Options
+'''''''
+
+--install-dir DIR               Directory in which to unpack the ``*.deb``
+                                package instead of installing it system-wide.
+                                If this contains the string ``{tmpdir}``, it
+                                will be replaced with the path to a directory
+                                in ``$TMPDIR``. (Linux only)
+
 ``datalad/git-annex``
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -311,6 +320,15 @@ running OS.  Does not support installing specific versions.
 This installation method requires a GitHub OAuth token with appropriate
 permissions.  It must be specified either via the ``GITHUB_TOKEN`` environment
 variable or as the value of the ``hub.oauthtoken`` Git config option.
+
+Options
+'''''''
+
+--install-dir DIR               Directory in which to unpack the ``*.deb``
+                                package instead of installing it system-wide.
+                                If this contains the string ``{tmpdir}``, it
+                                will be replaced with the path to a directory
+                                in ``$TMPDIR``. (Linux only)
 
 ``datalad/packages``
 ~~~~~~~~~~~~~~~~~~~~~
@@ -334,6 +352,14 @@ Options
 
 -e ARGS, --extra-args ARGS      Specify extra command-line arguments to pass to
                                 the installation command.
+
+--install-dir DIR               Directory in which to unpack the ``*.deb``
+                                package instead of installing it system-wide
+                                If this contains the string ``{tmpdir}``, it
+                                will be replaced with the path to a directory
+                                in ``$TMPDIR``.  If this contains the string
+                                ``{version}``, it will be replaced with the
+                                package's version. (``git-annex`` only)
 
 --url URL                       Specify the URL of the ``*.deb`` package.  This
                                 option is required for this installation

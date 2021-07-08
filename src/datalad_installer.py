@@ -704,10 +704,11 @@ class DataladInstaller:
         Add a line to the env write files that prepends (or appends, if
         ``last`` is true) a given path to ``PATH``
         """
+        path = Path(p).resolve()
         if not last:
-            line = f'export PATH={shlex.quote(str(p))}:"$PATH"'
+            line = f'export PATH={shlex.quote(str(path))}:"$PATH"'
         else:
-            line = f'export PATH="$PATH":{shlex.quote(str(p))}'
+            line = f'export PATH="$PATH":{shlex.quote(str(path))}'
         self.addenv(line)
 
     def addcomponent(self, name: str, **kwargs: Any) -> None:
@@ -1456,6 +1457,12 @@ class DebURLInstaller(Installer):
 
     OPTIONS = [
         Option("--url", metavar="URL", help="URL from which to download `*.deb` file"),
+        Option(
+            "--install-dir",
+            converter=Path,
+            metavar="DIR",
+            help="Directory in which to unpack the `*.deb`",
+        ),
         EXTRA_ARGS_OPTION,
     ]
 
@@ -1468,6 +1475,7 @@ class DebURLInstaller(Installer):
         self,
         package: str,
         url: Optional[str] = None,
+        install_dir: Optional[Path] = None,
         extra_args: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> Path:
@@ -1475,19 +1483,32 @@ class DebURLInstaller(Installer):
         if url is None:
             raise RuntimeError("deb-url method requires URL")
         log.info("URL: %s", url)
+        if install_dir is not None:
+            if package != "git-annex":
+                raise RuntimeError("--install-dir is only supported for git-annex")
+            install_dir = untmppath(install_dir)
+            log.info("Install dir: %s", install_dir)
         log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         with tempfile.TemporaryDirectory() as tmpdir:
             debpath = os.path.join(tmpdir, f"{package}.deb")
             download_file(url, debpath)
-            cmd = ["dpkg", "-i"]
-            if extra_args is not None:
-                cmd.extend(extra_args)
-            cmd.append(debpath)
-            self.manager.sudo(*cmd)
-            log.debug("Installed program directory: /usr/bin")
-            return Path("/usr/bin")
+            if install_dir is not None and "{version}" in str(install_dir):
+                deb_version = readcmd(
+                    "dpkg-deb", "--showformat", "${Version}", "-W", debpath
+                )
+                install_dir = Path(str(install_dir).format(version=deb_version))
+                log.info("Expanded install dir to %s", install_dir)
+            binpath = install_deb(
+                debpath,
+                self.manager,
+                Path("usr/bin"),
+                install_dir=install_dir,
+                extra_args=extra_args,
+            )
+            log.debug("Installed program directory: %s", binpath)
+            return binpath
 
     def assert_supported_system(self) -> None:
         if shutil.which("dpkg") is None:
@@ -1646,14 +1667,28 @@ class DataladGitAnnexBuildInstaller(Installer):
 
     NAME = "datalad/git-annex:tested"
 
-    OPTIONS: ClassVar[List[Option]] = []
+    OPTIONS = [
+        Option(
+            "--install-dir",
+            converter=Path,
+            metavar="DIR",
+            help="Directory in which to unpack the `*.deb`",
+        ),
+    ]
 
     PACKAGES = {
         "git-annex": ("git-annex", ["git-annex"]),
     }
 
-    def install_package(self, package: str, **kwargs: Any) -> Path:
+    def install_package(
+        self, package: str, install_dir: Optional[Path] = None, **kwargs: Any
+    ) -> Path:
         log.info("Installing %s via %s", package, self.NAME)
+        if install_dir is not None:
+            if not ON_LINUX:
+                raise RuntimeError("--install-dir is only supported on Linux")
+            install_dir = untmppath(install_dir)
+            log.info("Install dir: %s", install_dir)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         assert package == "git-annex"
@@ -1662,8 +1697,12 @@ class DataladGitAnnexBuildInstaller(Installer):
             if ON_LINUX:
                 self.download("ubuntu", tmpdir)
                 (debpath,) = tmpdir.glob("*.deb")
-                self.manager.sudo("dpkg", "-i", debpath)
-                binpath = Path("/usr/bin")
+                binpath = install_deb(
+                    debpath,
+                    self.manager,
+                    Path("usr", "bin"),
+                    install_dir=install_dir,
+                )
             elif ON_MACOS:
                 self.download("macos", tmpdir)
                 (dmgpath,) = tmpdir.glob("*.dmg")
@@ -2009,6 +2048,31 @@ def install_git_annex_dmg(
     return annex_bin
 
 
+def install_deb(
+    debpath: Union[str, os.PathLike],
+    manager: DataladInstaller,
+    bin_path: Path,
+    install_dir: Optional[Path] = None,
+    extra_args: Optional[List[str]] = None,
+) -> Path:
+    cmd: List[Union[str, os.PathLike]] = ["dpkg"]
+    if extra_args is not None:
+        cmd.extend(extra_args)
+    if install_dir is None:
+        cmd.append("-i")
+        cmd.append(debpath)
+        manager.sudo(*cmd)
+        return Path("/usr/bin")
+    else:
+        install_dir.mkdir(parents=True, exist_ok=True)
+        cmd.append("-x")
+        cmd.append(debpath)
+        cmd.append(install_dir)
+        runcmd(*cmd)
+        manager.addpath(install_dir / bin_path)
+        return install_dir / bin_path
+
+
 def ask(prompt: str, choices: List[str]) -> str:
     full_prompt = f"{prompt} [{'/'.join(choices)}] "
     while True:
@@ -2059,6 +2123,13 @@ def parse_header_links(links_header: str) -> Dict[str, Dict[str, str]]:
         assert key is not None
         links[key] = link
     return links
+
+
+def untmppath(path: Path) -> Path:
+    if "{tmpdir}" in str(path):
+        return Path(str(path).format(tmpdir=mktempdir("dl-")))
+    else:
+        return path
 
 
 def main(argv: Optional[List[str]] = None) -> int:
