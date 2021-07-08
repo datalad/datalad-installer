@@ -1,3 +1,15 @@
+# v0.5.0 (Thu Jul 08 2021)
+
+#### 🚀 Enhancement
+
+- Support installing git-annex .deb's to a given directory instead of system-wide [#73](https://github.com/datalad/datalad-installer/pull/73) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.4.0 (Tue Jun 29 2021)
 
 #### 🚀 Enhancement
