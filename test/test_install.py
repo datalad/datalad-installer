@@ -22,6 +22,7 @@ def capture_all_logs(caplog):
     caplog.set_level(logging.DEBUG)
 
 
+@pytest.mark.miniconda
 def test_install_miniconda(tmp_path):
     miniconda_path = tmp_path / "conda"
     r = main(
@@ -44,6 +45,7 @@ def test_install_miniconda(tmp_path):
     assert "conda activate test" in r.stdout
 
 
+@pytest.mark.miniconda
 def test_install_miniconda_autogen_path(monkeypatch):
     # Override TMPDIR with a path that will be cleaned up afterwards (We can't
     # use tmp_path here, as that's apparently always in the user temp folder on
@@ -71,6 +73,7 @@ def test_install_miniconda_autogen_path(monkeypatch):
     tempfile.tempdir = None  # Reset cache
 
 
+@pytest.mark.miniconda
 def test_install_env_write_file_miniconda_conda_env(tmp_path):
     env_write_file = tmp_path / "env.sh"
     miniconda_path = tmp_path / "conda"
@@ -112,6 +115,7 @@ def test_install_env_write_file_miniconda_conda_env(tmp_path):
     assert info["conda_prefix"] == str(miniconda_path)
 
 
+@pytest.mark.miniconda
 def test_install_miniconda_datalad(tmp_path):
     miniconda_path = tmp_path / "conda"
     r = main(
@@ -129,6 +133,7 @@ def test_install_miniconda_datalad(tmp_path):
     assert (miniconda_path / bin_path("datalad")).exists()
 
 
+@pytest.mark.miniconda
 def test_install_miniconda_conda_env_datalad(tmp_path):
     miniconda_path = tmp_path / "conda"
     r = main(
@@ -151,6 +156,7 @@ def test_install_miniconda_conda_env_datalad(tmp_path):
     assert (miniconda_path / "envs" / "foo" / bin_path("datalad")).exists()
 
 
+@pytest.mark.miniconda
 def test_install_venv_miniconda_datalad(tmp_path):
     venv_path = tmp_path / "venv"
     miniconda_path = tmp_path / "conda"
@@ -174,6 +180,7 @@ def test_install_venv_miniconda_datalad(tmp_path):
     assert (miniconda_path / bin_path("datalad")).exists()
 
 
+@pytest.mark.miniconda
 def test_install_venv_miniconda_conda_env_datalad(tmp_path):
     venv_path = tmp_path / "venv"
     miniconda_path = tmp_path / "conda"
@@ -218,6 +225,7 @@ def test_install_venv_datalad(tmp_path):
     assert (venv_path / bin_path("datalad")).exists()
 
 
+@pytest.mark.miniconda
 def test_install_miniconda_conda_env_venv_datalad(tmp_path):
     venv_path = tmp_path / "venv"
     miniconda_path = tmp_path / "conda"
