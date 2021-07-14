@@ -867,6 +867,8 @@ class MinicondaComponent(Component):
         **kwargs: Any,
     ) -> None:
         log.info("Installing Miniconda")
+        if "CONDA_PREFIX" in os.environ:
+            raise RuntimeError("Conda already active; not installing miniconda")
         if path is None:
             path = mktempdir("dl-miniconda-")
             # The Miniconda installer requires that the given path not already
