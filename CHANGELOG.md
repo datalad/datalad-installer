@@ -1,3 +1,15 @@
+# v0.5.2 (Thu Jul 15 2021)
+
+#### 🧪 Tests
+
+- Only run apt-based tests on systems with Apt, and likewise for brew [#79](https://github.com/datalad/datalad-installer/pull/79) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.5.1 (Thu Jul 15 2021)
 
 #### 🐛 Bug Fix
