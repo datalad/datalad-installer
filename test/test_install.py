@@ -255,7 +255,10 @@ def test_install_miniconda_conda_env_venv_datalad(tmp_path):
 
 
 @pytest.mark.ci_only
-@pytest.mark.skipif(not ON_LINUX, reason="requires Debian-based system")
+@pytest.mark.skipif(
+    not ON_LINUX or shutil.which("apt-get") is None,
+    reason="requires Debian-based system",
+)
 def test_install_neurodebian_sudo_ok(mocker):
     spy = mocker.spy(datalad_installer, "runcmd")
     r = main(["datalad_installer.py", "--sudo=ok", "neurodebian"])
@@ -280,7 +283,9 @@ def test_install_neurodebian_sudo_ok(mocker):
 
 
 @pytest.mark.ci_only
-@pytest.mark.skipif(not ON_MACOS, reason="requires macOS")
+@pytest.mark.skipif(
+    not ON_MACOS or shutil.which("brew") is None, reason="requires macOS with Homebrew"
+)
 def test_install_git_annex_brew(mocker):
     spy = mocker.spy(datalad_installer, "runcmd")
     r = main(["datalad_installer.py", "git-annex", "-m", "brew"])
