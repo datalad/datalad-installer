@@ -1,3 +1,15 @@
+# v0.5.1 (Thu Jul 15 2021)
+
+#### 🐛 Bug Fix
+
+- Make miniconda error if conda is already installed; mark miniconda tests [#78](https://github.com/datalad/datalad-installer/pull/78) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.5.0 (Thu Jul 08 2021)
 
 #### 🚀 Enhancement
