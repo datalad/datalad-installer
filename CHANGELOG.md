@@ -1,3 +1,15 @@
+# v0.5.3 (Mon Jul 19 2021)
+
+#### 🐛 Bug Fix
+
+- Use newer build for OSX (from Catalina on GH actions, instead of Yosemite) [#80](https://github.com/datalad/datalad-installer/pull/80) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # v0.5.2 (Thu Jul 15 2021)
 
 #### 🧪 Tests
