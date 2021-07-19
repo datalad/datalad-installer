@@ -1589,7 +1589,7 @@ class SnapshotInstaller(AutobuildSnapshotInstaller):
         if ON_LINUX:
             binpath = self._install_linux("linux/current")
         elif ON_MACOS:
-            binpath = self._install_macos("OSX/current/10.10_Yosemite")
+            binpath = self._install_macos("OSX/current/10.15_Catalina")
         else:
             raise AssertionError("Method should not be called on unsupported platforms")
         log.debug("Installed program directory: %s", binpath)
