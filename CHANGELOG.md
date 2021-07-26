@@ -1,3 +1,16 @@
+# v0.5.4 (Mon Jul 26 2021)
+
+#### 🐛 Bug Fix
+
+- datalad/git-annex: Install commands that fail with WinError 740 are retried with elevation [#84](https://github.com/datalad/datalad-installer/pull/84) ([@jwodder](https://github.com/jwodder))
+- Retry failed "conda install" commands [#83](https://github.com/datalad/datalad-installer/pull/83) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.5.3 (Mon Jul 19 2021)
 
 #### 🐛 Bug Fix
