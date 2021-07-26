@@ -38,6 +38,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+from time import sleep
 from typing import (
     Any,
     Callable,
@@ -1650,7 +1651,22 @@ class CondaInstaller(Installer):
             cmd.append(package)
         else:
             cmd.append(f"{package}={version}")
-        runcmd(*cmd)
+        i = 0
+        while True:
+            try:
+                runcmd(*cmd)
+            except subprocess.CalledProcessError as e:
+                if i < 3:
+                    log.error(
+                        "Command failed with exit status %d; sleeping and retrying",
+                        e.returncode,
+                    )
+                    i += 1
+                    sleep(5)
+                else:
+                    raise
+            else:
+                break
         binpath = conda.bindir
         log.debug("Installed program directory: %s", binpath)
         return binpath
