@@ -590,6 +590,16 @@ class DataladInstaller:
                     self.sudo_confirm = SudoConfirm.OK
             runcmd("sudo", *args, **kwargs)
 
+    def run_maybe_elevated(self, *args: Any, **kwargs: Any) -> None:
+        try:
+            runcmd(*args, **kwargs)
+        except OSError as e:
+            if e.winerror == 740:  # type: ignore[attr-defined]
+                log.info("Operation requires elevation; rerunning as administrator")
+                self.sudo(*args, **kwargs)
+            else:
+                raise
+
     @classmethod
     def parse_args(cls, args: List[str]) -> Union[Immediate, ParsedArgs]:
         """
@@ -1728,7 +1738,7 @@ class DataladGitAnnexBuildInstaller(Installer):
             elif ON_WINDOWS:
                 self.download("windows", tmpdir)
                 (exepath,) = tmpdir.glob("*.exe")
-                runcmd(exepath, "/S")
+                self.manager.run_maybe_elevated(exepath, "/S")
                 binpath = Path("C:/Program Files", "Git", "usr", "bin")
                 self.manager.addpath(binpath)
             else:
@@ -1930,14 +1940,7 @@ class DataladPackagesBuildInstaller(Installer):
                 f"https://datasets.datalad.org/datalad/packages/windows/{exefile}",
                 exepath,
             )
-            try:
-                runcmd(exepath, "/S")
-            except OSError as e:
-                if e.winerror == 740:  # type: ignore[attr-defined]
-                    log.info("Operation requires elevation; rerunning as administrator")
-                    self.manager.sudo(exepath, "/S")
-                else:
-                    raise
+            self.manager.run_maybe_elevated(exepath, "/S")
             binpath = Path("C:/Program Files", "Git", "usr", "bin")
             self.manager.addpath(binpath)
         else:
