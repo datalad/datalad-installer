@@ -2076,20 +2076,26 @@ def install_deb(
     install_dir: Optional[Path] = None,
     extra_args: Optional[List[str]] = None,
 ) -> Path:
-    cmd: List[Union[str, os.PathLike]] = ["dpkg"]
-    if extra_args is not None:
-        cmd.extend(extra_args)
     if install_dir is None:
+        cmd: List[Union[str, os.PathLike]] = ["dpkg"]
+        if extra_args is not None:
+            cmd.extend(extra_args)
         cmd.append("-i")
         cmd.append(debpath)
         manager.sudo(*cmd)
         return Path("/usr/bin")
     else:
+        if extra_args:
+            log.warning("Not using dpkg; ignoring --extra-args")
+        assert os.path.isabs(debpath)
         install_dir.mkdir(parents=True, exist_ok=True)
-        cmd.append("-x")
-        cmd.append(debpath)
-        cmd.append(install_dir)
-        runcmd(*cmd)
+        install_dir = install_dir.resolve()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            oldpwd = os.getcwd()
+            os.chdir(tmpdir)
+            runcmd("ar", "-x", debpath)
+            runcmd("tar", "-C", install_dir, "-xzf", "data.tar.gz")
+            os.chdir(oldpwd)
         manager.addpath(install_dir / bin_path)
         return install_dir / bin_path
 
