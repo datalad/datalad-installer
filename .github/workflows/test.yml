@@ -27,7 +27,8 @@ jobs:
           - '3.7'
           - '3.8'
           - '3.9'
-          - 'pypy3'
+          - '3.10'
+          - 'pypy-3.7'
         toxenv: [py]
         include:
           - python-version: '3.6'
@@ -38,7 +39,7 @@ jobs:
             os: ubuntu-latest
         exclude:
           # venv seems to be broken on pypy3 under Windows.
-          - python-version: 'pypy3'
+          - python-version: 'pypy-3.7'
             toxenv: py
             os: windows-latest
     steps:
