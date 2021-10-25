@@ -811,6 +811,12 @@ class VenvComponent(Component):
                 converter=shlex.split,
                 help="Extra arguments to pass to the venv command",
             ),
+            # For use in testing against the dev version of pip:
+            Option(
+                "--dev-pip",
+                is_flag=True,
+                help="Install the development version of pip from GitHub",
+            ),
         ],
     )
 
@@ -818,6 +824,7 @@ class VenvComponent(Component):
         self,
         path: Optional[Path] = None,
         extra_args: Optional[List[str]] = None,
+        dev_pip: bool = False,
         **kwargs: Any,
     ) -> None:
         log.info("Creating a virtual environment")
@@ -833,7 +840,16 @@ class VenvComponent(Component):
             cmd.extend(extra_args)
         cmd.append(str(path))
         runcmd(*cmd)
-        self.manager.installer_stack.append(PipInstaller(self.manager, path))
+        installer = PipInstaller(self.manager, path)
+        if dev_pip:
+            runcmd(
+                installer.python,
+                "-m",
+                "pip",
+                "install",
+                "pip @ git+https://github.com/pypa/pip",
+            )
+        self.manager.installer_stack.append(installer)
 
 
 @DataladInstaller.register_component("miniconda")

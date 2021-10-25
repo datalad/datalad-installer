@@ -225,6 +225,23 @@ def test_install_venv_datalad(tmp_path):
     assert (venv_path / bin_path("datalad")).exists()
 
 
+def test_install_venv_dev_pip_datalad(tmp_path):
+    venv_path = tmp_path / "venv"
+    r = main(
+        [
+            "datalad_installer.py",
+            "venv",
+            "--path",
+            str(venv_path),
+            "--dev-pip",
+            "datalad",
+        ]
+    )
+    assert r == 0
+    assert (venv_path / bin_path("python")).exists()
+    assert (venv_path / bin_path("datalad")).exists()
+
+
 @pytest.mark.miniconda
 def test_install_miniconda_conda_env_venv_datalad(tmp_path):
     venv_path = tmp_path / "venv"
