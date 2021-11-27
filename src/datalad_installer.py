@@ -99,7 +99,7 @@ class Immediate:
 
 
 class VersionRequest(Immediate):
-    """ `Immediate` representing a ``--version`` option """
+    """`Immediate` representing a ``--version`` option"""
 
     def __eq__(self, other: Any) -> bool:
         if type(self) is type(other):
@@ -109,7 +109,7 @@ class VersionRequest(Immediate):
 
 
 class HelpRequest(Immediate):
-    """ `Immediate` representing a ``--help`` option """
+    """`Immediate` representing a ``--help`` option"""
 
     def __init__(self, component: Optional[str]) -> None:
         #: The component for which help was requested, or `None` if the
@@ -201,7 +201,7 @@ class Option:
 
     @property
     def option_name(self) -> str:
-        """ Display name for the option """
+        """Display name for the option"""
         if self.longopts:
             return f"--{self.longopts[0]}"
         else:
@@ -384,7 +384,7 @@ class OptionParser:
 
 
 class UsageError(Exception):
-    """ Raised when an error occurs while processing command-line options """
+    """Raised when an error occurs while processing command-line options"""
 
     def __init__(self, message: str, component: Optional[str] = None) -> None:
         #: The error message
@@ -408,7 +408,7 @@ class ParsedArgs(NamedTuple):
 
 
 class ComponentRequest:
-    """ A request for a component parsed from command-line arguments """
+    """A request for a component parsed from command-line arguments"""
 
     def __init__(self, name: str, **kwargs: Any) -> None:
         self.name: str = name
@@ -431,7 +431,7 @@ class ComponentRequest:
 
 
 class CondaInstance(NamedTuple):
-    """ A Conda installation or environment """
+    """A Conda installation or environment"""
 
     #: The root of the Conda installation
     basepath: Path
@@ -441,7 +441,7 @@ class CondaInstance(NamedTuple):
 
     @property
     def conda_exe(self) -> Path:
-        """ The path to the Conda executable """
+        """The path to the Conda executable"""
         if ON_WINDOWS:
             return self.basepath / "Scripts" / "conda.exe"
         else:
@@ -465,7 +465,7 @@ CommandList = List[Tuple[str, Path]]
 
 
 class DataladInstaller:
-    """ The script's primary class, a manager & runner of components """
+    """The script's primary class, a manager & runner of components"""
 
     COMPONENTS: ClassVar[Dict[str, Type["Component"]]] = {}
 
@@ -541,7 +541,7 @@ class DataladInstaller:
     def register_component(
         cls, name: str
     ) -> Callable[[Type["Component"]], Type["Component"]]:
-        """ A decorator for registering concrete `Component` subclasses """
+        """A decorator for registering concrete `Component` subclasses"""
 
         def decorator(component: Type["Component"]) -> Type["Component"]:
             cls.COMPONENTS[name] = component
@@ -552,14 +552,14 @@ class DataladInstaller:
     def __enter__(self) -> "DataladInstaller":
         return self
 
-    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+    def __exit__(self, exc_type: Any, _exc_value: Any, _exc_tb: Any) -> None:
         if exc_type is None:
             # Ensure env write files at least exist
             for p in self.env_write_files:
                 p.touch()
 
     def ensure_env_write_file(self) -> None:
-        """ If there are no env write files registered, add one """
+        """If there are no env write files registered, add one"""
         if not self.env_write_files:
             fd, fpath = tempfile.mkstemp(prefix="dl-env-", suffix=".sh")
             os.close(fd)
@@ -704,7 +704,7 @@ class DataladInstaller:
         return 0 if ok else 1
 
     def addenv(self, line: str) -> None:
-        """ Write a line to the env write files """
+        """Write a line to the env write files"""
         log.debug("Adding line %r to env_write_files", line)
         for p in self.env_write_files:
             with p.open("a") as fp:
@@ -723,7 +723,7 @@ class DataladInstaller:
         self.addenv(line)
 
     def addcomponent(self, name: str, **kwargs: Any) -> None:
-        """ Provision the given component """
+        """Provision the given component"""
         try:
             component = self.COMPONENTS[name]
         except AttributeError:
@@ -792,7 +792,7 @@ class Component(ABC):
 
 @DataladInstaller.register_component("venv")
 class VenvComponent(Component):
-    """ Creates a Python virtual environment using ``python -m venv`` """
+    """Creates a Python virtual environment using ``python -m venv``"""
 
     OPTION_PARSER = OptionParser(
         "venv",
@@ -854,7 +854,7 @@ class VenvComponent(Component):
 
 @DataladInstaller.register_component("miniconda")
 class MinicondaComponent(Component):
-    """ Installs Miniconda """
+    """Installs Miniconda"""
 
     OPTION_PARSER = OptionParser(
         "miniconda",
@@ -965,7 +965,7 @@ class MinicondaComponent(Component):
 
 @DataladInstaller.register_component("conda-env")
 class CondaEnvComponent(Component):
-    """ Creates a Conda environment """
+    """Creates a Conda environment"""
 
     OPTION_PARSER = OptionParser(
         "conda-env",
@@ -1027,7 +1027,7 @@ class CondaEnvComponent(Component):
 
 @DataladInstaller.register_component("neurodebian")
 class NeurodebianComponent(Component):
-    """ Installs & configures NeuroDebian """
+    """Installs & configures NeuroDebian"""
 
     OPTION_PARSER = OptionParser(
         "neurodebian",
@@ -1115,7 +1115,7 @@ class InstallableComponent(Component):
 
     @classmethod
     def register_installer(cls, installer: Type["Installer"]) -> Type["Installer"]:
-        """ A decorator for registering concrete `Installer` subclasses """
+        """A decorator for registering concrete `Installer` subclasses"""
         cls.INSTALLERS[installer.NAME] = installer
         methods = cls.OPTION_PARSER.options["--method"].choices
         assert methods is not None
@@ -1125,7 +1125,7 @@ class InstallableComponent(Component):
         return installer
 
     def get_installer(self, name: str) -> "Installer":
-        """ Retrieve & instantiate the installer with the given name """
+        """Retrieve & instantiate the installer with the given name"""
         try:
             installer_cls = self.INSTALLERS[name]
         except KeyError:
@@ -1152,7 +1152,7 @@ class InstallableComponent(Component):
 
 @DataladInstaller.register_component("git-annex")
 class GitAnnexComponent(InstallableComponent):
-    """ Installs git-annex """
+    """Installs git-annex"""
 
     NAME = "git-annex"
 
@@ -1173,7 +1173,7 @@ class GitAnnexComponent(InstallableComponent):
 
 @DataladInstaller.register_component("datalad")
 class DataladComponent(InstallableComponent):
-    """ Installs Datalad """
+    """Installs Datalad"""
 
     NAME = "datalad"
 
@@ -1193,7 +1193,7 @@ class DataladComponent(InstallableComponent):
 
 
 class Installer(ABC):
-    """ An abstract base class for installation methods for packages """
+    """An abstract base class for installation methods for packages"""
 
     NAME: ClassVar[str]
 
@@ -1257,7 +1257,7 @@ EXTRA_ARGS_OPTION = Option(
 @GitAnnexComponent.register_installer
 @DataladComponent.register_installer
 class AptInstaller(Installer):
-    """ Installs via apt-get """
+    """Installs via apt-get"""
 
     NAME = "apt"
 
@@ -1310,7 +1310,7 @@ class AptInstaller(Installer):
 @DataladComponent.register_installer
 @GitAnnexComponent.register_installer
 class HomebrewInstaller(Installer):
-    """ Installs via brew (Homebrew) """
+    """Installs via brew (Homebrew)"""
 
     NAME = "brew"
 
@@ -1463,7 +1463,7 @@ class PipInstaller(Installer):
 
 @GitAnnexComponent.register_installer
 class NeurodebianInstaller(AptInstaller):
-    """ Installs via apt-get and the NeuroDebian repositories """
+    """Installs via apt-get and the NeuroDebian repositories"""
 
     NAME = "neurodebian"
 
@@ -1480,7 +1480,7 @@ class NeurodebianInstaller(AptInstaller):
 @GitAnnexComponent.register_installer
 @DataladComponent.register_installer
 class DebURLInstaller(Installer):
-    """ Installs a ``*.deb`` package by URL """
+    """Installs a ``*.deb`` package by URL"""
 
     NAME = "deb-url"
 
@@ -1581,7 +1581,7 @@ class AutobuildSnapshotInstaller(Installer):
 
 @GitAnnexComponent.register_installer
 class AutobuildInstaller(AutobuildSnapshotInstaller):
-    """ Installs the latest official build of git-annex from kitenet.net """
+    """Installs the latest official build of git-annex from kitenet.net"""
 
     NAME = "autobuild"
 
@@ -1626,7 +1626,7 @@ class SnapshotInstaller(AutobuildSnapshotInstaller):
 @GitAnnexComponent.register_installer
 @DataladComponent.register_installer
 class CondaInstaller(Installer):
-    """ Installs via conda """
+    """Installs via conda"""
 
     NAME = "conda"
 
@@ -1971,7 +1971,7 @@ class DataladPackagesBuildInstaller(Installer):
 
 @GitAnnexComponent.register_installer
 class DMGInstaller(Installer):
-    """ Installs a local ``*.dmg`` file """
+    """Installs a local ``*.dmg`` file"""
 
     NAME = "dmg"
 
@@ -2040,7 +2040,7 @@ def compose_pip_requirement(
     urlspec: Optional[str] = None,
     extras: Optional[str] = None,
 ) -> str:
-    """ Compose a PEP 503 requirement specifier """
+    """Compose a PEP 503 requirement specifier"""
     req = package
     if extras is not None:
         req += f"[{extras}]"
@@ -2055,19 +2055,19 @@ def compose_pip_requirement(
 
 
 def mktempdir(prefix: str) -> Path:
-    """ Create a directory in ``$TMPDIR`` with the given prefix """
+    """Create a directory in ``$TMPDIR`` with the given prefix"""
     return Path(tempfile.mkdtemp(prefix=prefix))
 
 
 def runcmd(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess:
-    """ Run (and log) a given command.  Raise an error if it fails. """
+    """Run (and log) a given command.  Raise an error if it fails."""
     arglist = [str(a) for a in args]
     log.info("Running: %s", " ".join(map(shlex.quote, arglist)))
     return subprocess.run(arglist, check=True, **kwargs)
 
 
-def readcmd(*args: Any, **kwargs: Any) -> str:
-    """ Run a command, capturing & returning its stdout """
+def readcmd(*args: Any) -> str:
+    """Run a command, capturing & returning its stdout"""
     s = runcmd(*args, stdout=subprocess.PIPE, universal_newlines=True).stdout
     assert isinstance(s, str)
     return s
@@ -2076,7 +2076,7 @@ def readcmd(*args: Any, **kwargs: Any) -> str:
 def install_git_annex_dmg(
     dmgpath: Union[str, os.PathLike], manager: DataladInstaller
 ) -> Path:
-    """ Install git-annex from a DMG file at ``dmgpath`` """
+    """Install git-annex from a DMG file at ``dmgpath``"""
     runcmd("hdiutil", "attach", dmgpath)
     runcmd("rsync", "-a", "/Volumes/git-annex/git-annex.app", "/Applications/")
     runcmd("hdiutil", "detach", "/Volumes/git-annex/")
