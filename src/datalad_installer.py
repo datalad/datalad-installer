@@ -849,6 +849,9 @@ class VenvComponent(Component):
                 "install",
                 "pip @ git+https://github.com/pypa/pip",
             )
+        else:
+            # Ensure we have a recent pip
+            runcmd(installer.python, "-m", "pip", "install", "--upgrade", "pip")
         self.manager.installer_stack.append(installer)
 
 
