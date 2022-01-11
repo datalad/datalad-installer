@@ -4,6 +4,7 @@ from pathlib import Path
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import pytest
 import datalad_installer
@@ -225,6 +226,9 @@ def test_install_venv_datalad(tmp_path):
     assert (venv_path / bin_path("datalad")).exists()
 
 
+@pytest.mark.skipif(
+    sys.version_info[:2] < (3, 7), reason="dev pip no longer supports Python < 3.7"
+)
 def test_install_venv_dev_pip_datalad(tmp_path):
     venv_path = tmp_path / "venv"
     r = main(
