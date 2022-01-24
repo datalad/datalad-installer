@@ -19,7 +19,7 @@ __license__ = "MIT"
 __url__ = "https://github.com/datalad/datalad-installer"
 
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 import ctypes
 from enum import Enum
 from functools import total_ordering
@@ -1739,7 +1739,8 @@ class DataladGitAnnexBuildInstaller(Installer):
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         assert package == "git-annex"
-        with tempfile.TemporaryDirectory() as tmpdir_:
+        # Try to ignore cleanup errors on Windows:
+        with suppress(NotADirectoryError), tempfile.TemporaryDirectory() as tmpdir_:
             tmpdir = Path(tmpdir_)
             if ON_LINUX:
                 self.download("ubuntu", tmpdir)
