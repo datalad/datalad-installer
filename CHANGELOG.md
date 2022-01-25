@@ -1,3 +1,29 @@
+# v0.5.5 (Tue Jan 25 2022)
+
+#### 🐛 Bug Fix
+
+- datalad/git-annex: Uninstall git-annex package before installing git-annex-standalone [#100](https://github.com/datalad/datalad-installer/pull/100) ([@jwodder](https://github.com/jwodder))
+- Try to ignore tempdir cleanup errors on Windows [#96](https://github.com/datalad/datalad-installer/pull/96) ([@jwodder](https://github.com/jwodder))
+- Ensure the pip version in venvs is up-to-date [#97](https://github.com/datalad/datalad-installer/pull/97) ([@jwodder](https://github.com/jwodder))
+- Use `ar` & `tar` instead of `dpkg -x` [#86](https://github.com/datalad/datalad-installer/pull/86) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Improve linting configuration [#98](https://github.com/datalad/datalad-installer/pull/98) ([@jwodder](https://github.com/jwodder))
+- More linting [#93](https://github.com/datalad/datalad-installer/pull/93) ([@jwodder](https://github.com/jwodder))
+- Update codecov action to v2 [#88](https://github.com/datalad/datalad-installer/pull/88) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Test against Python 3.10 and PyPy3.7 [#87](https://github.com/datalad/datalad-installer/pull/87) ([@jwodder](https://github.com/jwodder))
+- Add a `--dev-pip` option for testing against the dev version of pip [#90](https://github.com/datalad/datalad-installer/pull/90) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.5.4 (Mon Jul 26 2021)
 
 #### 🐛 Bug Fix
