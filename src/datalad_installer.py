@@ -1745,6 +1745,10 @@ class DataladGitAnnexBuildInstaller(Installer):
             if ON_LINUX:
                 self.download("ubuntu", tmpdir)
                 (debpath,) = tmpdir.glob("*.deb")
+                if install_dir is None and deb_pkg_installed("git-annex"):
+                    self.manager.sudo(
+                        "dpkg", "--remove", "--ignore-depends=git-annex", "git-annex"
+                    )
                 binpath = install_deb(
                     debpath,
                     self.manager,
@@ -2177,6 +2181,16 @@ def untmppath(path: Path) -> Path:
         return Path(str(path).format(tmpdir=mktempdir("dl-")))
     else:
         return path
+
+
+def deb_pkg_installed(package: str) -> bool:
+    r = subprocess.run(
+        ["dpkg-query", "-Wf", "${db:Status-Status}", package],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        universal_newlines=True,
+    )
+    return r.returncode == 0 and r.stdout == "installed"
 
 
 def main(argv: Optional[List[str]] = None) -> int:
