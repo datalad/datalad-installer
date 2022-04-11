@@ -1727,10 +1727,20 @@ class DataladGitAnnexBuildInstaller(Installer):
         "git-annex": ("git-annex", ["git-annex"]),
     }
 
+    VERSIONED = False
+
     def install_package(
-        self, package: str, install_dir: Optional[Path] = None, **kwargs: Any
+        self,
+        package: str,
+        version: Optional[str] = None,
+        install_dir: Optional[Path] = None,
+        **kwargs: Any,
     ) -> Path:
         log.info("Installing %s via %s", package, self.NAME)
+        if self.VERSIONED:
+            log.info("Version: %s", version)
+        elif version is not None:
+            kwargs["version"] = version
         if install_dir is not None:
             if not ON_LINUX:
                 raise RuntimeError("--install-dir is only supported on Linux")
@@ -1743,7 +1753,7 @@ class DataladGitAnnexBuildInstaller(Installer):
         with suppress(NotADirectoryError), tempfile.TemporaryDirectory() as tmpdir_:
             tmpdir = Path(tmpdir_)
             if ON_LINUX:
-                self.download("ubuntu", tmpdir)
+                self.download("ubuntu", tmpdir, version)
                 (debpath,) = tmpdir.glob("*.deb")
                 if install_dir is None and deb_pkg_installed("git-annex"):
                     self.manager.sudo(
@@ -1756,11 +1766,11 @@ class DataladGitAnnexBuildInstaller(Installer):
                     install_dir=install_dir,
                 )
             elif ON_MACOS:
-                self.download("macos", tmpdir)
+                self.download("macos", tmpdir, version)
                 (dmgpath,) = tmpdir.glob("*.dmg")
                 binpath = install_git_annex_dmg(dmgpath, self.manager)
             elif ON_WINDOWS:
-                self.download("windows", tmpdir)
+                self.download("windows", tmpdir, version)
                 (exepath,) = tmpdir.glob("*.exe")
                 self.manager.run_maybe_elevated(exepath, "/S")
                 binpath = Path("C:/Program Files", "Git", "usr", "bin")
@@ -1777,12 +1787,12 @@ class DataladGitAnnexBuildInstaller(Installer):
             raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
 
     @staticmethod
-    def download(ostype: str, target_dir: Path) -> None:
+    def download(ostype: str, target_dir: Path, _version: Optional[str]) -> None:
         """
         Download & unzip the artifact from the latest successful build of
         datalad/git-annex for the given OS in the given directory
         """
-        GitHubArtifactDownloader().download_last_successful_artifact(
+        GitHubClient().download_last_successful_artifact(
             target_dir, repo="datalad/git-annex", workflow=f"build-{ostype}.yaml"
         )
 
@@ -1797,18 +1807,36 @@ class DataladGitAnnexLatestBuildInstaller(DataladGitAnnexBuildInstaller):
     NAME = "datalad/git-annex"
 
     @staticmethod
-    def download(ostype: str, target_dir: Path) -> None:
+    def download(ostype: str, target_dir: Path, _version: Optional[str]) -> None:
         """
         Download & unzip the artifact from the latest build of
         datalad/git-annex for the given OS in the given directory
         """
-        GitHubArtifactDownloader().download_latest_artifact(
+        GitHubClient().download_latest_artifact(
             target_dir, repo="datalad/git-annex", workflow=f"build-{ostype}.yaml"
         )
 
 
-class GitHubArtifactDownloader:
-    def __init__(self) -> None:
+@GitAnnexComponent.register_installer
+class DataladGitAnnexReleaseBuildInstaller(DataladGitAnnexBuildInstaller):
+    """Installs git-annex via an asset of a release of datalad/git-annex"""
+
+    NAME = "datalad/git-annex:release"
+
+    VERSIONED = True
+
+    @staticmethod
+    def download(ostype: str, target_dir: Path, version: Optional[str]) -> None:
+        GitHubClient(auth_required=False).download_release_asset(
+            target_dir,
+            repo="datalad/git-annex",
+            ext={"ubuntu": ".deb", "macos": ".dmg", "windows": ".exe"}[ostype],
+            tag=version,
+        )
+
+
+class GitHubClient:
+    def __init__(self, auth_required: bool = True) -> None:
         token = os.environ.get("GITHUB_TOKEN")
         if not token:
             r = subprocess.run(
@@ -1816,18 +1844,21 @@ class GitHubArtifactDownloader:
                 stdout=subprocess.PIPE,
                 universal_newlines=True,
             )
-            if r.returncode != 0 or not r.stdout.strip():
+            if (r.returncode != 0 or not r.stdout.strip()) and auth_required:
                 raise RuntimeError(
                     "GitHub OAuth token not set.  Set via GITHUB_TOKEN"
                     " environment variable or hub.oauthtoken Git config option."
                 )
             token = r.stdout.strip()
-        self.token: str = token
+        if token:
+            self.headers = {"Authorization": f"Bearer {token}"}
+        else:
+            self.headers = {}
 
     @contextmanager
     def get(self, url: str) -> Iterator[Any]:
         log.debug("HTTP request: GET %s", url)
-        req = Request(url, headers={"Authorization": f"Bearer {self.token}"})
+        req = Request(url, headers=self.headers)
         with urlopen(req) as r:
             yield r
 
@@ -1835,18 +1866,23 @@ class GitHubArtifactDownloader:
         with self.get(url) as r:
             return json.load(r)
 
-    def get_workflow_runs(self, url: str) -> Iterator[dict]:
+    def paginate(self, url: str, key: Optional[str] = None) -> Iterator[dict]:
         while True:
             with self.get(url) as r:
                 data = json.load(r)
-                for run in data["workflow_runs"]:
-                    assert isinstance(run, dict)
-                    yield run
+                if key is not None:
+                    data = data[key]
+                for obj in data:
+                    assert isinstance(obj, dict)
+                    yield obj
                 links = parse_header_links(r.headers.get("Link"))
                 url2 = links.get("next", {}).get("url")
                 if url2 is None:
                     break
                 url = url2
+
+    def get_workflow_runs(self, url: str) -> Iterator[dict]:
+        return self.paginate(url, key="workflow_runs")
 
     def get_archive_download_url(self, artifacts_url: str) -> Optional[str]:
         """
@@ -1875,11 +1911,7 @@ class GitHubArtifactDownloader:
         log.info("Downloading artifact package from %s", archive_download_url)
         target_dir.mkdir(parents=True, exist_ok=True)
         artifact_path = target_dir / ".artifact.zip"
-        download_file(
-            archive_download_url,
-            artifact_path,
-            headers={"Authorization": f"Bearer {self.token}"},
-        )
+        download_file(archive_download_url, artifact_path, headers=self.headers)
         with ZipFile(str(artifact_path)) as zipf:
             zipf.extractall(str(target_dir))
         artifact_path.unlink()
@@ -1925,6 +1957,56 @@ class GitHubArtifactDownloader:
                 return
         else:
             raise RuntimeError("No workflow runs with artifacts found!")
+
+    def get_latest_release_asset(self, repo: str, ext: str) -> dict:
+        """
+        Finds the most recent non-draft release of ``repo`` containing an asset
+        whose name ends with ``ext`` and returns that asset's information
+        """
+        first = True
+        for release in self.paginate(f"https://api.github.com/repos/{repo}/releases"):
+            if release["draft"]:
+                continue
+            for asset in release["assets"]:
+                if asset["name"].endswith(ext):
+                    assert isinstance(asset, dict)
+                    return asset
+            if first:
+                log.warning(
+                    "Most recent release of %s lacks asset for this OS;"
+                    " falling back to older releases",
+                    repo,
+                )
+                first = False
+        raise RuntimeError("No release found with asset for this OS!")
+
+    def get_release_asset(self, repo: str, tag: str, ext: str) -> dict:
+        """
+        Returns information on the asset of release ``tag`` of repository
+        ``repo`` whose filename ends with ``ext``
+        """
+        release = self.getjson(
+            f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
+        )
+        for asset in release["assets"]:
+            if asset["name"].endswith(ext):
+                assert isinstance(asset, dict)
+                return asset
+        raise RuntimeError(f"No asset for this OS found in release {tag!r}!")
+
+    def download_release_asset(
+        self, target_dir: Path, repo: str, ext: str, tag: Optional[str]
+    ) -> None:
+        if tag is None:
+            asset = self.get_latest_release_asset(repo, ext)
+        else:
+            asset = self.get_release_asset(repo, tag, ext)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        download_file(
+            asset["browser_download_url"],
+            target_dir / asset["name"],
+            headers=self.headers,
+        )
 
 
 @GitAnnexComponent.register_installer

@@ -176,8 +176,9 @@ specifying the installation method to use; the supported methods are:
 - ``autobuild``
 - ``brew``
 - ``conda`` (only supported on Linux)
-- ``datalad/git-annex:tested``
 - ``datalad/git-annex``
+- ``datalad/git-annex:release``
+- ``datalad/git-annex:tested``
 - ``datalad/packages``
 - ``deb-url``
 - ``dmg``
@@ -290,6 +291,46 @@ Options
                                 the installation command.
 
 
+``datalad/git-annex``
+~~~~~~~~~~~~~~~~~~~~~
+
+Downloads & installs the artifact from the latest build of `datalad/git-annex
+<https://github.com/datalad/git-annex>`_ that produced artifacts for the
+running OS.  Does not support installing specific versions.
+
+This installation method requires a GitHub OAuth token with appropriate
+permissions.  It must be specified either via the ``GITHUB_TOKEN`` environment
+variable or as the value of the ``hub.oauthtoken`` Git config option.
+
+Options
+'''''''
+
+--install-dir DIR               Directory in which to unpack the ``*.deb``
+                                package instead of installing it system-wide.
+                                If this contains the string ``{tmpdir}``, it
+                                will be replaced with the path to a directory
+                                in ``$TMPDIR``. (Linux only)
+
+
+``datalad/git-annex:release``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Downloads & installs the asset for the running OS from the latest release (or
+the specified version) of `datalad/git-annex
+<https://github.com/datalad/git-annex>`_.  If no explicit version is specified
+and the latest release lacks an asset for the running OS, the most recent
+release with a matching asset is used.
+
+Options
+'''''''
+
+--install-dir DIR               Directory in which to unpack the ``*.deb``
+                                package instead of installing it system-wide.
+                                If this contains the string ``{tmpdir}``, it
+                                will be replaced with the path to a directory
+                                in ``$TMPDIR``. (Linux only)
+
+
 ``datalad/git-annex:tested``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -310,25 +351,6 @@ Options
                                 will be replaced with the path to a directory
                                 in ``$TMPDIR``. (Linux only)
 
-``datalad/git-annex``
-~~~~~~~~~~~~~~~~~~~~~
-
-Downloads & installs the artifact from the latest build of `datalad/git-annex
-<https://github.com/datalad/git-annex>`_ that produced artifacts for the
-running OS.  Does not support installing specific versions.
-
-This installation method requires a GitHub OAuth token with appropriate
-permissions.  It must be specified either via the ``GITHUB_TOKEN`` environment
-variable or as the value of the ``hub.oauthtoken`` Git config option.
-
-Options
-'''''''
-
---install-dir DIR               Directory in which to unpack the ``*.deb``
-                                package instead of installing it system-wide.
-                                If this contains the string ``{tmpdir}``, it
-                                will be replaced with the path to a directory
-                                in ``$TMPDIR``. (Linux only)
 
 ``datalad/packages``
 ~~~~~~~~~~~~~~~~~~~~~
