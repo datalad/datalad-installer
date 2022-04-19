@@ -1,3 +1,15 @@
+# v0.6.0 (Tue Apr 19 2022)
+
+#### 🚀 Enhancement
+
+- Install Rosetta on M1 Macs before installing git-annex from a DMG [#104](https://github.com/datalad/datalad-installer/pull/104) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.5.5 (Tue Jan 25 2022)
 
 #### 🐛 Bug Fix
