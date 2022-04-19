@@ -2085,6 +2085,9 @@ def install_git_annex_dmg(
     dmgpath: Union[str, os.PathLike], manager: DataladInstaller
 ) -> Path:
     """Install git-annex from a DMG file at ``dmgpath``"""
+    if platform.machine() == "arm64":
+        log.info("M1 Mac detected; installing Rosetta")
+        runcmd("/usr/sbin/softwareupdate", "--install-rosetta", "--agree-to-license")
     runcmd("hdiutil", "attach", dmgpath)
     runcmd("rsync", "-a", "/Volumes/git-annex/git-annex.app", "/Applications/")
     runcmd("hdiutil", "detach", "/Volumes/git-annex/")
