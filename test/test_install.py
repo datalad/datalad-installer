@@ -321,6 +321,7 @@ def test_install_git_annex_brew(mocker):
     assert shutil.which("git-annex") is not None
 
 
+@pytest.mark.ghauth
 @pytest.mark.parametrize(
     "ostype,ext",
     [
@@ -343,6 +344,7 @@ def test_download_latest_git_annex_release_asset(
     assert p.stat().st_size >= (1 << 20)  # 1 MiB
 
 
+@pytest.mark.ghauth
 @pytest.mark.parametrize(
     "ostype,version,filename,size",
     [
