@@ -2155,7 +2155,7 @@ def parse_header_links(links_header: str) -> Dict[str, Dict[str, str]]:
 
         {"next": {"url": "...", "rel": "next"}, "last": { ... }}
     """
-    # <https://git.io/JcYZi>
+    # <https://github.com/psf/requests/blob/c45a4df/requests/utils.py#L829>
     links: Dict[str, Dict[str, str]] = {}
     replace_chars = " '\""
     value = links_header.strip(replace_chars)
