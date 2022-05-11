@@ -1,3 +1,19 @@
+# v0.7.0 (Wed May 11 2022)
+
+#### 🚀 Enhancement
+
+- Add `datalad/git-annex:release` method [#102](https://github.com/datalad/datalad-installer/pull/102) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Expand git.io link in comment [#105](https://github.com/datalad/datalad-installer/pull/105) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.6.0 (Tue Apr 19 2022)
 
 #### 🚀 Enhancement
