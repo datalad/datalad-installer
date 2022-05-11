@@ -8,7 +8,13 @@ import sys
 import tempfile
 import pytest
 import datalad_installer
-from datalad_installer import ON_LINUX, ON_MACOS, ON_WINDOWS, main
+from datalad_installer import (
+    ON_LINUX,
+    ON_MACOS,
+    ON_WINDOWS,
+    DataladGitAnnexReleaseBuildInstaller,
+    main,
+)
 
 
 def bin_path(binname):
@@ -313,3 +319,54 @@ def test_install_git_annex_brew(mocker):
     assert r == 0
     assert spy.call_args_list[-1] == mocker.call("brew", "install", "git-annex")
     assert shutil.which("git-annex") is not None
+
+
+@pytest.mark.ghauth
+@pytest.mark.parametrize(
+    "ostype,ext",
+    [
+        ("ubuntu", ".deb"),
+        ("macos", ".dmg"),
+        ("windows", ".exe"),
+    ],
+)
+def test_download_latest_git_annex_release_asset(
+    ostype: str, ext: str, tmp_path: Path
+) -> None:
+    DataladGitAnnexReleaseBuildInstaller.download(
+        ostype=ostype,
+        target_dir=tmp_path,
+        version=None,
+    )
+    (p,) = tmp_path.iterdir()
+    assert p.is_file()
+    assert p.suffix == ext
+    assert p.stat().st_size >= (1 << 20)  # 1 MiB
+
+
+@pytest.mark.ghauth
+@pytest.mark.parametrize(
+    "ostype,version,filename,size",
+    [
+        (
+            "ubuntu",
+            "8.20211231",
+            "git-annex-standalone_8.20211231-1.ndall+1_amd64.deb",
+            49966540,
+        ),
+        ("macos", "8.20211123", "git-annex_8.20211123_x64.dmg", 28809446),
+        ("windows", "8.20211117", "git-annex-installer_8.20211117_x64.exe", 18156853),
+    ],
+)
+def test_download_specific_git_annex_release_asset(
+    ostype: str, version: str, filename: str, size: int, tmp_path: Path
+) -> None:
+    DataladGitAnnexReleaseBuildInstaller.download(
+        ostype=ostype,
+        target_dir=tmp_path,
+        version=version,
+    )
+    (p,) = tmp_path.iterdir()
+    assert p.is_file()
+    assert p.name == filename
+    assert p.stat().st_size == size
