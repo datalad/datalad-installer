@@ -1195,6 +1195,48 @@ class DataladComponent(InstallableComponent):
     )
 
 
+@DataladInstaller.register_component("rclone")
+class RCloneComponent(InstallableComponent):
+    """Installs rclone"""
+
+    NAME = "rclone"
+
+    OPTION_PARSER = OptionParser(
+        "rclone",
+        versioned=True,
+        help="Install rclone",
+        options=[
+            Option(
+                "-m",
+                "--method",
+                choices=["auto"],
+                help="Select the installation method to use",
+            ),
+        ],
+    )
+
+
+@DataladInstaller.register_component("rclone")
+class GitAnnexRemoteRCloneComponent(InstallableComponent):
+    """Installs git-annex-remote-rclone"""
+
+    NAME = "git-annex-remote-rclone"
+
+    OPTION_PARSER = OptionParser(
+        "git-annex-remote-rclone",
+        versioned=True,
+        help="Install git-annex-remote-rclone",
+        options=[
+            Option(
+                "-m",
+                "--method",
+                choices=["auto"],
+                help="Select the installation method to use",
+            ),
+        ],
+    )
+
+
 class Installer(ABC):
     """An abstract base class for installation methods for packages"""
 
@@ -1259,6 +1301,8 @@ EXTRA_ARGS_OPTION = Option(
 
 @GitAnnexComponent.register_installer
 @DataladComponent.register_installer
+@RCloneComponent.register_installer
+@GitAnnexRemoteRCloneComponent.register_installer
 class AptInstaller(Installer):
     """Installs via apt-get"""
 
@@ -1274,6 +1318,11 @@ class AptInstaller(Installer):
     PACKAGES = {
         "datalad": ("datalad", ["datalad"]),
         "git-annex": ("git-annex", ["git-annex"]),
+        "rclone": ("rclone", ["rclone"]),
+        "git-annex-remote-rclone": (
+            "git-annex-remote-rclone",
+            ["git-annex-remote-rclone"],
+        ),
     }
 
     def install_package(
@@ -1312,6 +1361,8 @@ class AptInstaller(Installer):
 
 @DataladComponent.register_installer
 @GitAnnexComponent.register_installer
+@RCloneComponent.register_installer
+@GitAnnexRemoteRCloneComponent.register_installer
 class HomebrewInstaller(Installer):
     """Installs via brew (Homebrew)"""
 
@@ -1324,6 +1375,11 @@ class HomebrewInstaller(Installer):
     PACKAGES = {
         "datalad": ("datalad", ["datalad"]),
         "git-annex": ("git-annex", ["git-annex"]),
+        "rclone": ("rclone", ["rclone"]),
+        "git-annex-remote-rclone": (
+            "git-annex-remote-rclone",
+            ["git-annex-remote-rclone"],
+        ),
     }
 
     def install_package(
@@ -1482,6 +1538,8 @@ class NeurodebianInstaller(AptInstaller):
 
 @GitAnnexComponent.register_installer
 @DataladComponent.register_installer
+@RCloneComponent.register_installer
+@GitAnnexRemoteRCloneComponent.register_installer
 class DebURLInstaller(Installer):
     """Installs a ``*.deb`` package by URL"""
 
@@ -1501,6 +1559,11 @@ class DebURLInstaller(Installer):
     PACKAGES = {
         "git-annex": ("git-annex", ["git-annex"]),
         "datalad": ("datalad", ["datalad"]),
+        "rclone": ("rclone", ["rclone"]),
+        "git-annex-remote-rclone": (
+            "git-annex-remote-rclone",
+            ["git-annex-remote-rclone"],
+        ),
     }
 
     def install_package(
@@ -1628,6 +1691,7 @@ class SnapshotInstaller(AutobuildSnapshotInstaller):
 
 @GitAnnexComponent.register_installer
 @DataladComponent.register_installer
+@RCloneComponent.register_installer
 class CondaInstaller(Installer):
     """Installs via conda"""
 
@@ -1640,6 +1704,7 @@ class CondaInstaller(Installer):
     PACKAGES = {
         "datalad": ("datalad", ["datalad"]),
         "git-annex": ("git-annex", ["git-annex"]),
+        "rclone": ("rclone", ["rclone"]),
     }
 
     def __init__(
