@@ -51,6 +51,7 @@ from typing import (
     Tuple,
     Type,
     Union,
+    cast,
 )
 from urllib.request import Request, urlopen
 from zipfile import ZipFile
@@ -522,6 +523,7 @@ class DataladInstaller:
         #: method
         self.installer_stack: List["Installer"] = [
             # Lowest priority first
+            GARRCGitHubInstaller(self),
             DataladPackagesBuildInstaller(self),
             AutobuildInstaller(self),
             HomebrewInstaller(self),
@@ -599,6 +601,19 @@ class DataladInstaller:
                 self.sudo(*args, **kwargs)
             else:
                 raise
+
+    def move_maybe_elevated(self, path: Path, dest: Path) -> None:
+        # `dest` must be a file path, not a directory path.
+        log.info("Moving %s to %s", path, dest)
+        try:
+            path.replace(dest)
+        except PermissionError:
+            log.info("Operation requires elevation; rerunning as administrator")
+            if ON_POSIX:
+                args = ["mv", "-f", "--", str(path), str(dest)]
+            else:
+                args = ["move", str(path), str(dest)]
+            self.sudo(*args)
 
     @classmethod
     def parse_args(cls, args: List[str]) -> Union[Immediate, ParsedArgs]:
@@ -1551,7 +1566,7 @@ class DebURLInstaller(Installer):
             "--install-dir",
             converter=Path,
             metavar="DIR",
-            help="Directory in which to unpack the `*.deb`",
+            help="Directory in which to install the program",
         ),
         EXTRA_ARGS_OPTION,
     ]
@@ -1784,7 +1799,7 @@ class DataladGitAnnexBuildInstaller(Installer):
             "--install-dir",
             converter=Path,
             metavar="DIR",
-            help="Directory in which to unpack the `*.deb`",
+            help="Directory in which to install the program",
         ),
     ]
 
@@ -1898,6 +1913,154 @@ class DataladGitAnnexReleaseBuildInstaller(DataladGitAnnexBuildInstaller):
             ext={"ubuntu": ".deb", "macos": ".dmg", "windows": ".exe"}[ostype],
             tag=version,
         )
+
+
+@GitAnnexComponent.register_installer
+class DataladPackagesBuildInstaller(Installer):
+    """
+    Installs git-annex via artifacts uploaded to
+    <https://datasets.datalad.org/?dir=/datalad/packages>
+    """
+
+    NAME = "datalad/packages"
+
+    OPTIONS: ClassVar[List[Option]] = []
+
+    PACKAGES = {
+        "git-annex": ("git-annex", ["git-annex"]),
+    }
+
+    def install_package(
+        self, package: str, version: Optional[str] = None, **kwargs: Any
+    ) -> Path:
+        log.info("Installing %s via datalad/packages", package)
+        log.info("Version: %s", version)
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
+        assert package == "git-annex"
+        # Installing under a tempfile.TemporaryDirectory() leads to an error
+        # when Python tries to clean up the directory, so we'll just leave the
+        # .exe file alone.
+        tmpdir = mktempdir("dl-datalad-package-")
+        if ON_WINDOWS:
+            if version is None:
+                exefile = "git-annex-installer_latest-snapshot_x64.exe"
+            else:
+                exefile = f"git-annex-installer_{version}_x64.exe"
+            exepath = tmpdir / exefile
+            download_file(
+                f"https://datasets.datalad.org/datalad/packages/windows/{exefile}",
+                exepath,
+            )
+            self.manager.run_maybe_elevated(exepath, "/S")
+            binpath = Path("C:/Program Files", "Git", "usr", "bin")
+            self.manager.addpath(binpath)
+        else:
+            raise AssertionError("Method should not be called on unsupported platforms")
+        log.debug("Installed program directory: %s", binpath)
+        return binpath
+
+    def assert_supported_system(self) -> None:
+        if not ON_WINDOWS:
+            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
+
+
+@GitAnnexComponent.register_installer
+class DMGInstaller(Installer):
+    """Installs a local ``*.dmg`` file"""
+
+    NAME = "dmg"
+
+    OPTIONS = [
+        Option(
+            "--path",
+            converter=Path,
+            metavar="PATH",
+            help="Path to local `*.dmg` to install",
+        ),
+    ]
+
+    PACKAGES = {
+        "git-annex": ("git-annex", ["git-annex"]),
+    }
+
+    def install_package(
+        self,
+        package: str,
+        path: Optional[Path] = None,
+        **kwargs: Any,
+    ) -> Path:
+        log.info("Installing %s via dmg", package)
+        if path is None:
+            raise RuntimeError("dmg method requires path")
+        log.info("Path: %s", path)
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
+        binpath = install_git_annex_dmg(path, self.manager)
+        log.debug("Installed program directory: %s", binpath)
+        return binpath
+
+    def assert_supported_system(self) -> None:
+        if not ON_MACOS:
+            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
+
+
+@GitAnnexRemoteRCloneComponent.register_installer
+class GARRCGitHubInstaller(Installer):
+    """Installs git-annex-remote-rclone from a tag on GitHub"""
+
+    NAME = "DanielDent/git-annex-remote-rclone"
+
+    OPTIONS = [
+        Option(
+            "--install-dir",
+            converter=Path,
+            metavar="DIR",
+            help="Directory in which to install the program",
+        ),
+    ]
+
+    PACKAGES = {
+        "git-annex-remote-rclone": (
+            "git-annex-remote-rclone",
+            ["git-annex-remote-rclone"],
+        ),
+    }
+
+    REPO = "DanielDent/git-annex-remote-rclone"
+
+    def install_package(
+        self,
+        package: str,
+        version: Optional[str] = None,
+        install_dir: Optional[Path] = None,
+        **kwargs: Any,
+    ) -> Path:
+        log.info("Installing %s from GitHub release", package)
+        log.info("Version: %s", version)
+        if install_dir is not None:
+            install_dir = untmppath(install_dir)
+        else:
+            install_dir = Path("/usr/local/bin")
+        log.info("Install dir: %s", install_dir)
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
+        if version is None:
+            latest = GitHubClient(auth_required=False).get_latest_release(self.REPO)
+            version = latest["tag_name"]
+            log.info("Found latest release of %s: %s", self.REPO, version)
+        p = download_to_tempfile(
+            f"https://raw.githubusercontent.com/{self.REPO}/{version}/git-annex-remote-rclone"
+        )
+        p.chmod(0o755)
+        install_dir.mkdir(parents=True, exist_ok=True)
+        self.manager.move_maybe_elevated(p, install_dir / "git-annex-remote-rclone")
+        log.debug("Installed program directory: %s", install_dir)
+        return install_dir
+
+    def assert_supported_system(self) -> None:
+        if not ON_POSIX:
+            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
 
 
 class GitHubClient:
@@ -2073,95 +2236,15 @@ class GitHubClient:
             headers=self.headers,
         )
 
-
-@GitAnnexComponent.register_installer
-class DataladPackagesBuildInstaller(Installer):
-    """
-    Installs git-annex via artifacts uploaded to
-    <https://datasets.datalad.org/?dir=/datalad/packages>
-    """
-
-    NAME = "datalad/packages"
-
-    OPTIONS: ClassVar[List[Option]] = []
-
-    PACKAGES = {
-        "git-annex": ("git-annex", ["git-annex"]),
-    }
-
-    def install_package(
-        self, package: str, version: Optional[str] = None, **kwargs: Any
-    ) -> Path:
-        log.info("Installing %s via datalad/packages", package)
-        log.info("Version: %s", version)
-        if kwargs:
-            log.warning("Ignoring extra installer arguments: %r", kwargs)
-        assert package == "git-annex"
-        # Installing under a tempfile.TemporaryDirectory() leads to an error
-        # when Python tries to clean up the directory, so we'll just leave the
-        # .exe file alone.
-        tmpdir = mktempdir("dl-datalad-package-")
-        if ON_WINDOWS:
-            if version is None:
-                exefile = "git-annex-installer_latest-snapshot_x64.exe"
-            else:
-                exefile = f"git-annex-installer_{version}_x64.exe"
-            exepath = tmpdir / exefile
-            download_file(
-                f"https://datasets.datalad.org/datalad/packages/windows/{exefile}",
-                exepath,
-            )
-            self.manager.run_maybe_elevated(exepath, "/S")
-            binpath = Path("C:/Program Files", "Git", "usr", "bin")
-            self.manager.addpath(binpath)
-        else:
-            raise AssertionError("Method should not be called on unsupported platforms")
-        log.debug("Installed program directory: %s", binpath)
-        return binpath
-
-    def assert_supported_system(self) -> None:
-        if not ON_WINDOWS:
-            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
-
-
-@GitAnnexComponent.register_installer
-class DMGInstaller(Installer):
-    """Installs a local ``*.dmg`` file"""
-
-    NAME = "dmg"
-
-    OPTIONS = [
-        Option(
-            "--path",
-            converter=Path,
-            metavar="PATH",
-            help="Path to local `*.dmg` to install",
-        ),
-    ]
-
-    PACKAGES = {
-        "git-annex": ("git-annex", ["git-annex"]),
-    }
-
-    def install_package(
-        self,
-        package: str,
-        path: Optional[Path] = None,
-        **kwargs: Any,
-    ) -> Path:
-        log.info("Installing %s via dmg", package)
-        if path is None:
-            raise RuntimeError("dmg method requires path")
-        log.info("Path: %s", path)
-        if kwargs:
-            log.warning("Ignoring extra installer arguments: %r", kwargs)
-        binpath = install_git_annex_dmg(path, self.manager)
-        log.debug("Installed program directory: %s", binpath)
-        return binpath
-
-    def assert_supported_system(self) -> None:
-        if not ON_MACOS:
-            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
+    def get_latest_release(self, repo: str) -> Dict[str, Any]:
+        """
+        Returns information on the most latest non-draft non-prerelease release
+        of ``repo``.  Raises 404 if the repo has no releases.
+        """
+        return cast(
+            Dict[str, Any],
+            self.getjson(f"https://api.github.com/repos/{repo}/releases/latest"),
+        )
 
 
 class MethodNotSupportedError(Exception):
@@ -2187,6 +2270,14 @@ def download_file(
     with urlopen(req) as r:
         with open(path, "wb") as fp:
             shutil.copyfileobj(r, fp)
+
+
+def download_to_tempfile(url: str, headers: Optional[Dict[str, str]] = None) -> Path:
+    fd, tmpfile = tempfile.mkstemp()
+    os.close(fd)
+    p = Path(tmpfile)
+    download_file(url, p, headers)
+    return p
 
 
 def compose_pip_requirement(
