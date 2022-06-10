@@ -523,6 +523,7 @@ class DataladInstaller:
         #: method
         self.installer_stack: List["Installer"] = [
             # Lowest priority first
+            DownloadsRCloneInstaller(self),
             GARRCGitHubInstaller(self),
             DataladPackagesBuildInstaller(self),
             AutobuildInstaller(self),
@@ -1568,7 +1569,7 @@ class DebURLInstaller(Installer):
             "--install-dir",
             converter=Path,
             metavar="DIR",
-            help="Directory in which to install the program",
+            help="Directory in which to unpack the `*.deb`",
         ),
         EXTRA_ARGS_OPTION,
     ]
@@ -1801,7 +1802,7 @@ class DataladGitAnnexBuildInstaller(Installer):
             "--install-dir",
             converter=Path,
             metavar="DIR",
-            help="Directory in which to install the program",
+            help="Directory in which to unpack the `*.deb`",
         ),
     ]
 
@@ -2015,7 +2016,7 @@ class GARRCGitHubInstaller(Installer):
 
     OPTIONS = [
         Option(
-            "--install-dir",
+            "--bin-dir",
             converter=Path,
             metavar="DIR",
             help="Directory in which to install the program",
@@ -2035,16 +2036,16 @@ class GARRCGitHubInstaller(Installer):
         self,
         package: str,
         version: Optional[str] = None,
-        install_dir: Optional[Path] = None,
+        bin_dir: Optional[Path] = None,
         **kwargs: Any,
     ) -> Path:
         log.info("Installing %s from GitHub release", package)
         log.info("Version: %s", version)
-        if install_dir is not None:
-            install_dir = untmppath(install_dir)
+        if bin_dir is not None:
+            bin_dir = untmppath(bin_dir)
         else:
-            install_dir = Path("/usr/local/bin")
-        log.info("Install dir: %s", install_dir)
+            bin_dir = Path("/usr/local/bin")
+        log.info("Bin dir: %s", bin_dir)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         if version is None:
@@ -2057,14 +2058,106 @@ class GARRCGitHubInstaller(Installer):
             f"https://raw.githubusercontent.com/{self.REPO}/{version}/git-annex-remote-rclone"
         )
         p.chmod(0o755)
-        install_dir.mkdir(parents=True, exist_ok=True)
-        self.manager.move_maybe_elevated(p, install_dir / "git-annex-remote-rclone")
-        log.debug("Installed program directory: %s", install_dir)
-        return install_dir
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        self.manager.move_maybe_elevated(p, bin_dir / "git-annex-remote-rclone")
+        log.debug("Installed program directory: %s", bin_dir)
+        return bin_dir
 
     def assert_supported_system(self) -> None:
         if not ON_POSIX:
             raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
+
+
+@RCloneComponent.register_installer
+class DownloadsRCloneInstaller(Installer):
+    """Installs rclone via downloads.rclone.org"""
+
+    NAME = "downloads.rclone.org"
+
+    OPTIONS = [
+        Option(
+            "--bin-dir",
+            converter=Path,
+            metavar="DIR",
+            help="Directory in which to install the program",
+        ),
+        Option(
+            "--man-dir",
+            converter=Path,
+            metavar="DIR",
+            help="Directory in which to install the manpage",
+        ),
+    ]
+
+    PACKAGES = {"rclone": ("rclone", ["rclone"])}
+
+    def install_package(
+        self,
+        package: str,
+        version: Optional[str] = None,
+        bin_dir: Optional[Path] = None,
+        man_dir: Optional[Path] = None,
+        **kwargs: Any,
+    ) -> Path:
+        log.info("Installing %s from downloads.rclone.org", package)
+        log.info("Version: %s", version)
+        bin_dir, man_dir = untmppaths(bin_dir, man_dir)
+        if bin_dir is None:
+            if ON_POSIX:
+                bin_dir = Path("/usr/local/bin")
+            else:
+                raise RuntimeError(
+                    "The downloads.rclone.org method requires --bin-dir to be given on Windows"
+                )
+        log.info("Bin dir: %s", bin_dir)
+        log.info("Man dir: %s", man_dir)
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
+        arch = platform.machine().lower()
+        if arch in ("x86_64", "amd64"):
+            arch = "amd64"
+        elif re.fullmatch(r"i.86", arch) or arch == "x86":
+            arch = "386"
+        elif arch in ("aarch64", "arm64"):
+            arch = "arm64"
+        elif arch.startswith("arm"):
+            arch = "arm"
+        else:
+            raise RuntimeError(f"Machine architecture {arch} not supported by rclone")
+        if ON_LINUX:
+            ostype = "linux"
+            binname = "rclone"
+        elif ON_MACOS:
+            ostype = "osx"
+            binname = "rclone"
+        elif ON_WINDOWS:
+            ostype = "windows"
+            binname = "rclone.exe"
+        else:
+            raise AssertionError("Method should not be called on unsupported platforms")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            url = "https://downloads.rclone.org/"
+            if version is None:
+                url += f"rclone-current-{ostype}-{arch}.zip"
+            else:
+                if not version.startswith("v"):
+                    version = "v" + version
+                url += f"{version}/rclone-{version}-{ostype}-{arch}.zip"
+            download_zipfile(url, tmppath)
+            bin_dir.mkdir(parents=True, exist_ok=True)
+            self.manager.move_maybe_elevated(tmppath / binname, bin_dir / binname)
+            if man_dir is not None:
+                man1_dir = man_dir / "man1"
+                man1_dir.mkdir(parents=True, exist_ok=True)
+                self.manager.move_maybe_elevated(
+                    tmppath / "rclone.1", man1_dir / "rclone.1"
+                )
+        log.debug("Installed program directory: %s", bin_dir)
+        return bin_dir
+
+    def assert_supported_system(self) -> None:
+        pass
 
 
 class GitHubClient:
@@ -2135,19 +2228,6 @@ class GitHubClient:
             assert isinstance(url, str)
             return url
 
-    def download_archive(self, target_dir: Path, archive_download_url: str) -> None:
-        """
-        Downloads the workflow build artifact zip from ``archive_download_url``
-        and expands it in ``target_dir``
-        """
-        log.info("Downloading artifact package from %s", archive_download_url)
-        target_dir.mkdir(parents=True, exist_ok=True)
-        artifact_path = target_dir / ".artifact.zip"
-        download_file(archive_download_url, artifact_path, headers=self.headers)
-        with ZipFile(str(artifact_path)) as zipf:
-            zipf.extractall(str(target_dir))
-        artifact_path.unlink()
-
     def download_latest_artifact(
         self, target_dir: Path, repo: str, workflow: str, branch: str = "master"
     ) -> None:
@@ -2164,7 +2244,8 @@ class GitHubClient:
             artifacts_url = run["artifacts_url"]
             archive_download_url = self.get_archive_download_url(artifacts_url)
             if archive_download_url is not None:
-                self.download_archive(target_dir, archive_download_url)
+                log.info("Downloading artifact package from %s", archive_download_url)
+                download_zipfile(archive_download_url, target_dir)
                 return
         else:
             raise RuntimeError("No workflow runs with artifacts found!")
@@ -2185,7 +2266,8 @@ class GitHubClient:
             artifacts_url = run["artifacts_url"]
             archive_download_url = self.get_archive_download_url(artifacts_url)
             if archive_download_url is not None:
-                self.download_archive(target_dir, archive_download_url)
+                log.info("Downloading artifact package from %s", archive_download_url)
+                download_zipfile(archive_download_url, target_dir)
                 return
         else:
             raise RuntimeError("No workflow runs with artifacts found!")
@@ -2276,12 +2358,29 @@ def download_file(
             shutil.copyfileobj(r, fp)
 
 
-def download_to_tempfile(url: str, headers: Optional[Dict[str, str]] = None) -> Path:
-    fd, tmpfile = tempfile.mkstemp()
+def download_to_tempfile(
+    url: str, suffix: Optional[str] = None, headers: Optional[Dict[str, str]] = None
+) -> Path:
+    # `suffix` should include the dot
+    fd, tmpfile = tempfile.mkstemp(suffix=suffix)
     os.close(fd)
     p = Path(tmpfile)
     download_file(url, p, headers)
     return p
+
+
+def download_zipfile(
+    zip_url: str, target_dir: Path, headers: Optional[Dict[str, str]] = None
+) -> None:
+    """
+    Downloads the zipfile from ``zip_url`` and expands it in ``target_dir``
+    """
+    zippath = download_to_tempfile(zip_url, suffix=".zip", headers=headers)
+    log.debug("Unzipping in %s", target_dir)
+    with ZipFile(str(zippath)) as zipf:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        zipf.extractall(str(target_dir))
+    zippath.unlink()
 
 
 def compose_pip_requirement(
@@ -2421,11 +2520,25 @@ def parse_header_links(links_header: str) -> Dict[str, Dict[str, str]]:
     return links
 
 
-def untmppath(path: Path) -> Path:
+def untmppath(path: Path, tmpdir: Union[str, Path, None] = None) -> Path:
     if "{tmpdir}" in str(path):
-        return Path(str(path).format(tmpdir=mktempdir("dl-")))
+        if tmpdir is None:
+            tmpdir = mktempdir("dl-")
+        return Path(str(path).format(tmpdir=str(tmpdir)))
     else:
         return path
+
+
+def untmppaths(*paths: Optional[Path]) -> Tuple[Optional[Path], ...]:
+    """
+    Expand ``{tmpdir}`` in multiple paths, using the same temporary directory
+    each time
+    """
+    if any("{tmpdir}" in str(p) for p in paths):
+        tmpdir = mktempdir("dl-")
+        return tuple(None if p is None else untmppath(p, tmpdir) for p in paths)
+    else:
+        return paths
 
 
 def deb_pkg_installed(package: str) -> bool:
