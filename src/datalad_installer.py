@@ -540,16 +540,10 @@ class DataladInstaller:
         self.brew_updated: bool = False
 
     @classmethod
-    def register_component(
-        cls, name: str
-    ) -> Callable[[Type["Component"]], Type["Component"]]:
+    def register_component(cls, component: Type["Component"]) -> Type["Component"]:
         """A decorator for registering concrete `Component` subclasses"""
-
-        def decorator(component: Type["Component"]) -> Type["Component"]:
-            cls.COMPONENTS[name] = component
-            return component
-
-        return decorator
+        cls.COMPONENTS[component.NAME] = component
+        return component
 
     def __enter__(self) -> "DataladInstaller":
         return self
@@ -795,6 +789,8 @@ class Component(ABC):
     line and provisioned
     """
 
+    NAME: ClassVar[str]
+
     OPTION_PARSER: ClassVar[OptionParser]
 
     def __init__(self, manager: DataladInstaller) -> None:
@@ -805,9 +801,11 @@ class Component(ABC):
         ...
 
 
-@DataladInstaller.register_component("venv")
+@DataladInstaller.register_component
 class VenvComponent(Component):
     """Creates a Python virtual environment using ``python -m venv``"""
+
+    NAME = "venv"
 
     OPTION_PARSER = OptionParser(
         "venv",
@@ -870,9 +868,11 @@ class VenvComponent(Component):
         self.manager.installer_stack.append(installer)
 
 
-@DataladInstaller.register_component("miniconda")
+@DataladInstaller.register_component
 class MinicondaComponent(Component):
     """Installs Miniconda"""
+
+    NAME = "miniconda"
 
     OPTION_PARSER = OptionParser(
         "miniconda",
@@ -981,9 +981,11 @@ class MinicondaComponent(Component):
         self.manager.addenv("conda activate base")
 
 
-@DataladInstaller.register_component("conda-env")
+@DataladInstaller.register_component
 class CondaEnvComponent(Component):
     """Creates a Conda environment"""
+
+    NAME = "conda-env"
 
     OPTION_PARSER = OptionParser(
         "conda-env",
@@ -1043,9 +1045,11 @@ class CondaEnvComponent(Component):
         self.manager.addenv(f"conda activate {shlex.quote(cname)}")
 
 
-@DataladInstaller.register_component("neurodebian")
+@DataladInstaller.register_component
 class NeurodebianComponent(Component):
     """Installs & configures NeuroDebian"""
+
+    NAME = "neurodebian"
 
     OPTION_PARSER = OptionParser(
         "neurodebian",
@@ -1127,8 +1131,6 @@ class InstallableComponent(Component):
     Superclass for components that install packages via installation methods
     """
 
-    NAME: ClassVar[str]
-
     INSTALLERS: ClassVar[Dict[str, Type["Installer"]]] = {}
 
     @classmethod
@@ -1168,7 +1170,7 @@ class InstallableComponent(Component):
         self.manager.new_commands.extend(bins)
 
 
-@DataladInstaller.register_component("git-annex")
+@DataladInstaller.register_component
 class GitAnnexComponent(InstallableComponent):
     """Installs git-annex"""
 
@@ -1189,7 +1191,7 @@ class GitAnnexComponent(InstallableComponent):
     )
 
 
-@DataladInstaller.register_component("datalad")
+@DataladInstaller.register_component
 class DataladComponent(InstallableComponent):
     """Installs Datalad"""
 
@@ -1210,7 +1212,7 @@ class DataladComponent(InstallableComponent):
     )
 
 
-@DataladInstaller.register_component("rclone")
+@DataladInstaller.register_component
 class RCloneComponent(InstallableComponent):
     """Installs rclone"""
 
@@ -1231,7 +1233,7 @@ class RCloneComponent(InstallableComponent):
     )
 
 
-@DataladInstaller.register_component("rclone")
+@DataladInstaller.register_component
 class GitAnnexRemoteRCloneComponent(InstallableComponent):
     """Installs git-annex-remote-rclone"""
 
