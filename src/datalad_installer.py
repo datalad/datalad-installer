@@ -2051,6 +2051,8 @@ class GARRCGitHubInstaller(Installer):
             latest = GitHubClient(auth_required=False).get_latest_release(self.REPO)
             version = latest["tag_name"]
             log.info("Found latest release of %s: %s", self.REPO, version)
+        elif not version.startswith("v"):
+            version = "v" + version
         p = download_to_tempfile(
             f"https://raw.githubusercontent.com/{self.REPO}/{version}/git-annex-remote-rclone"
         )

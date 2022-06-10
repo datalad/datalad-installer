@@ -11,6 +11,7 @@ import datalad_installer
 from datalad_installer import (
     ON_LINUX,
     ON_MACOS,
+    ON_POSIX,
     ON_WINDOWS,
     DataladGitAnnexReleaseBuildInstaller,
     main,
@@ -370,3 +371,43 @@ def test_download_specific_git_annex_release_asset(
     assert p.is_file()
     assert p.name == filename
     assert p.stat().st_size == size
+
+
+@pytest.mark.skipif(not ON_POSIX, reason="POSIX only")
+def test_install_git_annex_remote_rclone_latest_from_github(tmp_path: Path) -> None:
+    r = main(
+        [
+            "datalad_installer.py",
+            "git-annex-remote-rclone",
+            "-m",
+            "DanielDent/git-annex-remote-rclone",
+            "--install-dir",
+            str(tmp_path / "bin"),
+        ]
+    )
+    assert r == 0
+    (p,) = (tmp_path / "bin").iterdir()
+    assert p.is_file()
+    assert p.name == "git-annex-remote-rclone"
+    assert p.stat().st_size >= 5120
+
+
+@pytest.mark.skipif(not ON_POSIX, reason="POSIX only")
+def test_install_git_annex_remote_rclone_specific_version_from_github(
+    tmp_path: Path,
+) -> None:
+    r = main(
+        [
+            "datalad_installer.py",
+            "git-annex-remote-rclone=0.5",
+            "-m",
+            "DanielDent/git-annex-remote-rclone",
+            "--install-dir",
+            str(tmp_path / "bin"),
+        ]
+    )
+    assert r == 0
+    (p,) = (tmp_path / "bin").iterdir()
+    assert p.is_file()
+    assert p.name == "git-annex-remote-rclone"
+    assert p.stat().st_size == 7120
