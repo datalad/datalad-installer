@@ -2145,13 +2145,18 @@ class DownloadsRCloneInstaller(Installer):
                     version = "v" + version
                 url += f"{version}/rclone-{version}-{ostype}-{arch}.zip"
             download_zipfile(url, tmppath)
+            (contents,) = tmppath.iterdir()
             bin_dir.mkdir(parents=True, exist_ok=True)
-            self.manager.move_maybe_elevated(tmppath / binname, bin_dir / binname)
+            if ON_POSIX:
+                # Although the rclone program is marked executable in the zip,
+                # Python does not preserve this bit when unarchiving.
+                (contents / binname).chmod(0o755)
+            self.manager.move_maybe_elevated(contents / binname, bin_dir / binname)
             if man_dir is not None:
                 man1_dir = man_dir / "man1"
                 man1_dir.mkdir(parents=True, exist_ok=True)
                 self.manager.move_maybe_elevated(
-                    tmppath / "rclone.1", man1_dir / "rclone.1"
+                    contents / "rclone.1", man1_dir / "rclone.1"
                 )
         log.debug("Installed program directory: %s", bin_dir)
         return bin_dir
