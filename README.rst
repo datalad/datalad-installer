@@ -43,7 +43,7 @@ Usage
     datalad-installer [<global options>] <component>[=<version>] [<options>] <component>[=<version>] [<options>] ...
 
 ``datalad-installer`` provisions one or more *components* listed on the command
-line.  Each component is either a software package (i.e., Datalad or git-annex)
+line.  Each component is either a software package (e.g., Datalad or git-annex)
 or an environment in which software packages can be installed.  If no
 components are specified on the command line, the script defaults to installing
 the ``datalad`` component.
@@ -239,6 +239,71 @@ installation methods; options not belonging to whichever method ends up used
 will be ignored.
 
 
+``rclone``
+~~~~~~~~~~~
+
+Installs rclone_.  The component takes an ``-m``, ``--method`` option
+specifying the installation method to use; the supported methods are:
+
+.. _rclone: https://rclone.org
+
+- ``apt``
+- ``brew``
+- ``conda``
+- ``deb-url``
+- ``downloads.rclone.org``
+
+If no method is specified, or if the method is set to "``auto``", then the most
+recent component on the command line that provides a compatible installation
+method will be used.  If there is no such component, the first supported
+component from the following list will be used:
+
+- ``conda``
+- ``apt``
+- ``brew``
+- ``downloads.rclone.org``
+
+A specific version to install can be specified for those methods that support
+it by suffixing "``rclone``" with "``=``" and the version number on the
+command line.
+
+The ``rclone`` component also accepts all options for the supported
+installation methods; options not belonging to whichever method ends up used
+will be ignored.
+
+
+``git-annex-remote-rclone``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Installs git-annex-remote-rclone_.  The component takes an ``-m``, ``--method``
+option specifying the installation method to use; the supported methods are:
+
+.. _git-annex-remote-rclone:
+   https://github.com/DanielDent/git-annex-remote-rclone
+
+- ``apt``
+- ``brew``
+- ``deb-url``
+- ``DanielDent/git-annex-remote-rclone``
+
+If no method is specified, or if the method is set to "``auto``", then the most
+recent component on the command line that provides a compatible installation
+method will be used.  If there is no such component, the first supported
+component from the following list will be used:
+
+- ``apt``
+- ``brew``
+- ``DanielDent/git-annex-remote-rclone``
+
+A specific version to install can be specified for those methods that support
+it by suffixing "``git-annex-remote-rclone``" with "``=``" and the version
+number on the command line.
+
+The ``git-annex-remote-rclone`` component also accepts all options for the
+supported installation methods; options not belonging to whichever method ends
+up used will be ignored.
+
+
 Installation Methods
 --------------------
 
@@ -290,6 +355,22 @@ Options
 -e ARGS, --extra-args ARGS      Specify extra command-line arguments to pass to
                                 the installation command.
 
+``DanielDent/git-annex-remote-rclone``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Downloads & installs ``git-annex-remote-rclone`` from a release of its GitHub
+project.
+
+This installation method is only supported on Linux and macOS.
+
+Options
+'''''''
+
+--bin-dir DIR                   Directory in which to install the ``rclone``
+                                executable.  Defaults to ``/usr/local/bin``.
+                                If this contains the string ``{tmpdir}``, it
+                                will be replaced with the path to a directory
+                                in ``$TMPDIR``.
 
 ``datalad/git-annex``
 ~~~~~~~~~~~~~~~~~~~~~
@@ -376,7 +457,7 @@ Options
                                 the installation command.
 
 --install-dir DIR               Directory in which to unpack the ``*.deb``
-                                package instead of installing it system-wide
+                                package instead of installing it system-wide.
                                 If this contains the string ``{tmpdir}``, it
                                 will be replaced with the path to a directory
                                 in ``$TMPDIR``.  If this contains the string
@@ -401,6 +482,32 @@ Options
 --path PATH                     Specify the path to the ``*.dmg`` image.  This
                                 option is required for this installation
                                 method.
+
+``downloads.rclone.org``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Downloads & installs ``rclone`` from <https://downloads.rclone.org>.
+
+Options
+'''''''
+
+--bin-dir DIR                   Directory in which to install the ``rclone``
+                                executable.  This option is required on
+                                Windows.  On Linux & macOS, the directory
+                                defaults to ``/usr/local/bin``.  If the path
+                                contains the string ``{tmpdir}``, it will be
+                                replaced with the path to a directory in
+                                ``$TMPDIR``.
+
+--man-dir DIR                   Directory under which to install the ``rclone``
+                                manpage; specifically, the file ``rclone.1``
+                                will be placed in the ``man1/`` subdirectory of
+                                the given directory.  If this option is not
+                                specified, the manpage is not installed.  If
+                                the path contains the string ``{tmpdir}``, it
+                                will be replaced with the path to a directory
+                                in ``$TMPDIR`` (the same one as used for
+                                ``--bin-dir``, if applicable).
 
 ``neurodebian``
 ~~~~~~~~~~~~~~~
