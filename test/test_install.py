@@ -7,10 +7,12 @@ import subprocess
 import sys
 import tempfile
 import pytest
+from pytest_mock import MockerFixture
 import datalad_installer
 from datalad_installer import (
     ON_LINUX,
     ON_MACOS,
+    ON_POSIX,
     ON_WINDOWS,
     DataladGitAnnexReleaseBuildInstaller,
     main,
@@ -370,3 +372,174 @@ def test_download_specific_git_annex_release_asset(
     assert p.is_file()
     assert p.name == filename
     assert p.stat().st_size == size
+
+
+@pytest.mark.skipif(not ON_POSIX, reason="POSIX only")
+def test_install_git_annex_remote_rclone_latest_from_github(tmp_path: Path) -> None:
+    r = main(
+        [
+            "datalad_installer.py",
+            "git-annex-remote-rclone",
+            "-m",
+            "DanielDent/git-annex-remote-rclone",
+            "--bin-dir",
+            str(tmp_path / "bin"),
+        ]
+    )
+    assert r == 0
+    (p,) = (tmp_path / "bin").iterdir()
+    assert p.is_file()
+    assert p.name == "git-annex-remote-rclone"
+    assert p.stat().st_size >= 5120
+
+
+@pytest.mark.skipif(not ON_POSIX, reason="POSIX only")
+def test_install_git_annex_remote_rclone_specific_version_from_github(
+    tmp_path: Path,
+) -> None:
+    r = main(
+        [
+            "datalad_installer.py",
+            "git-annex-remote-rclone=0.5",
+            "-m",
+            "DanielDent/git-annex-remote-rclone",
+            "--bin-dir",
+            str(tmp_path / "bin"),
+        ]
+    )
+    assert r == 0
+    (p,) = (tmp_path / "bin").iterdir()
+    assert p.is_file()
+    assert p.name == "git-annex-remote-rclone"
+    assert p.stat().st_size == 7120
+
+
+@pytest.mark.ci_only
+@pytest.mark.skipif(not ON_POSIX, reason="POSIX only")
+def test_install_git_annex_remote_rclone_latest_from_github_globally() -> None:
+    r = main(
+        [
+            "datalad_installer.py",
+            "--sudo=ok",
+            "git-annex-remote-rclone",
+            "-m",
+            "DanielDent/git-annex-remote-rclone",
+        ]
+    )
+    assert r == 0
+    p = Path("/usr/local/bin/git-annex-remote-rclone")
+    assert p.is_file()
+    assert p.stat().st_size >= 5120
+
+
+def test_install_latest_rclone_from_downloads(tmp_path: Path) -> None:
+    r = main(
+        [
+            "datalad_installer.py",
+            "rclone",
+            "-m",
+            "downloads.rclone.org",
+            "--bin-dir",
+            str(tmp_path / "bin"),
+        ]
+    )
+    assert r == 0
+    (p,) = (tmp_path / "bin").iterdir()
+    assert p.is_file()
+    if ON_WINDOWS:
+        assert p.name == "rclone.exe"
+    else:
+        assert p.name == "rclone"
+    assert p.stat().st_size >= (1 << 20)  # 1 MiB
+
+
+def test_install_latest_rclone_from_downloads_with_manpage(tmp_path: Path) -> None:
+    r = main(
+        [
+            "datalad_installer.py",
+            "rclone",
+            "-m",
+            "downloads.rclone.org",
+            "--bin-dir",
+            str(tmp_path / "bin"),
+            "--man-dir",
+            str(tmp_path / "man"),
+        ]
+    )
+    assert r == 0
+    (p,) = (tmp_path / "bin").iterdir()
+    assert p.is_file()
+    if ON_WINDOWS:
+        assert p.name == "rclone.exe"
+    else:
+        assert p.name == "rclone"
+    assert p.stat().st_size >= (1 << 20)  # 1 MiB
+    (m,) = (tmp_path / "man" / "man1").iterdir()
+    assert m.is_file()
+    assert m.name == "rclone.1"
+    assert m.stat().st_size >= (1 << 20)  # 1 MiB
+
+
+@pytest.mark.parametrize(
+    "version,size",
+    [
+        pytest.param(
+            "1.55.0",
+            43130880,
+            marks=pytest.mark.skipif(not ON_LINUX, reason="Linux only"),
+        ),
+        pytest.param(
+            "v1.54.1",
+            58878352,
+            marks=pytest.mark.skipif(not ON_MACOS, reason="macOS only"),
+        ),
+        pytest.param(
+            "1.56.2",
+            44712960,
+            marks=pytest.mark.skipif(not ON_WINDOWS, reason="Windows only"),
+        ),
+    ],
+)
+def test_install_rclone_version_from_downloads(
+    mocker: MockerFixture, tmp_path: Path, version: str, size: int
+) -> None:
+    mocker.patch("platform.machine", return_value="x86_64")
+    r = main(
+        [
+            "datalad_installer.py",
+            f"rclone={version}",
+            "-m",
+            "downloads.rclone.org",
+            "--bin-dir",
+            str(tmp_path / "bin"),
+        ]
+    )
+    assert r == 0
+    (p,) = (tmp_path / "bin").iterdir()
+    assert p.is_file()
+    if ON_WINDOWS:
+        assert p.name == "rclone.exe"
+    else:
+        assert p.name == "rclone"
+    assert p.stat().st_size == size
+
+
+@pytest.mark.ci_only
+@pytest.mark.skipif(not ON_POSIX, reason="POSIX only")
+def test_install_latest_rclone_from_downloads_globally(mocker: MockerFixture) -> None:
+    spy = mocker.spy(datalad_installer, "runcmd")
+    r = main(
+        [
+            "datalad_installer.py",
+            "--sudo=ok",
+            "rclone",
+            "-m",
+            "downloads.rclone.org",
+        ]
+    )
+    assert r == 0
+    p = Path("/usr/local/bin/rclone")
+    if spy.called:
+        spy.assert_called_once_with("sudo", "mv", "-f", "--", mocker.ANY, str(p))
+    assert p.is_file()
+    assert p.stat().st_size >= (1 << 20)  # 1 MiB

@@ -58,7 +58,7 @@ jobs:
 
       - name: Run tests
         if: matrix.toxenv == 'py'
-        run: ./run-tests.sh -e py -- --ci --cov-report=xml
+        run: ./run-tests.sh -e py -- -vv --ci --cov-report=xml
         env:
           GITHUB_TOKEN: ${{ secrets.GH_DOWNLOAD_TOKEN }}
 

@@ -317,12 +317,14 @@ def test_global_long_help():
         "  -h, --help                      Show this help information and exit\n"
         "\n"
         "Components:\n"
-        "  conda-env    Create a Conda environment\n"
-        "  datalad      Install Datalad\n"
-        "  git-annex    Install git-annex\n"
-        "  miniconda    Install Miniconda\n"
-        "  neurodebian  Install & configure NeuroDebian\n"
-        "  venv         Create a Python virtual environment"
+        "  conda-env                Create a Conda environment\n"
+        "  datalad                  Install Datalad\n"
+        "  git-annex                Install git-annex\n"
+        "  git-annex-remote-rclone  Install git-annex-remote-rclone\n"
+        "  miniconda                Install Miniconda\n"
+        "  neurodebian              Install & configure NeuroDebian\n"
+        "  rclone                   Install rclone\n"
+        "  venv                     Create a Python virtual environment"
     )
 
 

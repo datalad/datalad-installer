@@ -51,6 +51,7 @@ from typing import (
     Tuple,
     Type,
     Union,
+    cast,
 )
 from urllib.request import Request, urlopen
 from zipfile import ZipFile
@@ -522,6 +523,8 @@ class DataladInstaller:
         #: method
         self.installer_stack: List["Installer"] = [
             # Lowest priority first
+            DownloadsRCloneInstaller(self),
+            GARRCGitHubInstaller(self),
             DataladPackagesBuildInstaller(self),
             AutobuildInstaller(self),
             HomebrewInstaller(self),
@@ -538,16 +541,10 @@ class DataladInstaller:
         self.brew_updated: bool = False
 
     @classmethod
-    def register_component(
-        cls, name: str
-    ) -> Callable[[Type["Component"]], Type["Component"]]:
+    def register_component(cls, component: Type["Component"]) -> Type["Component"]:
         """A decorator for registering concrete `Component` subclasses"""
-
-        def decorator(component: Type["Component"]) -> Type["Component"]:
-            cls.COMPONENTS[name] = component
-            return component
-
-        return decorator
+        cls.COMPONENTS[component.NAME] = component
+        return component
 
     def __enter__(self) -> "DataladInstaller":
         return self
@@ -599,6 +596,19 @@ class DataladInstaller:
                 self.sudo(*args, **kwargs)
             else:
                 raise
+
+    def move_maybe_elevated(self, path: Path, dest: Path) -> None:
+        # `dest` must be a file path, not a directory path.
+        log.info("Moving %s to %s", path, dest)
+        try:
+            path.replace(dest)
+        except PermissionError:
+            log.info("Operation requires elevation; rerunning as administrator")
+            if ON_POSIX:
+                args = ["mv", "-f", "--", str(path), str(dest)]
+            else:
+                args = ["move", str(path), str(dest)]
+            self.sudo(*args)
 
     @classmethod
     def parse_args(cls, args: List[str]) -> Union[Immediate, ParsedArgs]:
@@ -780,6 +790,8 @@ class Component(ABC):
     line and provisioned
     """
 
+    NAME: ClassVar[str]
+
     OPTION_PARSER: ClassVar[OptionParser]
 
     def __init__(self, manager: DataladInstaller) -> None:
@@ -790,9 +802,11 @@ class Component(ABC):
         ...
 
 
-@DataladInstaller.register_component("venv")
+@DataladInstaller.register_component
 class VenvComponent(Component):
     """Creates a Python virtual environment using ``python -m venv``"""
+
+    NAME = "venv"
 
     OPTION_PARSER = OptionParser(
         "venv",
@@ -855,9 +869,11 @@ class VenvComponent(Component):
         self.manager.installer_stack.append(installer)
 
 
-@DataladInstaller.register_component("miniconda")
+@DataladInstaller.register_component
 class MinicondaComponent(Component):
     """Installs Miniconda"""
+
+    NAME = "miniconda"
 
     OPTION_PARSER = OptionParser(
         "miniconda",
@@ -966,9 +982,11 @@ class MinicondaComponent(Component):
         self.manager.addenv("conda activate base")
 
 
-@DataladInstaller.register_component("conda-env")
+@DataladInstaller.register_component
 class CondaEnvComponent(Component):
     """Creates a Conda environment"""
+
+    NAME = "conda-env"
 
     OPTION_PARSER = OptionParser(
         "conda-env",
@@ -1028,9 +1046,11 @@ class CondaEnvComponent(Component):
         self.manager.addenv(f"conda activate {shlex.quote(cname)}")
 
 
-@DataladInstaller.register_component("neurodebian")
+@DataladInstaller.register_component
 class NeurodebianComponent(Component):
     """Installs & configures NeuroDebian"""
+
+    NAME = "neurodebian"
 
     OPTION_PARSER = OptionParser(
         "neurodebian",
@@ -1112,8 +1132,6 @@ class InstallableComponent(Component):
     Superclass for components that install packages via installation methods
     """
 
-    NAME: ClassVar[str]
-
     INSTALLERS: ClassVar[Dict[str, Type["Installer"]]] = {}
 
     @classmethod
@@ -1153,7 +1171,7 @@ class InstallableComponent(Component):
         self.manager.new_commands.extend(bins)
 
 
-@DataladInstaller.register_component("git-annex")
+@DataladInstaller.register_component
 class GitAnnexComponent(InstallableComponent):
     """Installs git-annex"""
 
@@ -1174,7 +1192,7 @@ class GitAnnexComponent(InstallableComponent):
     )
 
 
-@DataladInstaller.register_component("datalad")
+@DataladInstaller.register_component
 class DataladComponent(InstallableComponent):
     """Installs Datalad"""
 
@@ -1184,6 +1202,48 @@ class DataladComponent(InstallableComponent):
         "datalad",
         versioned=True,
         help="Install Datalad",
+        options=[
+            Option(
+                "-m",
+                "--method",
+                choices=["auto"],
+                help="Select the installation method to use",
+            ),
+        ],
+    )
+
+
+@DataladInstaller.register_component
+class RCloneComponent(InstallableComponent):
+    """Installs rclone"""
+
+    NAME = "rclone"
+
+    OPTION_PARSER = OptionParser(
+        "rclone",
+        versioned=True,
+        help="Install rclone",
+        options=[
+            Option(
+                "-m",
+                "--method",
+                choices=["auto"],
+                help="Select the installation method to use",
+            ),
+        ],
+    )
+
+
+@DataladInstaller.register_component
+class GitAnnexRemoteRCloneComponent(InstallableComponent):
+    """Installs git-annex-remote-rclone"""
+
+    NAME = "git-annex-remote-rclone"
+
+    OPTION_PARSER = OptionParser(
+        "git-annex-remote-rclone",
+        versioned=True,
+        help="Install git-annex-remote-rclone",
         options=[
             Option(
                 "-m",
@@ -1259,6 +1319,8 @@ EXTRA_ARGS_OPTION = Option(
 
 @GitAnnexComponent.register_installer
 @DataladComponent.register_installer
+@RCloneComponent.register_installer
+@GitAnnexRemoteRCloneComponent.register_installer
 class AptInstaller(Installer):
     """Installs via apt-get"""
 
@@ -1274,6 +1336,11 @@ class AptInstaller(Installer):
     PACKAGES = {
         "datalad": ("datalad", ["datalad"]),
         "git-annex": ("git-annex", ["git-annex"]),
+        "rclone": ("rclone", ["rclone"]),
+        "git-annex-remote-rclone": (
+            "git-annex-remote-rclone",
+            ["git-annex-remote-rclone"],
+        ),
     }
 
     def install_package(
@@ -1312,6 +1379,8 @@ class AptInstaller(Installer):
 
 @DataladComponent.register_installer
 @GitAnnexComponent.register_installer
+@RCloneComponent.register_installer
+@GitAnnexRemoteRCloneComponent.register_installer
 class HomebrewInstaller(Installer):
     """Installs via brew (Homebrew)"""
 
@@ -1324,6 +1393,11 @@ class HomebrewInstaller(Installer):
     PACKAGES = {
         "datalad": ("datalad", ["datalad"]),
         "git-annex": ("git-annex", ["git-annex"]),
+        "rclone": ("rclone", ["rclone"]),
+        "git-annex-remote-rclone": (
+            "git-annex-remote-rclone",
+            ["git-annex-remote-rclone"],
+        ),
     }
 
     def install_package(
@@ -1482,6 +1556,8 @@ class NeurodebianInstaller(AptInstaller):
 
 @GitAnnexComponent.register_installer
 @DataladComponent.register_installer
+@RCloneComponent.register_installer
+@GitAnnexRemoteRCloneComponent.register_installer
 class DebURLInstaller(Installer):
     """Installs a ``*.deb`` package by URL"""
 
@@ -1501,6 +1577,11 @@ class DebURLInstaller(Installer):
     PACKAGES = {
         "git-annex": ("git-annex", ["git-annex"]),
         "datalad": ("datalad", ["datalad"]),
+        "rclone": ("rclone", ["rclone"]),
+        "git-annex-remote-rclone": (
+            "git-annex-remote-rclone",
+            ["git-annex-remote-rclone"],
+        ),
     }
 
     def install_package(
@@ -1628,6 +1709,7 @@ class SnapshotInstaller(AutobuildSnapshotInstaller):
 
 @GitAnnexComponent.register_installer
 @DataladComponent.register_installer
+@RCloneComponent.register_installer
 class CondaInstaller(Installer):
     """Installs via conda"""
 
@@ -1640,6 +1722,7 @@ class CondaInstaller(Installer):
     PACKAGES = {
         "datalad": ("datalad", ["datalad"]),
         "git-annex": ("git-annex", ["git-annex"]),
+        "rclone": ("rclone", ["rclone"]),
     }
 
     def __init__(
@@ -1835,180 +1918,6 @@ class DataladGitAnnexReleaseBuildInstaller(DataladGitAnnexBuildInstaller):
         )
 
 
-class GitHubClient:
-    def __init__(self, auth_required: bool = True) -> None:
-        token = os.environ.get("GITHUB_TOKEN")
-        if not token:
-            r = subprocess.run(
-                ["git", "config", "hub.oauthtoken"],
-                stdout=subprocess.PIPE,
-                universal_newlines=True,
-            )
-            if (r.returncode != 0 or not r.stdout.strip()) and auth_required:
-                raise RuntimeError(
-                    "GitHub OAuth token not set.  Set via GITHUB_TOKEN"
-                    " environment variable or hub.oauthtoken Git config option."
-                )
-            token = r.stdout.strip()
-        if token:
-            self.headers = {"Authorization": f"Bearer {token}"}
-        else:
-            self.headers = {}
-
-    @contextmanager
-    def get(self, url: str) -> Iterator[Any]:
-        log.debug("HTTP request: GET %s", url)
-        req = Request(url, headers=self.headers)
-        with urlopen(req) as r:
-            yield r
-
-    def getjson(self, url: str) -> Any:
-        with self.get(url) as r:
-            return json.load(r)
-
-    def paginate(self, url: str, key: Optional[str] = None) -> Iterator[dict]:
-        while True:
-            with self.get(url) as r:
-                data = json.load(r)
-                if key is not None:
-                    data = data[key]
-                for obj in data:
-                    assert isinstance(obj, dict)
-                    yield obj
-                links = parse_header_links(r.headers.get("Link"))
-                url2 = links.get("next", {}).get("url")
-                if url2 is None:
-                    break
-                url = url2
-
-    def get_workflow_runs(self, url: str) -> Iterator[dict]:
-        return self.paginate(url, key="workflow_runs")
-
-    def get_archive_download_url(self, artifacts_url: str) -> Optional[str]:
-        """
-        Given a workflow run's ``artifacts_url``, returns the
-        ``archive_download_url`` for the one & only artifact.  If there are no
-        artifacts, `None` is returned.  If there is more than one artifact, a
-        `RuntimeError` is raised.
-        """
-        log.info("Getting archive download URL from %s", artifacts_url)
-        artifacts = self.getjson(artifacts_url)
-        if artifacts["total_count"] < 1:
-            log.debug("No artifacts found")
-            return None
-        elif artifacts["total_count"] > 1:
-            raise RuntimeError("Too many artifacts found!")
-        else:
-            url = artifacts["artifacts"][0]["archive_download_url"]
-            assert isinstance(url, str)
-            return url
-
-    def download_archive(self, target_dir: Path, archive_download_url: str) -> None:
-        """
-        Downloads the workflow build artifact zip from ``archive_download_url``
-        and expands it in ``target_dir``
-        """
-        log.info("Downloading artifact package from %s", archive_download_url)
-        target_dir.mkdir(parents=True, exist_ok=True)
-        artifact_path = target_dir / ".artifact.zip"
-        download_file(archive_download_url, artifact_path, headers=self.headers)
-        with ZipFile(str(artifact_path)) as zipf:
-            zipf.extractall(str(target_dir))
-        artifact_path.unlink()
-
-    def download_latest_artifact(
-        self, target_dir: Path, repo: str, workflow: str, branch: str = "master"
-    ) -> None:
-        """
-        Downloads the most recent artifact built by ``workflow`` on ``branch``
-        in ``repo`` to ``target_dir``
-        """
-        runs_url = (
-            f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}"
-            f"/runs?branch={branch}"
-        )
-        log.info("Getting artifacts_url from %s", runs_url)
-        for run in self.get_workflow_runs(runs_url):
-            artifacts_url = run["artifacts_url"]
-            archive_download_url = self.get_archive_download_url(artifacts_url)
-            if archive_download_url is not None:
-                self.download_archive(target_dir, archive_download_url)
-                return
-        else:
-            raise RuntimeError("No workflow runs with artifacts found!")
-
-    def download_last_successful_artifact(
-        self, target_dir: Path, repo: str, workflow: str, branch: str = "master"
-    ) -> None:
-        """
-        Downloads the most recent artifact built by a succesful run of
-        ``workflow`` on ``branch`` in ``repo`` to ``target_dir``
-        """
-        runs_url = (
-            f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}"
-            f"/runs?status=success&branch={branch}"
-        )
-        log.info("Getting artifacts_url from %s", runs_url)
-        for run in self.get_workflow_runs(runs_url):
-            artifacts_url = run["artifacts_url"]
-            archive_download_url = self.get_archive_download_url(artifacts_url)
-            if archive_download_url is not None:
-                self.download_archive(target_dir, archive_download_url)
-                return
-        else:
-            raise RuntimeError("No workflow runs with artifacts found!")
-
-    def get_latest_release_asset(self, repo: str, ext: str) -> dict:
-        """
-        Finds the most recent non-draft release of ``repo`` containing an asset
-        whose name ends with ``ext`` and returns that asset's information
-        """
-        first = True
-        for release in self.paginate(f"https://api.github.com/repos/{repo}/releases"):
-            if release["draft"]:
-                continue
-            for asset in release["assets"]:
-                if asset["name"].endswith(ext):
-                    assert isinstance(asset, dict)
-                    return asset
-            if first:
-                log.warning(
-                    "Most recent release of %s lacks asset for this OS;"
-                    " falling back to older releases",
-                    repo,
-                )
-                first = False
-        raise RuntimeError("No release found with asset for this OS!")
-
-    def get_release_asset(self, repo: str, tag: str, ext: str) -> dict:
-        """
-        Returns information on the asset of release ``tag`` of repository
-        ``repo`` whose filename ends with ``ext``
-        """
-        release = self.getjson(
-            f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
-        )
-        for asset in release["assets"]:
-            if asset["name"].endswith(ext):
-                assert isinstance(asset, dict)
-                return asset
-        raise RuntimeError(f"No asset for this OS found in release {tag!r}!")
-
-    def download_release_asset(
-        self, target_dir: Path, repo: str, ext: str, tag: Optional[str]
-    ) -> None:
-        if tag is None:
-            asset = self.get_latest_release_asset(repo, ext)
-        else:
-            asset = self.get_release_asset(repo, tag, ext)
-        target_dir.mkdir(parents=True, exist_ok=True)
-        download_file(
-            asset["browser_download_url"],
-            target_dir / asset["name"],
-            headers=self.headers,
-        )
-
-
 @GitAnnexComponent.register_installer
 class DataladPackagesBuildInstaller(Installer):
     """
@@ -2099,6 +2008,336 @@ class DMGInstaller(Installer):
             raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
 
 
+@GitAnnexRemoteRCloneComponent.register_installer
+class GARRCGitHubInstaller(Installer):
+    """Installs git-annex-remote-rclone from a tag on GitHub"""
+
+    NAME = "DanielDent/git-annex-remote-rclone"
+
+    OPTIONS = [
+        Option(
+            "--bin-dir",
+            converter=Path,
+            metavar="DIR",
+            help="Directory in which to install the program",
+        ),
+    ]
+
+    PACKAGES = {
+        "git-annex-remote-rclone": (
+            "git-annex-remote-rclone",
+            ["git-annex-remote-rclone"],
+        ),
+    }
+
+    REPO = "DanielDent/git-annex-remote-rclone"
+
+    def install_package(
+        self,
+        package: str,
+        version: Optional[str] = None,
+        bin_dir: Optional[Path] = None,
+        **kwargs: Any,
+    ) -> Path:
+        log.info("Installing %s from GitHub release", package)
+        log.info("Version: %s", version)
+        if bin_dir is not None:
+            bin_dir = untmppath(bin_dir)
+        else:
+            bin_dir = Path("/usr/local/bin")
+        log.info("Bin dir: %s", bin_dir)
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
+        if version is None:
+            latest = GitHubClient(auth_required=False).get_latest_release(self.REPO)
+            version = latest["tag_name"]
+            log.info("Found latest release of %s: %s", self.REPO, version)
+        elif not version.startswith("v"):
+            version = "v" + version
+        p = download_to_tempfile(
+            f"https://raw.githubusercontent.com/{self.REPO}/{version}/git-annex-remote-rclone"
+        )
+        p.chmod(0o755)
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        self.manager.move_maybe_elevated(p, bin_dir / "git-annex-remote-rclone")
+        log.debug("Installed program directory: %s", bin_dir)
+        return bin_dir
+
+    def assert_supported_system(self) -> None:
+        if not ON_POSIX:
+            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
+
+
+@RCloneComponent.register_installer
+class DownloadsRCloneInstaller(Installer):
+    """Installs rclone via downloads.rclone.org"""
+
+    NAME = "downloads.rclone.org"
+
+    OPTIONS = [
+        Option(
+            "--bin-dir",
+            converter=Path,
+            metavar="DIR",
+            help="Directory in which to install the program",
+        ),
+        Option(
+            "--man-dir",
+            converter=Path,
+            metavar="DIR",
+            help="Directory in which to install the manpage",
+        ),
+    ]
+
+    PACKAGES = {"rclone": ("rclone", ["rclone"])}
+
+    def install_package(
+        self,
+        package: str,
+        version: Optional[str] = None,
+        bin_dir: Optional[Path] = None,
+        man_dir: Optional[Path] = None,
+        **kwargs: Any,
+    ) -> Path:
+        log.info("Installing %s from downloads.rclone.org", package)
+        log.info("Version: %s", version)
+        bin_dir, man_dir = untmppaths(bin_dir, man_dir)
+        if bin_dir is None:
+            if ON_POSIX:
+                bin_dir = Path("/usr/local/bin")
+            else:
+                raise RuntimeError(
+                    "The downloads.rclone.org method requires --bin-dir to be given on Windows"
+                )
+        log.info("Bin dir: %s", bin_dir)
+        log.info("Man dir: %s", man_dir)
+        if kwargs:
+            log.warning("Ignoring extra installer arguments: %r", kwargs)
+        arch = platform.machine().lower()
+        if arch in ("x86_64", "amd64"):
+            arch = "amd64"
+        elif re.fullmatch(r"i.86", arch) or arch == "x86":
+            arch = "386"
+        elif arch in ("aarch64", "arm64"):
+            arch = "arm64"
+        elif arch.startswith("arm"):
+            arch = "arm"
+        else:
+            raise RuntimeError(f"Machine architecture {arch} not supported by rclone")
+        if ON_LINUX:
+            ostype = "linux"
+            binname = "rclone"
+        elif ON_MACOS:
+            ostype = "osx"
+            binname = "rclone"
+        elif ON_WINDOWS:
+            ostype = "windows"
+            binname = "rclone.exe"
+        else:
+            raise AssertionError("Method should not be called on unsupported platforms")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            url = "https://downloads.rclone.org/"
+            if version is None:
+                url += f"rclone-current-{ostype}-{arch}.zip"
+            else:
+                if not version.startswith("v"):
+                    version = "v" + version
+                url += f"{version}/rclone-{version}-{ostype}-{arch}.zip"
+            download_zipfile(url, tmppath)
+            (contents,) = tmppath.iterdir()
+            bin_dir.mkdir(parents=True, exist_ok=True)
+            if ON_POSIX:
+                # Although the rclone program is marked executable in the zip,
+                # Python does not preserve this bit when unarchiving.
+                (contents / binname).chmod(0o755)
+            self.manager.move_maybe_elevated(contents / binname, bin_dir / binname)
+            if man_dir is not None:
+                man1_dir = man_dir / "man1"
+                man1_dir.mkdir(parents=True, exist_ok=True)
+                self.manager.move_maybe_elevated(
+                    contents / "rclone.1", man1_dir / "rclone.1"
+                )
+        log.debug("Installed program directory: %s", bin_dir)
+        return bin_dir
+
+    def assert_supported_system(self) -> None:
+        pass
+
+
+class GitHubClient:
+    def __init__(self, auth_required: bool = True) -> None:
+        token = os.environ.get("GITHUB_TOKEN")
+        if not token:
+            r = subprocess.run(
+                ["git", "config", "hub.oauthtoken"],
+                stdout=subprocess.PIPE,
+                universal_newlines=True,
+            )
+            if (r.returncode != 0 or not r.stdout.strip()) and auth_required:
+                raise RuntimeError(
+                    "GitHub OAuth token not set.  Set via GITHUB_TOKEN"
+                    " environment variable or hub.oauthtoken Git config option."
+                )
+            token = r.stdout.strip()
+        if token:
+            self.headers = {"Authorization": f"Bearer {token}"}
+        else:
+            self.headers = {}
+
+    @contextmanager
+    def get(self, url: str) -> Iterator[Any]:
+        log.debug("HTTP request: GET %s", url)
+        req = Request(url, headers=self.headers)
+        with urlopen(req) as r:
+            yield r
+
+    def getjson(self, url: str) -> Any:
+        with self.get(url) as r:
+            return json.load(r)
+
+    def paginate(self, url: str, key: Optional[str] = None) -> Iterator[dict]:
+        while True:
+            with self.get(url) as r:
+                data = json.load(r)
+                if key is not None:
+                    data = data[key]
+                for obj in data:
+                    assert isinstance(obj, dict)
+                    yield obj
+                links = parse_header_links(r.headers.get("Link"))
+                url2 = links.get("next", {}).get("url")
+                if url2 is None:
+                    break
+                url = url2
+
+    def get_workflow_runs(self, url: str) -> Iterator[dict]:
+        return self.paginate(url, key="workflow_runs")
+
+    def get_archive_download_url(self, artifacts_url: str) -> Optional[str]:
+        """
+        Given a workflow run's ``artifacts_url``, returns the
+        ``archive_download_url`` for the one & only artifact.  If there are no
+        artifacts, `None` is returned.  If there is more than one artifact, a
+        `RuntimeError` is raised.
+        """
+        log.info("Getting archive download URL from %s", artifacts_url)
+        artifacts = self.getjson(artifacts_url)
+        if artifacts["total_count"] < 1:
+            log.debug("No artifacts found")
+            return None
+        elif artifacts["total_count"] > 1:
+            raise RuntimeError("Too many artifacts found!")
+        else:
+            url = artifacts["artifacts"][0]["archive_download_url"]
+            assert isinstance(url, str)
+            return url
+
+    def download_latest_artifact(
+        self, target_dir: Path, repo: str, workflow: str, branch: str = "master"
+    ) -> None:
+        """
+        Downloads the most recent artifact built by ``workflow`` on ``branch``
+        in ``repo`` to ``target_dir``
+        """
+        runs_url = (
+            f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}"
+            f"/runs?branch={branch}"
+        )
+        log.info("Getting artifacts_url from %s", runs_url)
+        for run in self.get_workflow_runs(runs_url):
+            artifacts_url = run["artifacts_url"]
+            archive_download_url = self.get_archive_download_url(artifacts_url)
+            if archive_download_url is not None:
+                log.info("Downloading artifact package from %s", archive_download_url)
+                download_zipfile(archive_download_url, target_dir)
+                return
+        else:
+            raise RuntimeError("No workflow runs with artifacts found!")
+
+    def download_last_successful_artifact(
+        self, target_dir: Path, repo: str, workflow: str, branch: str = "master"
+    ) -> None:
+        """
+        Downloads the most recent artifact built by a succesful run of
+        ``workflow`` on ``branch`` in ``repo`` to ``target_dir``
+        """
+        runs_url = (
+            f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}"
+            f"/runs?status=success&branch={branch}"
+        )
+        log.info("Getting artifacts_url from %s", runs_url)
+        for run in self.get_workflow_runs(runs_url):
+            artifacts_url = run["artifacts_url"]
+            archive_download_url = self.get_archive_download_url(artifacts_url)
+            if archive_download_url is not None:
+                log.info("Downloading artifact package from %s", archive_download_url)
+                download_zipfile(archive_download_url, target_dir)
+                return
+        else:
+            raise RuntimeError("No workflow runs with artifacts found!")
+
+    def get_latest_release_asset(self, repo: str, ext: str) -> dict:
+        """
+        Finds the most recent non-draft release of ``repo`` containing an asset
+        whose name ends with ``ext`` and returns that asset's information
+        """
+        first = True
+        for release in self.paginate(f"https://api.github.com/repos/{repo}/releases"):
+            if release["draft"]:
+                continue
+            for asset in release["assets"]:
+                if asset["name"].endswith(ext):
+                    assert isinstance(asset, dict)
+                    return asset
+            if first:
+                log.warning(
+                    "Most recent release of %s lacks asset for this OS;"
+                    " falling back to older releases",
+                    repo,
+                )
+                first = False
+        raise RuntimeError("No release found with asset for this OS!")
+
+    def get_release_asset(self, repo: str, tag: str, ext: str) -> dict:
+        """
+        Returns information on the asset of release ``tag`` of repository
+        ``repo`` whose filename ends with ``ext``
+        """
+        release = self.getjson(
+            f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
+        )
+        for asset in release["assets"]:
+            if asset["name"].endswith(ext):
+                assert isinstance(asset, dict)
+                return asset
+        raise RuntimeError(f"No asset for this OS found in release {tag!r}!")
+
+    def download_release_asset(
+        self, target_dir: Path, repo: str, ext: str, tag: Optional[str]
+    ) -> None:
+        if tag is None:
+            asset = self.get_latest_release_asset(repo, ext)
+        else:
+            asset = self.get_release_asset(repo, tag, ext)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        download_file(
+            asset["browser_download_url"],
+            target_dir / asset["name"],
+            headers=self.headers,
+        )
+
+    def get_latest_release(self, repo: str) -> Dict[str, Any]:
+        """
+        Returns information on the most latest non-draft non-prerelease release
+        of ``repo``.  Raises 404 if the repo has no releases.
+        """
+        return cast(
+            Dict[str, Any],
+            self.getjson(f"https://api.github.com/repos/{repo}/releases/latest"),
+        )
+
+
 class MethodNotSupportedError(Exception):
     """
     Raised when an installer's `install()` method is called on an unsupported
@@ -2122,6 +2361,31 @@ def download_file(
     with urlopen(req) as r:
         with open(path, "wb") as fp:
             shutil.copyfileobj(r, fp)
+
+
+def download_to_tempfile(
+    url: str, suffix: Optional[str] = None, headers: Optional[Dict[str, str]] = None
+) -> Path:
+    # `suffix` should include the dot
+    fd, tmpfile = tempfile.mkstemp(suffix=suffix)
+    os.close(fd)
+    p = Path(tmpfile)
+    download_file(url, p, headers)
+    return p
+
+
+def download_zipfile(
+    zip_url: str, target_dir: Path, headers: Optional[Dict[str, str]] = None
+) -> None:
+    """
+    Downloads the zipfile from ``zip_url`` and expands it in ``target_dir``
+    """
+    zippath = download_to_tempfile(zip_url, suffix=".zip", headers=headers)
+    log.debug("Unzipping in %s", target_dir)
+    with ZipFile(str(zippath)) as zipf:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        zipf.extractall(str(target_dir))
+    zippath.unlink()
 
 
 def compose_pip_requirement(
@@ -2261,11 +2525,25 @@ def parse_header_links(links_header: str) -> Dict[str, Dict[str, str]]:
     return links
 
 
-def untmppath(path: Path) -> Path:
+def untmppath(path: Path, tmpdir: Union[str, Path, None] = None) -> Path:
     if "{tmpdir}" in str(path):
-        return Path(str(path).format(tmpdir=mktempdir("dl-")))
+        if tmpdir is None:
+            tmpdir = mktempdir("dl-")
+        return Path(str(path).format(tmpdir=str(tmpdir)))
     else:
         return path
+
+
+def untmppaths(*paths: Optional[Path]) -> Tuple[Optional[Path], ...]:
+    """
+    Expand ``{tmpdir}`` in multiple paths, using the same temporary directory
+    each time
+    """
+    if any("{tmpdir}" in str(p) for p in paths):
+        tmpdir = mktempdir("dl-")
+        return tuple(None if p is None else untmppath(p, tmpdir) for p in paths)
+    else:
+        return paths
 
 
 def deb_pkg_installed(package: str) -> bool:

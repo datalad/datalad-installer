@@ -1,6 +1,7 @@
+from pathlib import Path
 from typing import Dict
 import pytest
-from datalad_installer import compose_pip_requirement, parse_header_links
+from datalad_installer import compose_pip_requirement, parse_header_links, untmppaths
 
 
 @pytest.mark.parametrize(
@@ -134,3 +135,24 @@ def test_compose_pip_requirement(package, version, urlspec, extras, req):
 )
 def test_parse_header_links(url: str, links: Dict[str, dict]) -> None:
     assert parse_header_links(url) == links
+
+
+def test_untmppaths() -> None:
+    p1, p2, p3, p4 = untmppaths(
+        Path("{tmpdir}", "foo.txt"),
+        None,
+        Path("{tmpdir}", "bar", "quux.dat"),
+        Path("xyzzy", "plugh"),
+    )
+    assert p1.name == "foo.txt"
+    tmpdir = p1.parent
+    assert p2 is None
+    assert p3 == tmpdir / "bar" / "quux.dat"
+    assert p4 == Path("xyzzy", "plugh")
+
+
+def test_untmppaths_no_tmpdir() -> None:
+    assert untmppaths(Path("foo.txt"), Path("bar", "baz.txt")) == (
+        Path("foo.txt"),
+        Path("bar", "baz.txt"),
+    )
