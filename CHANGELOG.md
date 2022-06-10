@@ -1,3 +1,15 @@
+# v0.8.0 (Fri Jun 10 2022)
+
+#### 🚀 Enhancement
+
+- Support installing rclone and git-annex-remote-rclone [#107](https://github.com/datalad/datalad-installer/pull/107) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.7.0 (Wed May 11 2022)
 
 #### 🚀 Enhancement
