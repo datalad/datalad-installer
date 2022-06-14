@@ -1,3 +1,16 @@
+# v0.8.1 (Tue Jun 14 2022)
+
+#### 🧪 Tests
+
+- Mark some tests as impossible to pass on conda-forge [#109](https://github.com/datalad/datalad-installer/pull/109) ([@jwodder](https://github.com/jwodder))
+- Type-check tests [#108](https://github.com/datalad/datalad-installer/pull/108) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.8.0 (Fri Jun 10 2022)
 
 #### 🚀 Enhancement
