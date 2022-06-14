@@ -1,7 +1,8 @@
+from typing import List
 import pytest
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--ci",
         action="store_true",
@@ -10,7 +11,9 @@ def pytest_addoption(parser):
     )
 
 
-def pytest_collection_modifyitems(config, items):
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: List[pytest.Item]
+) -> None:
     if not config.getoption("--ci"):
         skip_no_ci = pytest.mark.skip(reason="Only run when --ci is given")
         for item in items:

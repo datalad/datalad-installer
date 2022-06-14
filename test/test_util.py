@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 import pytest
 from datalad_installer import compose_pip_requirement, parse_header_links, untmppaths
 
@@ -41,7 +41,13 @@ from datalad_installer import compose_pip_requirement, parse_header_links, untmp
         ),
     ],
 )
-def test_compose_pip_requirement(package, version, urlspec, extras, req):
+def test_compose_pip_requirement(
+    package: str,
+    version: Optional[str],
+    urlspec: Optional[str],
+    extras: Optional[str],
+    req: str,
+) -> None:
     assert compose_pip_requirement(package, version, urlspec, extras) == req
 
 
@@ -144,6 +150,7 @@ def test_untmppaths() -> None:
         Path("{tmpdir}", "bar", "quux.dat"),
         Path("xyzzy", "plugh"),
     )
+    assert isinstance(p1, Path)
     assert p1.name == "foo.txt"
     tmpdir = p1.parent
     assert p2 is None

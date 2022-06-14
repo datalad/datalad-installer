@@ -19,7 +19,7 @@ from datalad_installer import (
 )
 
 
-def bin_path(binname):
+def bin_path(binname: str) -> Path:
     if ON_WINDOWS:
         return Path("Scripts", binname + ".exe")
     else:
@@ -27,12 +27,12 @@ def bin_path(binname):
 
 
 @pytest.fixture(autouse=True)
-def capture_all_logs(caplog):
+def capture_all_logs(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG)
 
 
 @pytest.mark.miniconda
-def test_install_miniconda(tmp_path):
+def test_install_miniconda(tmp_path: Path) -> None:
     miniconda_path = tmp_path / "conda"
     r = main(
         [
@@ -45,17 +45,19 @@ def test_install_miniconda(tmp_path):
     )
     assert r == 0
     assert (miniconda_path / bin_path("conda")).exists()
-    r = subprocess.run(
-        [str(miniconda_path / bin_path("conda")), "create", "-n", "test", "-y"],
-        stdout=subprocess.PIPE,
-        universal_newlines=True,
-        check=True,
+    assert (
+        "conda activate test"
+        in subprocess.run(
+            [str(miniconda_path / bin_path("conda")), "create", "-n", "test", "-y"],
+            stdout=subprocess.PIPE,
+            universal_newlines=True,
+            check=True,
+        ).stdout
     )
-    assert "conda activate test" in r.stdout
 
 
 @pytest.mark.miniconda
-def test_install_miniconda_autogen_path(monkeypatch):
+def test_install_miniconda_autogen_path(monkeypatch: pytest.MonkeyPatch) -> None:
     # Override TMPDIR with a path that will be cleaned up afterwards (We can't
     # use tmp_path here, as that's apparently always in the user temp folder on
     # Windows regardless of the external value of TMPDIR.)
@@ -72,18 +74,20 @@ def test_install_miniconda_autogen_path(monkeypatch):
         assert r == 0
         (miniconda_path,) = Path(newtmp).glob("dl-miniconda-*")
         assert (miniconda_path / bin_path("conda")).exists()
-        r = subprocess.run(
-            [str(miniconda_path / bin_path("conda")), "create", "-n", "test", "-y"],
-            stdout=subprocess.PIPE,
-            universal_newlines=True,
-            check=True,
+        assert (
+            "conda activate test"
+            in subprocess.run(
+                [str(miniconda_path / bin_path("conda")), "create", "-n", "test", "-y"],
+                stdout=subprocess.PIPE,
+                universal_newlines=True,
+                check=True,
+            ).stdout
         )
-        assert "conda activate test" in r.stdout
     tempfile.tempdir = None  # Reset cache
 
 
 @pytest.mark.miniconda
-def test_install_env_write_file_miniconda_conda_env(tmp_path):
+def test_install_env_write_file_miniconda_conda_env(tmp_path: Path) -> None:
     env_write_file = tmp_path / "env.sh"
     miniconda_path = tmp_path / "conda"
     r = main(
@@ -109,23 +113,24 @@ def test_install_env_write_file_miniconda_conda_env(tmp_path):
         bash = r"C:\Program Files\Git\bin\bash.EXE"
     else:
         bash = "bash"
-    r = subprocess.run(
-        [
-            bash,
-            "-c",
-            f"source {shlex.quote(ewf_path)} && conda info --json",
-        ],
-        stdout=subprocess.PIPE,
-        universal_newlines=True,
-        check=True,
+    info = json.loads(
+        subprocess.run(
+            [
+                bash,
+                "-c",
+                f"source {shlex.quote(ewf_path)} && conda info --json",
+            ],
+            stdout=subprocess.PIPE,
+            universal_newlines=True,
+            check=True,
+        ).stdout
     )
-    info = json.loads(r.stdout)
     assert info["active_prefix_name"] == "foo"
     assert info["conda_prefix"] == str(miniconda_path)
 
 
 @pytest.mark.miniconda
-def test_install_miniconda_datalad(tmp_path):
+def test_install_miniconda_datalad(tmp_path: Path) -> None:
     miniconda_path = tmp_path / "conda"
     r = main(
         [
@@ -143,7 +148,7 @@ def test_install_miniconda_datalad(tmp_path):
 
 
 @pytest.mark.miniconda
-def test_install_miniconda_conda_env_datalad(tmp_path):
+def test_install_miniconda_conda_env_datalad(tmp_path: Path) -> None:
     miniconda_path = tmp_path / "conda"
     r = main(
         [
@@ -166,7 +171,7 @@ def test_install_miniconda_conda_env_datalad(tmp_path):
 
 
 @pytest.mark.miniconda
-def test_install_venv_miniconda_datalad(tmp_path):
+def test_install_venv_miniconda_datalad(tmp_path: Path) -> None:
     venv_path = tmp_path / "venv"
     miniconda_path = tmp_path / "conda"
     r = main(
@@ -190,7 +195,7 @@ def test_install_venv_miniconda_datalad(tmp_path):
 
 
 @pytest.mark.miniconda
-def test_install_venv_miniconda_conda_env_datalad(tmp_path):
+def test_install_venv_miniconda_conda_env_datalad(tmp_path: Path) -> None:
     venv_path = tmp_path / "venv"
     miniconda_path = tmp_path / "conda"
     r = main(
@@ -218,7 +223,7 @@ def test_install_venv_miniconda_conda_env_datalad(tmp_path):
     assert (miniconda_path / "envs" / "foo" / bin_path("datalad")).exists()
 
 
-def test_install_venv_datalad(tmp_path):
+def test_install_venv_datalad(tmp_path: Path) -> None:
     venv_path = tmp_path / "venv"
     r = main(
         [
@@ -237,7 +242,7 @@ def test_install_venv_datalad(tmp_path):
 @pytest.mark.skipif(
     sys.version_info[:2] < (3, 7), reason="dev pip no longer supports Python < 3.7"
 )
-def test_install_venv_dev_pip_datalad(tmp_path):
+def test_install_venv_dev_pip_datalad(tmp_path: Path) -> None:
     venv_path = tmp_path / "venv"
     r = main(
         [
@@ -255,7 +260,7 @@ def test_install_venv_dev_pip_datalad(tmp_path):
 
 
 @pytest.mark.miniconda
-def test_install_miniconda_conda_env_venv_datalad(tmp_path):
+def test_install_miniconda_conda_env_venv_datalad(tmp_path: Path) -> None:
     venv_path = tmp_path / "venv"
     miniconda_path = tmp_path / "conda"
     r = main(
@@ -288,7 +293,7 @@ def test_install_miniconda_conda_env_venv_datalad(tmp_path):
     not ON_LINUX or shutil.which("apt-get") is None,
     reason="requires Debian-based system",
 )
-def test_install_neurodebian_sudo_ok(mocker):
+def test_install_neurodebian_sudo_ok(mocker: MockerFixture) -> None:
     spy = mocker.spy(datalad_installer, "runcmd")
     r = main(["datalad_installer.py", "--sudo=ok", "neurodebian"])
     assert r == 0
@@ -297,25 +302,27 @@ def test_install_neurodebian_sudo_ok(mocker):
     )
     assert spy.call_args_list[-2][1]["env"]["DEBIAN_FRONTEND"] == "noninteractive"
     assert spy.call_args_list[-1] == mocker.call("nd-configurerepo")
-    r = subprocess.run(
-        [
-            "dpkg-query",
-            "-Wf",
-            "${db:Status-Abbrev}",
-            "neurodebian",
-        ],
-        stdout=subprocess.PIPE,
-        universal_newlines=True,
-        check=True,
+    assert (
+        subprocess.run(
+            [
+                "dpkg-query",
+                "-Wf",
+                "${db:Status-Abbrev}",
+                "neurodebian",
+            ],
+            stdout=subprocess.PIPE,
+            universal_newlines=True,
+            check=True,
+        ).stdout
+        == "ii "
     )
-    assert r.stdout == "ii "
 
 
 @pytest.mark.ci_only
 @pytest.mark.skipif(
     not ON_MACOS or shutil.which("brew") is None, reason="requires macOS with Homebrew"
 )
-def test_install_git_annex_brew(mocker):
+def test_install_git_annex_brew(mocker: MockerFixture) -> None:
     spy = mocker.spy(datalad_installer, "runcmd")
     r = main(["datalad_installer.py", "git-annex", "-m", "brew"])
     assert r == 0

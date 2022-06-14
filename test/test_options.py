@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import List, Optional
 import pytest
 from datalad_installer import (
     ComponentRequest,
@@ -191,7 +192,7 @@ from datalad_installer import (
         ),
     ],
 )
-def test_parse_args(args, parsed):
+def test_parse_args(args: List[str], parsed: ParsedArgs) -> None:
     assert DataladInstaller.parse_args(args) == parsed
 
 
@@ -220,7 +221,9 @@ def test_parse_args(args, parsed):
         (["--sudo", "invalid"], "Invalid choice for --sudo option: 'invalid'", None),
     ],
 )
-def test_parse_args_errors(args, message, component):
+def test_parse_args_errors(
+    args: List[str], message: str, component: Optional[str]
+) -> None:
     with pytest.raises(UsageError) as excinfo:
         DataladInstaller.parse_args(args)
     assert str(excinfo.value) == message
@@ -277,29 +280,29 @@ def test_parse_args_errors(args, message, component):
         ),
     ],
 )
-def test_option_get_help(option, helptext):
+def test_option_get_help(option: Option, helptext: str) -> None:
     assert option.get_help() == helptext
 
 
-def test_global_short_help():
+def test_global_short_help() -> None:
     assert DataladInstaller.short_help("datalad_installer") == (
         "Usage: datalad_installer [<options>] [COMPONENT[=VERSION] [<options>]] ..."
     )
 
 
-def test_component_short_help():
+def test_component_short_help() -> None:
     assert DataladInstaller.short_help("datalad_installer", "miniconda") == (
         "Usage: datalad_installer [<options>] miniconda [<options>]"
     )
 
 
-def test_versioned_component_short_help():
+def test_versioned_component_short_help() -> None:
     assert DataladInstaller.short_help("datalad_installer", "git-annex") == (
         "Usage: datalad_installer [<options>] git-annex[=VERSION] [<options>]"
     )
 
 
-def test_global_long_help():
+def test_global_long_help() -> None:
     assert DataladInstaller.long_help("datalad_installer") == (
         "Usage: datalad_installer [<options>] [COMPONENT[=VERSION] [<options>]] ...\n"
         "\n"
@@ -328,7 +331,7 @@ def test_global_long_help():
     )
 
 
-def test_component_long_help():
+def test_component_long_help() -> None:
     assert DataladInstaller.long_help("datalad_installer", "miniconda") == (
         "Usage: datalad_installer [<options>] miniconda [<options>]\n"
         "\n"
@@ -346,7 +349,7 @@ def test_component_long_help():
     )
 
 
-def test_versioned_component_long_help():
+def test_versioned_component_long_help() -> None:
     assert DataladInstaller.long_help("datalad_installer", "git-annex") == (
         "Usage: datalad_installer [<options>] git-annex[=VERSION] [<options>]\n"
         "\n"
