@@ -422,6 +422,7 @@ def test_install_git_annex_remote_rclone_specific_version_from_github(
 
 
 @pytest.mark.ci_only
+@pytest.mark.needs_sudo
 @pytest.mark.skipif(not ON_POSIX, reason="POSIX only")
 def test_install_git_annex_remote_rclone_latest_from_github_globally() -> None:
     r = main(
@@ -532,6 +533,7 @@ def test_install_rclone_version_from_downloads(
 
 
 @pytest.mark.ci_only
+@pytest.mark.needs_sudo
 @pytest.mark.skipif(not ON_POSIX, reason="POSIX only")
 def test_install_latest_rclone_from_downloads_globally(mocker: MockerFixture) -> None:
     spy = mocker.spy(datalad_installer, "runcmd")
