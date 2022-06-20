@@ -14,6 +14,8 @@ from datalad_installer import (
     ON_MACOS,
     ON_POSIX,
     ON_WINDOWS,
+    DataladGitAnnexBuildInstaller,
+    DataladGitAnnexLatestBuildInstaller,
     DataladGitAnnexReleaseBuildInstaller,
     main,
 )
@@ -328,6 +330,42 @@ def test_install_git_annex_brew(mocker: MockerFixture) -> None:
     assert r == 0
     assert spy.call_args_list[-1] == mocker.call("brew", "install", "git-annex")
     assert shutil.which("git-annex") is not None
+
+
+@pytest.mark.ghauth_required
+@pytest.mark.parametrize(
+    "ostype,ext",
+    [
+        ("ubuntu", ".deb"),
+        ("macos", ".dmg"),
+        ("windows", ".exe"),
+    ],
+)
+def test_download_git_annex_tested_artifact(
+    ostype: str, ext: str, tmp_path: Path
+) -> None:
+    DataladGitAnnexBuildInstaller.download(ostype=ostype, target_dir=tmp_path)
+    (p,) = tmp_path.glob(f"*{ext}")
+    assert p.is_file()
+    assert p.stat().st_size >= (1 << 20)  # 1 MiB
+
+
+@pytest.mark.ghauth_required
+@pytest.mark.parametrize(
+    "ostype,ext",
+    [
+        ("ubuntu", ".deb"),
+        ("macos", ".dmg"),
+        ("windows", ".exe"),
+    ],
+)
+def test_download_git_annex_latest_artifact(
+    ostype: str, ext: str, tmp_path: Path
+) -> None:
+    DataladGitAnnexLatestBuildInstaller.download(ostype=ostype, target_dir=tmp_path)
+    (p,) = tmp_path.glob(f"*{ext}")
+    assert p.is_file()
+    assert p.stat().st_size >= (1 << 20)  # 1 MiB
 
 
 @pytest.mark.ghauth
