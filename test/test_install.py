@@ -348,7 +348,9 @@ def test_install_git_annex_brew(mocker: MockerFixture) -> None:
 def test_download_git_annex_tested_artifact(
     ostype: str, ext: str, tmp_path: Path
 ) -> None:
-    DataladGitAnnexBuildInstaller.download(ostype=ostype, target_dir=tmp_path)
+    DataladGitAnnexBuildInstaller.download(
+        ostype=ostype, target_dir=tmp_path, version=None
+    )
     (p,) = tmp_path.glob(f"*{ext}")
     assert p.is_file()
     assert p.stat().st_size >= (1 << 20)  # 1 MiB
@@ -366,7 +368,9 @@ def test_download_git_annex_tested_artifact(
 def test_download_git_annex_latest_artifact(
     ostype: str, ext: str, tmp_path: Path
 ) -> None:
-    DataladGitAnnexLatestBuildInstaller.download(ostype=ostype, target_dir=tmp_path)
+    DataladGitAnnexLatestBuildInstaller.download(
+        ostype=ostype, target_dir=tmp_path, version=None
+    )
     (p,) = tmp_path.glob(f"*{ext}")
     assert p.is_file()
     assert p.stat().st_size >= (1 << 20)  # 1 MiB

@@ -1870,7 +1870,9 @@ class DataladGitAnnexBuildInstaller(Installer):
             raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
 
     @staticmethod
-    def download(ostype: str, target_dir: Path, _version: Optional[str] = None) -> None:
+    def download(
+        ostype: str, target_dir: Path, version: Optional[str]  # noqa: U100
+    ) -> None:
         """
         Download & unzip the artifact from the latest successful build of
         datalad/git-annex for the given OS in the given directory
@@ -1890,7 +1892,9 @@ class DataladGitAnnexLatestBuildInstaller(DataladGitAnnexBuildInstaller):
     NAME = "datalad/git-annex"
 
     @staticmethod
-    def download(ostype: str, target_dir: Path, _version: Optional[str] = None) -> None:
+    def download(
+        ostype: str, target_dir: Path, version: Optional[str]  # noqa: U100
+    ) -> None:
         """
         Download & unzip the artifact from the latest build of
         datalad/git-annex for the given OS in the given directory
