@@ -2250,7 +2250,7 @@ class GitHubClient:
             archive_download_url = self.get_archive_download_url(artifacts_url)
             if archive_download_url is not None:
                 log.info("Downloading artifact package from %s", archive_download_url)
-                download_zipfile(archive_download_url, target_dir)
+                download_zipfile(archive_download_url, target_dir, headers=self.headers)
                 return
         else:
             raise RuntimeError("No workflow runs with artifacts found!")
@@ -2272,7 +2272,7 @@ class GitHubClient:
             archive_download_url = self.get_archive_download_url(artifacts_url)
             if archive_download_url is not None:
                 log.info("Downloading artifact package from %s", archive_download_url)
-                download_zipfile(archive_download_url, target_dir)
+                download_zipfile(archive_download_url, target_dir, headers=self.headers)
                 return
         else:
             raise RuntimeError("No workflow runs with artifacts found!")
