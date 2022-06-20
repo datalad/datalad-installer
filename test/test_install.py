@@ -338,7 +338,11 @@ def test_install_git_annex_brew(mocker: MockerFixture) -> None:
     [
         ("ubuntu", ".deb"),
         ("macos", ".dmg"),
-        ("windows", ".exe"),
+        pytest.param(
+            "windows",
+            ".exe",
+            marks=pytest.mark.xfail(reason="No successful Windows builds in months"),
+        ),
     ],
 )
 def test_download_git_annex_tested_artifact(
