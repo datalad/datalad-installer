@@ -1,3 +1,15 @@
+# v0.8.2 (Tue Jun 21 2022)
+
+#### 🐛 Bug Fix
+
+- Use GitHub token when downloading workflow artifacts [#111](https://github.com/datalad/datalad-installer/pull/111) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.8.1 (Tue Jun 14 2022)
 
 #### 🧪 Tests
