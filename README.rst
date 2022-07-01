@@ -116,8 +116,12 @@ Options
 '''''''
 
 --batch                         Run the Miniconda installation script in batch
-                                (noninteractive) mode.  This option is always
-                                in effect when installing on Windows.
+                                (noninteractive) mode.  This is always done
+                                when installing on Windows.
+
+                                In addition, if a spec is given (see below),
+                                this option causes ``--yes`` to be passed to
+                                ``conda install``.
 
 -e ARGS, --extra-args ARGS      Specify extra command-line arguments to pass to
                                 the Miniconda installation script.
