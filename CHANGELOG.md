@@ -1,3 +1,16 @@
+# v0.9.0 (Fri Jul 01 2022)
+
+#### 🚀 Enhancement
+
+- Give miniconda component a `--python-match` option [#114](https://github.com/datalad/datalad-installer/pull/114) ([@jwodder](https://github.com/jwodder))
+- miniconda: Make `--batch` cause `--yes` to be passed to `conda install` [#115](https://github.com/datalad/datalad-installer/pull/115) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.8.2 (Tue Jun 21 2022)
 
 #### 🐛 Bug Fix
