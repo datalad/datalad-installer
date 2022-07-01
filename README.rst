@@ -130,6 +130,16 @@ Options
                                 specified, it will be installed in a directory
                                 in ``$TMPDIR``.
 
+--python-match <major|minor|micro>
+                                Include ``python=V`` in the ``--spec``, where
+                                ``V`` is the Python version used to run
+                                ``datalad-installer`` to the given version
+                                level (e.g., under Python 3.9.13,
+                                ``--python-match major`` will install
+                                ``python=3``, ``minor`` will install
+                                ``python=3.9``, and ``micro`` will install
+                                ``python=3.9.13``)
+
 --spec SPEC                     Space-separated specifiers for packages to
                                 install in the Conda base environment after
                                 provisioning.

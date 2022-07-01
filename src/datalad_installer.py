@@ -896,6 +896,11 @@ class MinicondaComponent(Component):
                 ),
             ),
             Option(
+                "--python-match",
+                choices=["major", "minor", "micro"],
+                help="Install the same version of Python, matching to the given version level",
+            ),
+            Option(
                 "-e",
                 "--extra-args",
                 converter=shlex.split,
@@ -909,6 +914,7 @@ class MinicondaComponent(Component):
         path: Optional[Path] = None,
         batch: bool = False,
         spec: Optional[List[str]] = None,
+        python_match: Optional[str] = None,
         extra_args: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> None:
@@ -929,6 +935,7 @@ class MinicondaComponent(Component):
         else:
             log.info("Batch: %s", batch)
         log.info("Spec: %s", spec)
+        log.info("Python Match: %s", python_match)
         log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra component arguments: %r", kwargs)
@@ -940,6 +947,21 @@ class MinicondaComponent(Component):
             miniconda_script = "Miniconda3-latest-Windows-x86_64.exe"
         else:
             raise RuntimeError(f"E: Unsupported OS: {SYSTEM}")
+        if python_match is not None:
+            vparts: Tuple[int, ...]
+            if python_match == "major":
+                vparts = sys.version_info[:1]
+            elif python_match == "minor":
+                vparts = sys.version_info[:2]
+            elif python_match == "micro":
+                vparts = sys.version_info[:3]
+            else:
+                raise AssertionError(f"Unexpected python_match value: {python_match!r}")
+            newspec = f"python={'.'.join(map(str, vparts))}"
+            log.debug("Adding %r to spec", newspec)
+            if spec is None:
+                spec = []
+            spec.append(newspec)
         log.info("Downloading and running miniconda installer")
         with tempfile.TemporaryDirectory() as tmpdir:
             script_path = os.path.join(tmpdir, miniconda_script)
