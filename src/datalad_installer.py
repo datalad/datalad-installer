@@ -973,7 +973,11 @@ class MinicondaComponent(Component):
                 runcmd("bash", script_path, *args)
         conda_instance = CondaInstance(basepath=path, name=None)
         if spec is not None:
-            runcmd(conda_instance.conda_exe, "install", *spec)
+            install_args: List[str] = []
+            if batch:
+                install_args.append("--yes")
+            install_args.extend(spec)
+            runcmd(conda_instance.conda_exe, "install", *install_args)
         self.manager.conda_stack.append(conda_instance)
         self.manager.installer_stack.append(
             CondaInstaller(self.manager, conda_instance)
