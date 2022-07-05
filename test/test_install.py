@@ -59,6 +59,34 @@ def test_install_miniconda(tmp_path: Path) -> None:
 
 
 @pytest.mark.miniconda
+def test_install_miniconda_python_match(tmp_path: Path) -> None:
+    miniconda_path = tmp_path / "conda"
+    r = main(
+        [
+            "datalad_installer.py",
+            "miniconda",
+            "--batch",
+            "--path",
+            str(miniconda_path),
+            "--python-match",
+            "minor",
+        ]
+    )
+    assert r == 0
+    assert (miniconda_path / bin_path("python")).exists()
+    assert subprocess.run(
+        [
+            str(miniconda_path / bin_path("python")),
+            "-c",
+            "import sys; print(sys.version_info[:2])",
+        ],
+        stdout=subprocess.PIPE,
+        universal_newlines=True,
+        check=True,
+    ).stdout.strip() == repr(sys.version_info[:2])
+
+
+@pytest.mark.miniconda
 def test_install_miniconda_autogen_path(monkeypatch: pytest.MonkeyPatch) -> None:
     # Override TMPDIR with a path that will be cleaned up afterwards (We can't
     # use tmp_path here, as that's apparently always in the user temp folder on
