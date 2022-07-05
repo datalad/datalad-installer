@@ -77,13 +77,13 @@ def test_install_miniconda_python_match(tmp_path: Path) -> None:
         ]
     )
     assert r == 0
-    assert (miniconda_path / bin_path("python")).exists()
+    if ON_WINDOWS:
+        pypath = miniconda_path / "python.exe"
+    else:
+        pypath = miniconda_path / "bin" / "python"
+    assert pypath.exists()
     assert subprocess.run(
-        [
-            str(miniconda_path / bin_path("python")),
-            "-c",
-            "import sys; print(sys.version_info[:2])",
-        ],
+        [str(pypath), "-c", "import sys; print(sys.version_info[:2])"],
         stdout=subprocess.PIPE,
         universal_newlines=True,
         check=True,
