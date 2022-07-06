@@ -373,9 +373,13 @@ class OptionParser:
         lines = [self.short_help(progname)]
         if self.help is not None:
             lines.append("")
-            lines.extend(
-                " " * HELP_INDENT + ln for ln in textwrap.wrap(self.help, HELP_WIDTH)
-            )
+            for ln in self.help.splitlines():
+                if ln == "":
+                    lines.append("")
+                else:
+                    lines.extend(
+                        " " * HELP_INDENT + wl for wl in textwrap.wrap(ln, HELP_WIDTH)
+                    )
         if self.options:
             lines.append("")
             lines.append("Options:")
@@ -471,7 +475,15 @@ class DataladInstaller:
     COMPONENTS: ClassVar[Dict[str, Type["Component"]]] = {}
 
     OPTION_PARSER = OptionParser(
-        help="Installation script for Datalad and related components",
+        help=(
+            "Installation script for Datalad and related components\n\n"
+            "`datalad-installer` is a script for installing Datalad, git-annex,"
+            " and related components all in a single invocation.  It requires"
+            " no third-party Python libraries, though it does make heavy use of"
+            " external packaging commands.\n\n"
+            "See the README at <https://github.com/datalad/datalad-installer>"
+            " for a complete description of all options."
+        ),
         options=[
             Option(
                 "-V",
