@@ -465,8 +465,61 @@ class CondaInstance(NamedTuple):
             return self.basepath / "envs" / self.name / dirname
 
 
-#: A list of command names and the paths at which they are located
-CommandList = List[Tuple[str, Path]]
+class Command:
+    """An external command that can be installed by this script"""
+
+    def __init__(self, name: str, test_args: Optional[List[str]] = None) -> None:
+        #: Name of the command
+        self.name = name
+        if test_args is None:
+            #: Arguments with which to invoke the command as a smoke test
+            self.test_args = ["--help"]
+        else:
+            self.test_args = test_args
+
+    def in_bindir(self, bindir: Path) -> "InstalledCommand":
+        """
+        Return an `InstalledCommand` recording that the command is installed in
+        the given directory
+        """
+        cmdpath = bindir / self.name
+        if ON_WINDOWS and cmdpath.suffix == "":
+            cmdpath = cmdpath.with_suffix(".exe")
+        return InstalledCommand(name=self.name, path=cmdpath, test_args=self.test_args)
+
+
+class InstalledCommand(Command):
+    """An external command that has been installed by this script"""
+
+    def __init__(
+        self, name: str, path: Path, test_args: Optional[List[str]] = None
+    ) -> None:
+        super().__init__(name, test_args)
+        #: Path at which the command is installed
+        self.path = path
+
+    def test(self) -> bool:
+        test_cmd = [str(self.path)] + self.test_args
+        cmdtext = " ".join(map(shlex.quote, test_cmd))
+        try:
+            sr = subprocess.run(test_cmd, stdout=subprocess.DEVNULL)
+        except Exception as e:
+            log.error("Failed to run `%s`: %s", cmdtext, e)
+            return False
+        else:
+            if sr.returncode != 0:
+                log.error("`%s` command failed!", cmdtext)
+                return False
+            else:
+                return True
+
+
+DATALAD_CMD = Command("datalad")
+GIT_ANNEX_CMD = Command("git-annex")
+# Smoke-test rclone with --version instead of --help because the latter didn't
+# exist before rclone 1.33
+RCLONE_CMD = Command("rclone", test_args=["--version"])
+GIT_ANNEX_REMOTE_RCLONE_CMD = Command("git-annex-remote-rclone")
 
 
 class DataladInstaller:
@@ -548,7 +601,7 @@ class DataladInstaller:
         #: instance
         self.conda_stack: List[CondaInstance] = []
         #: A list of commands installed via the instance
-        self.new_commands: CommandList = []
+        self.new_commands: List[InstalledCommand] = []
         #: Whether "brew update" has been run
         self.brew_updated: bool = False
 
@@ -703,26 +756,16 @@ class DataladInstaller:
         for cr in components:
             self.addcomponent(name=cr.name, **cr.kwargs)
         ok = True
-        for name, path in self.new_commands:
-            log.info("%s is now installed at %s", name, path)
-            if not os.path.exists(path):
-                log.error("%s does not exist!", path)
+        for cmd in self.new_commands:
+            log.info("%s is now installed at %s", cmd.name, cmd.path)
+            if not os.path.exists(cmd.path):
+                log.error("%s does not exist!", cmd.path)
                 ok = False
-            elif not ON_WINDOWS and not os.access(path, os.X_OK):
-                log.error("%s is not executable!", path)
+            elif not ON_WINDOWS and not os.access(cmd.path, os.X_OK):
+                log.error("%s is not executable!", cmd.path)
                 ok = False
-            else:
-                try:
-                    sr = subprocess.run(
-                        [str(path), "--help"], stdout=subprocess.DEVNULL
-                    )
-                except Exception as e:
-                    log.error("Failed to run `%s --help`: %s", path, e)
-                    ok = False
-                else:
-                    if sr.returncode != 0:
-                        log.error("`%s --help` command failed!", path)
-                        ok = False
+            elif not cmd.test():
+                ok = False
         return 0 if ok else 1
 
     def addenv(self, line: str) -> None:
@@ -1302,12 +1345,12 @@ class Installer(ABC):
 
     #: Mapping from supported installable component names to
     #: (installer-specific package IDs, list of installed programs) pairs
-    PACKAGES: ClassVar[Dict[str, Tuple[str, List[str]]]]
+    PACKAGES: ClassVar[Dict[str, Tuple[str, List[Command]]]]
 
     def __init__(self, manager: DataladInstaller) -> None:
         self.manager = manager
 
-    def install(self, component: str, **kwargs: Any) -> CommandList:
+    def install(self, component: str, **kwargs: Any) -> List[InstalledCommand]:
         """
         Installs a given component.  Raises `MethodNotSupportedError` if the
         installation method is not supported on the system or the method does
@@ -1322,13 +1365,7 @@ class Installer(ABC):
                 f"{self.NAME} does not know how to install {component}"
             )
         bindir = self.install_package(package, **kwargs)
-        bins = []
-        for cmd in commands:
-            p = bindir / cmd
-            if ON_WINDOWS and p.suffix == "":
-                p = p.with_suffix(".exe")
-            bins.append((cmd, p))
-        return bins
+        return [cmd.in_bindir(bindir) for cmd in commands]
 
     @abstractmethod
     def install_package(self, package: str, **kwargs: Any) -> Path:
@@ -1372,12 +1409,12 @@ class AptInstaller(Installer):
     ]
 
     PACKAGES = {
-        "datalad": ("datalad", ["datalad"]),
-        "git-annex": ("git-annex", ["git-annex"]),
-        "rclone": ("rclone", ["rclone"]),
+        "datalad": ("datalad", [DATALAD_CMD]),
+        "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
+        "rclone": ("rclone", [RCLONE_CMD]),
         "git-annex-remote-rclone": (
             "git-annex-remote-rclone",
-            ["git-annex-remote-rclone"],
+            [GIT_ANNEX_REMOTE_RCLONE_CMD],
         ),
     }
 
@@ -1429,12 +1466,12 @@ class HomebrewInstaller(Installer):
     ]
 
     PACKAGES = {
-        "datalad": ("datalad", ["datalad"]),
-        "git-annex": ("git-annex", ["git-annex"]),
-        "rclone": ("rclone", ["rclone"]),
+        "datalad": ("datalad", [DATALAD_CMD]),
+        "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
+        "rclone": ("rclone", [RCLONE_CMD]),
         "git-annex-remote-rclone": (
             "git-annex-remote-rclone",
-            ["git-annex-remote-rclone"],
+            [GIT_ANNEX_REMOTE_RCLONE_CMD],
         ),
     }
 
@@ -1489,7 +1526,7 @@ class PipInstaller(Installer):
     ]
 
     PACKAGES = {
-        "datalad": ("datalad", ["datalad"]),
+        "datalad": ("datalad", [DATALAD_CMD]),
     }
 
     DEVEL_PACKAGES = {
@@ -1583,7 +1620,7 @@ class NeurodebianInstaller(AptInstaller):
     NAME = "neurodebian"
 
     PACKAGES = {
-        "git-annex": ("git-annex-standalone", ["git-annex"]),
+        "git-annex": ("git-annex-standalone", [GIT_ANNEX_CMD]),
     }
 
     def assert_supported_system(self) -> None:
@@ -1613,12 +1650,12 @@ class DebURLInstaller(Installer):
     ]
 
     PACKAGES = {
-        "git-annex": ("git-annex", ["git-annex"]),
-        "datalad": ("datalad", ["datalad"]),
-        "rclone": ("rclone", ["rclone"]),
+        "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
+        "datalad": ("datalad", [DATALAD_CMD]),
+        "rclone": ("rclone", [RCLONE_CMD]),
         "git-annex-remote-rclone": (
             "git-annex-remote-rclone",
-            ["git-annex-remote-rclone"],
+            [GIT_ANNEX_REMOTE_RCLONE_CMD],
         ),
     }
 
@@ -1670,7 +1707,7 @@ class AutobuildSnapshotInstaller(Installer):
     OPTIONS: ClassVar[List[Option]] = []
 
     PACKAGES = {
-        "git-annex": ("git-annex", ["git-annex"]),
+        "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
     }
 
     def _install_linux(self, path: str) -> Path:
@@ -1758,9 +1795,9 @@ class CondaInstaller(Installer):
     ]
 
     PACKAGES = {
-        "datalad": ("datalad", ["datalad"]),
-        "git-annex": ("git-annex", ["git-annex"]),
-        "rclone": ("rclone", ["rclone"]),
+        "datalad": ("datalad", [DATALAD_CMD]),
+        "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
+        "rclone": ("rclone", [RCLONE_CMD]),
     }
 
     def __init__(
@@ -1845,7 +1882,7 @@ class DataladGitAnnexBuildInstaller(Installer):
     ]
 
     PACKAGES = {
-        "git-annex": ("git-annex", ["git-annex"]),
+        "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
     }
 
     VERSIONED = False
@@ -1972,7 +2009,7 @@ class DataladPackagesBuildInstaller(Installer):
     OPTIONS: ClassVar[List[Option]] = []
 
     PACKAGES = {
-        "git-annex": ("git-annex", ["git-annex"]),
+        "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
     }
 
     def install_package(
@@ -2026,7 +2063,7 @@ class DMGInstaller(Installer):
     ]
 
     PACKAGES = {
-        "git-annex": ("git-annex", ["git-annex"]),
+        "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
     }
 
     def install_package(
@@ -2068,7 +2105,7 @@ class GARRCGitHubInstaller(Installer):
     PACKAGES = {
         "git-annex-remote-rclone": (
             "git-annex-remote-rclone",
-            ["git-annex-remote-rclone"],
+            [GIT_ANNEX_REMOTE_RCLONE_CMD],
         ),
     }
 
@@ -2131,7 +2168,7 @@ class DownloadsRCloneInstaller(Installer):
         ),
     ]
 
-    PACKAGES = {"rclone": ("rclone", ["rclone"])}
+    PACKAGES = {"rclone": ("rclone", [RCLONE_CMD])}
 
     def install_package(
         self,
