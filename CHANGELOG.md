@@ -1,3 +1,23 @@
+# v0.9.1 (Thu Jul 28 2022)
+
+#### 🐛 Bug Fix
+
+- Smoke-test rclone with `--version` instead of `--help` [#122](https://github.com/datalad/datalad-installer/pull/122) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Add reference to README to command `--help` [#119](https://github.com/datalad/datalad-installer/pull/119) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Add test of `--python-match` [#117](https://github.com/datalad/datalad-installer/pull/117) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.9.0 (Fri Jul 01 2022)
 
 #### 🚀 Enhancement
