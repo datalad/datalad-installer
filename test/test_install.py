@@ -584,6 +584,11 @@ def test_install_latest_rclone_from_downloads_with_manpage(tmp_path: Path) -> No
             44712960,
             marks=pytest.mark.skipif(not ON_WINDOWS, reason="Windows only"),
         ),
+        pytest.param(
+            "1.30",
+            12462464,
+            marks=pytest.mark.skipif(not ON_LINUX, reason="Linux only"),
+        ),
     ],
 )
 def test_install_rclone_version_from_downloads(
