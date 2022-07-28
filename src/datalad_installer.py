@@ -656,7 +656,7 @@ class DataladInstaller:
         try:
             runcmd(*args, **kwargs)
         except OSError as e:
-            if e.winerror == 740:  # type: ignore[attr-defined]
+            if getattr(e, "winerror", None) == 740:
                 log.info("Operation requires elevation; rerunning as administrator")
                 self.sudo(*args, **kwargs)
             else:
