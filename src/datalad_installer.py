@@ -666,7 +666,12 @@ class DataladInstaller:
         # `dest` must be a file path, not a directory path.
         log.info("Moving %s to %s", path, dest)
         try:
-            path.replace(dest)
+            if ON_POSIX:
+                # Handle cross-filesystem moves  (Don't use shutil.move() on
+                # Windows, as it fails when dest exists)
+                shutil.move(str(path), str(dest))
+            else:
+                path.replace(dest)
         except PermissionError:
             log.info("Operation requires elevation; rerunning as administrator")
             if ON_POSIX:
