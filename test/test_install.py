@@ -62,6 +62,10 @@ def test_install_miniconda(tmp_path: Path) -> None:
     sys.version_info[:2] < (3, 7),
     reason="Trying to install Python 3.6 on Conda gives package conflicts",
 )
+@pytest.mark.skipif(
+    sys.version_info[:2] == (3, 11),
+    reason="Python 3.11 not yet available on Conda",
+)
 @pytest.mark.miniconda
 def test_install_miniconda_python_match(tmp_path: Path) -> None:
     miniconda_path = tmp_path / "conda"
