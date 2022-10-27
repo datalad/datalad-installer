@@ -1002,7 +1002,11 @@ class MinicondaComponent(Component):
         if ON_LINUX:
             miniconda_script = "Miniconda3-latest-Linux-x86_64.sh"
         elif ON_MACOS:
-            miniconda_script = "Miniconda3-latest-MacOSX-x86_64.sh"
+            arch = platform.machine().lower()
+            if arch in ("x86_64", "arm64"):
+                miniconda_script = f"Miniconda3-latest-MacOSX-{arch}.sh"
+            else:
+                raise RuntimeError(f"E: Unsupported architecture: {arch}")
         elif ON_WINDOWS:
             miniconda_script = "Miniconda3-latest-Windows-x86_64.exe"
         else:
