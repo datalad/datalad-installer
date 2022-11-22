@@ -347,6 +347,8 @@ def test_component_long_help() -> None:
         "\n"
         "Options:\n"
         "  --batch                         Run in batch (noninteractive) mode\n"
+        "  -c, --channel CHANNEL           Additional Conda channels to install\n"
+        "                                  packages from\n"
         "  -e, --extra-args EXTRA_ARGS     Extra arguments to pass to the install\n"
         "                                  command\n"
         "  --path PATH                     Install Miniconda at the given path\n"

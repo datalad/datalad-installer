@@ -123,6 +123,11 @@ Options
                                 this option causes ``--yes`` to be passed to
                                 ``conda install``.
 
+-c CHANNEL, --channel CHANNEL   Specify additional Conda channels to use when
+                                installing the packages listed in the spec (see
+                                below).  This option can be specified multiple
+                                times.
+
 -e ARGS, --extra-args ARGS      Specify extra command-line arguments to pass to
                                 the Miniconda installation script.
 
