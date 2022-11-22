@@ -1,3 +1,27 @@
+# v0.9.2 (Tue Nov 22 2022)
+
+#### 🐛 Bug Fix
+
+- Retry failed downloads [#132](https://github.com/datalad/datalad-installer/pull/132) ([@jwodder](https://github.com/jwodder))
+- Install arm64 Miniconda on M1 Macs [#130](https://github.com/datalad/datalad-installer/pull/130) ([@jwodder](https://github.com/jwodder))
+- Handle moving files across filesystems [#125](https://github.com/datalad/datalad-installer/pull/125) ([@jwodder](https://github.com/jwodder))
+- Make `OSError.winerror` reference portable [#123](https://github.com/datalad/datalad-installer/pull/123) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Update GitHub Actions action versions [#126](https://github.com/datalad/datalad-installer/pull/126) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Test against Python 3.11 [#127](https://github.com/datalad/datalad-installer/pull/127) ([@jwodder](https://github.com/jwodder))
+- Fix test failures due to some sort of dependency hell [#128](https://github.com/datalad/datalad-installer/pull/128) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.9.1 (Thu Jul 28 2022)
 
 #### 🐛 Bug Fix
