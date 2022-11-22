@@ -53,6 +53,7 @@ from typing import (
     Union,
     cast,
 )
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from zipfile import ZipFile
 
@@ -2445,10 +2446,24 @@ def download_file(
     log.info("Downloading %s", url)
     if headers is None:
         headers = {}
+    delays = iter([1, 2, 6, 15, 36])
     req = Request(url, headers=headers)
-    with urlopen(req) as r:
-        with open(path, "wb") as fp:
-            shutil.copyfileobj(r, fp)
+    while True:
+        try:
+            with urlopen(req) as r:
+                with open(path, "wb") as fp:
+                    shutil.copyfileobj(r, fp)
+            return
+        except URLError as e:
+            if isinstance(e, HTTPError) and e.code not in (500, 502, 503, 504):
+                raise
+            try:
+                delay = next(delays)
+            except StopIteration:
+                raise
+            else:
+                log.warning("Request to %s failed: %s", url, e)
+                log.info("Retrying in %d seconds", delay)
 
 
 def download_to_tempfile(
