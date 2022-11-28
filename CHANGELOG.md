@@ -1,3 +1,15 @@
+# v0.10.0 (Mon Nov 28 2022)
+
+#### 🚀 Enhancement
+
+- Add `--channel` option to miniconda component [#134](https://github.com/datalad/datalad-installer/pull/134) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.9.2 (Tue Nov 22 2022)
 
 #### 🐛 Bug Fix
