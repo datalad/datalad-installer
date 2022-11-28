@@ -949,6 +949,12 @@ class MinicondaComponent(Component):
             ),
             Option("--batch", is_flag=True, help="Run in batch (noninteractive) mode"),
             Option(
+                "-c",
+                "--channel",
+                multiple=True,
+                help="Additional Conda channels to install packages from",
+            ),
+            Option(
                 "--spec",
                 converter=str.split,
                 help=(
@@ -977,6 +983,7 @@ class MinicondaComponent(Component):
         spec: Optional[List[str]] = None,
         python_match: Optional[str] = None,
         extra_args: Optional[List[str]] = None,
+        channel: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> None:
         log.info("Installing Miniconda")
@@ -995,6 +1002,7 @@ class MinicondaComponent(Component):
             log.info("Batch: True")
         else:
             log.info("Batch: %s", batch)
+        log.info("Channels: %s", channel)
         log.info("Spec: %s", spec)
         log.info("Python Match: %s", python_match)
         log.info("Extra args: %s", extra_args)
@@ -1063,6 +1071,9 @@ class MinicondaComponent(Component):
             install_args: List[str] = []
             if batch:
                 install_args.append("--yes")
+            if channel is not None:
+                for c in channel:
+                    install_args.extend(["--channel", c])
             install_args.extend(spec)
             runcmd(conda_instance.conda_exe, "install", *install_args)
         self.manager.conda_stack.append(conda_instance)
