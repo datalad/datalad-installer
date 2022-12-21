@@ -2272,6 +2272,8 @@ class DownloadsRCloneInstaller(Installer):
                     contents / "rclone.1", man1_dir / "rclone.1"
                 )
         log.debug("Installed program directory: %s", bin_dir)
+        if str(bin_dir) not in os.environ.get("PATH", "").split(os.pathsep):
+            self.manager.addpath(bin_dir)
         return bin_dir
 
     def assert_supported_system(self) -> None:
