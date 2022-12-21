@@ -26,7 +26,7 @@ Python libraries, though it does make heavy use of external packaging commands.
 
 Installation
 ============
-``datalad-installer`` requires Python 3.6 or higher.  Just use `pip
+``datalad-installer`` requires Python 3.7 or higher.  Just use `pip
 <https://pip.pypa.io>`_ for Python 3 (You have pip, right?) to install it::
 
     python3 -m pip install datalad-installer
