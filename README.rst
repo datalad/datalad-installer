@@ -461,7 +461,7 @@ Supports installing specific versions (though note that the version strings for
 this method tend to include Git commit information, e.g.,
 "``8.20210127+git111-gbe5a0e4b8``").
 
-This installation method is only supported on Windows.
+This installation method is only supported on Windows and macOS.
 
 ``deb-url``
 ~~~~~~~~~~~

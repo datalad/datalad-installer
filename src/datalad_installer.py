@@ -2041,30 +2041,43 @@ class DataladPackagesBuildInstaller(Installer):
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         assert package == "git-annex"
-        # Installing under a tempfile.TemporaryDirectory() leads to an error
-        # when Python tries to clean up the directory, so we'll just leave the
-        # .exe file alone.
-        tmpdir = mktempdir("dl-datalad-package-")
-        if ON_WINDOWS:
-            if version is None:
-                exefile = "git-annex-installer_latest-snapshot_x64.exe"
-            else:
-                exefile = f"git-annex-installer_{version}_x64.exe"
-            exepath = tmpdir / exefile
-            download_file(
-                f"https://datasets.datalad.org/datalad/packages/windows/{exefile}",
-                exepath,
+        if version is None:
+            log.info("Fetching latest version ...")
+            vfile = download_to_tempfile(
+                "http://datasets.datalad.org/datalad/packages/latest-version"
             )
-            self.manager.run_maybe_elevated(exepath, "/S")
-            binpath = Path("C:/Program Files", "Git", "usr", "bin")
-            self.manager.addpath(binpath)
-        else:
-            raise AssertionError("Method should not be called on unsupported platforms")
+            version = vfile.read_text().strip()
+            log.info("Found latest version: %s", version)
+        # Try to ignore cleanup errors on Windows:
+        with suppress(NotADirectoryError), tempfile.TemporaryDirectory() as tmpdir_:
+            tmpdir = Path(tmpdir_)
+            if ON_WINDOWS:
+                exefile = f"git-annex-installer_{version}_x64.exe"
+                exepath = tmpdir / exefile
+                download_file(
+                    f"https://datasets.datalad.org/datalad/packages/windows/{exefile}",
+                    exepath,
+                )
+                self.manager.run_maybe_elevated(exepath, "/S")
+                binpath = Path("C:/Program Files", "Git", "usr", "bin")
+                self.manager.addpath(binpath)
+            elif ON_MACOS:
+                dmgfile = f"git-annex_{version}_x64.dmg"
+                dmgpath = tmpdir / dmgfile
+                download_file(
+                    f"https://datasets.datalad.org/datalad/packages/osx/{dmgfile}",
+                    dmgpath,
+                )
+                binpath = install_git_annex_dmg(dmgpath, self.manager)
+            else:
+                raise AssertionError(
+                    "Method should not be called on unsupported platforms"
+                )
         log.debug("Installed program directory: %s", binpath)
         return binpath
 
     def assert_supported_system(self) -> None:
-        if not ON_WINDOWS:
+        if not (ON_WINDOWS or ON_MACOS):
             raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
 
 
