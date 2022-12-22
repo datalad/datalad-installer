@@ -72,7 +72,7 @@ environment:
       INSTALL_GITANNEX: git-annex -m datalad/packages
     # MacOS core tests
     - ID: MacP38core
-      APPVEYOR_BUILD_WORKER_IMAGE: macOS
+      APPVEYOR_BUILD_WORKER_IMAGE: macos-monterey
       PY: 3.8
       # does not give a functional installation
       # INSTALL_GITANNEX: git-annex -m snapshot
@@ -80,15 +80,15 @@ environment:
       INSTALL_GITANNEX: git-annex
 
     - ID: MacP38a1
-      APPVEYOR_BUILD_WORKER_IMAGE: macOS
+      APPVEYOR_BUILD_WORKER_IMAGE: macos-monterey
       PY: 3.8
       INSTALL_GITANNEX: git-annex
     - ID: MacP38a2
-      APPVEYOR_BUILD_WORKER_IMAGE: macOS
+      APPVEYOR_BUILD_WORKER_IMAGE: macos-monterey
       PY: 3.8
       INSTALL_GITANNEX: git-annex
     - ID: MacP38a3
-      APPVEYOR_BUILD_WORKER_IMAGE: macOS
+      APPVEYOR_BUILD_WORKER_IMAGE: macos-monterey
       PY: 3.8
       INSTALL_GITANNEX: git-annex
 
@@ -105,7 +105,7 @@ cache:
   # pip cache
   - C:\Users\appveyor\AppData\Local\pip\Cache -> .appveyor.yml
   - /home/appveyor/.cache/pip -> .appveyor.yml
-  # TODO: where is the cache on macOS?
+  # TODO: where is the cache on macos-monterey?
   #- /Users/appveyor/.cache/pip -> .appveyor.yml
   # TODO: Can we cache `brew`?
   #- /usr/local/Cellar
@@ -140,7 +140,7 @@ install:
   - sh: "[ \"x$PY\" != x ] && . ${HOME}/venv${PY}/bin/activate || virtualenv -p 3 ${HOME}/dlvenv && . ${HOME}/dlvenv/bin/activate; ln -s \"$VIRTUAL_ENV\" \"${HOME}/VENV\""
   - cmd: "set PATH=C:\\Python%PY%;C:\\Python%PY%\\Scripts;%PATH%"
   # Missing system software
-  - sh: "[ -n \"$INSTALL_SYSPKGS\" ] && ( [ \"x${APPVEYOR_BUILD_WORKER_IMAGE}\" = \"xmacOS\" ] && brew install -q ${INSTALL_SYSPKGS} || sudo apt-get install --no-install-recommends -y ${INSTALL_SYSPKGS} ) || true"
+  - sh: "[ -n \"$INSTALL_SYSPKGS\" ] && ( [ \"x${APPVEYOR_BUILD_WORKER_IMAGE}\" = \"xmacos-monterey\" ] && brew install -q ${INSTALL_SYSPKGS} || sudo apt-get install --no-install-recommends -y ${INSTALL_SYSPKGS} ) || true"
   - python -m pip install .
 
 test_script:
