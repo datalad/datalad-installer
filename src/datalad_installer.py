@@ -1806,6 +1806,7 @@ class SnapshotInstaller(AutobuildSnapshotInstaller):
 @GitAnnexComponent.register_installer
 @DataladComponent.register_installer
 @RCloneComponent.register_installer
+@GitAnnexRemoteRCloneComponent.register_installer
 class CondaInstaller(Installer):
     """Installs via conda"""
 
@@ -1819,6 +1820,10 @@ class CondaInstaller(Installer):
         "datalad": ("datalad", [DATALAD_CMD]),
         "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
         "rclone": ("rclone", [RCLONE_CMD]),
+        "git-annex-remote-rclone": (
+            "git-annex-remote-rclone",
+            [GIT_ANNEX_REMOTE_RCLONE_CMD],
+        ),
     }
 
     def __init__(
@@ -1834,9 +1839,9 @@ class CondaInstaller(Installer):
         extra_args: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> Path:
-        if package == "git-annex" and not ON_LINUX:
+        if package in ("git-annex", "git-annex-remote-rclone") and not ON_LINUX:
             raise MethodNotSupportedError(
-                "Conda only supports installing git-annex on Linux"
+                f"Conda only supports installing {package} on Linux"
             )
         log.info("Installing %s via conda", package)
         if self.conda_instance is not None:

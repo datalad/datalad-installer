@@ -302,6 +302,7 @@ option specifying the installation method to use; the supported methods are:
 
 - ``apt``
 - ``brew``
+- ``conda``
 - ``deb-url``
 - ``DanielDent/git-annex-remote-rclone``
 
@@ -310,6 +311,7 @@ recent component on the command line that provides a compatible installation
 method will be used.  If there is no such component, the first supported
 component from the following list will be used:
 
+- ``conda``
 - ``apt``
 - ``brew``
 - ``DanielDent/git-annex-remote-rclone``
