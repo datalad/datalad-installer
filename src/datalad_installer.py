@@ -2304,8 +2304,12 @@ class GitHubClient:
     def get(self, url: str) -> Iterator[Any]:
         log.debug("HTTP request: GET %s", url)
         req = Request(url, headers=self.headers)
-        with urlopen(req) as r:
-            yield r
+        try:
+            with urlopen(req) as r:
+                yield r
+        except URLError as e:
+            raise_for_ratelimit(e, self.headers.get("Authorization"))
+            raise
 
     def getjson(self, url: str) -> Any:
         with self.get(url) as r:
@@ -2462,6 +2466,31 @@ class MethodNotSupportedError(Exception):
     pass
 
 
+def raise_for_ratelimit(e: URLError, auth: Optional[str]) -> None:
+    if isinstance(e, HTTPError) and e.code == 403:
+        try:
+            resp = json.load(e)
+        except Exception:
+            return
+        if "API rate limit exceeded" in resp.get("message", ""):
+            if auth is not None:
+                url = "https://api.github.com/rate_limit"
+                log.debug("HTTP request: GET %s", url)
+                req = Request(url, headers={"Authorization": auth})
+                with urlopen(req) as r:
+                    resp = json.load(r)
+                log.info(
+                    "GitHub rate limit exceeded; details:\n\n%s\n",
+                    textwrap.indent(json.dumps(resp, indent=4), " " * 4),
+                )
+            else:
+                raise RuntimeError(
+                    "GitHub rate limit exceeded and GITHUB_TOKEN not set;"
+                    " suggest setting GITHUB_TOKEN in order to get increased"
+                    " rate limit"
+                )
+
+
 def download_file(
     url: str, path: Union[str, os.PathLike], headers: Optional[Dict[str, str]] = None
 ) -> None:
@@ -2482,6 +2511,7 @@ def download_file(
             return
         except URLError as e:
             if isinstance(e, HTTPError) and e.code not in (500, 502, 503, 504):
+                raise_for_ratelimit(e, headers.get("Authorization"))
                 raise
             try:
                 delay = next(delays)
