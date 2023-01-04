@@ -1,3 +1,24 @@
+# v0.11.0 (Wed Jan 04 2023)
+
+#### 🚀 Enhancement
+
+- Support installing git-annex-remote-rclone via Conda [#141](https://github.com/datalad/datalad-installer/pull/141) ([@jwodder](https://github.com/jwodder))
+- Support installing from datalad/packages on Linux [#143](https://github.com/datalad/datalad-installer/pull/143) ([@jwodder](https://github.com/jwodder))
+- If GitHub rate limit is exceeded, dump rate limit info or advise user to set GITHUB_TOKEN [#144](https://github.com/datalad/datalad-installer/pull/144) ([@jwodder](https://github.com/jwodder))
+- Support installing from datalad/packages on macOS [#136](https://github.com/datalad/datalad-installer/pull/136) ([@jwodder](https://github.com/jwodder))
+- Drop support for Python 3.6 [#139](https://github.com/datalad/datalad-installer/pull/139) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- rclone -m downloads.rclone.org: Add bin_dir to PATH if necessary [#140](https://github.com/datalad/datalad-installer/pull/140) ([@jwodder](https://github.com/jwodder) [@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # v0.10.0 (Mon Nov 28 2022)
 
 #### 🚀 Enhancement
