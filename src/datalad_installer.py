@@ -2027,17 +2027,33 @@ class DataladPackagesBuildInstaller(Installer):
 
     NAME = "datalad/packages"
 
-    OPTIONS: ClassVar[List[Option]] = []
+    OPTIONS = [
+        Option(
+            "--install-dir",
+            converter=Path,
+            metavar="DIR",
+            help="Directory in which to unpack the `*.deb`",
+        ),
+    ]
 
     PACKAGES = {
         "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
     }
 
     def install_package(
-        self, package: str, version: Optional[str] = None, **kwargs: Any
+        self,
+        package: str,
+        version: Optional[str] = None,
+        install_dir: Optional[Path] = None,
+        **kwargs: Any,
     ) -> Path:
         log.info("Installing %s via datalad/packages", package)
         log.info("Version: %s", version)
+        if install_dir is not None:
+            if not ON_LINUX:
+                raise RuntimeError("--install-dir is only supported on Linux")
+            install_dir = untmppath(install_dir)
+            log.info("Install dir: %s", install_dir)
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         assert package == "git-annex"
@@ -2051,7 +2067,24 @@ class DataladPackagesBuildInstaller(Installer):
         # Try to ignore cleanup errors on Windows:
         with suppress(NotADirectoryError), tempfile.TemporaryDirectory() as tmpdir_:
             tmpdir = Path(tmpdir_)
-            if ON_WINDOWS:
+            if ON_LINUX:
+                debfile = f"git-annex-standalone_{version}-1~ndall+1_amd64.deb"
+                debpath = tmpdir / debfile
+                download_file(
+                    f"https://datasets.datalad.org/datalad/packages/neurodebian/{debfile}",
+                    debpath,
+                )
+                if install_dir is None and deb_pkg_installed("git-annex"):
+                    self.manager.sudo(
+                        "dpkg", "--remove", "--ignore-depends=git-annex", "git-annex"
+                    )
+                binpath = install_deb(
+                    debpath,
+                    self.manager,
+                    Path("usr", "bin"),
+                    install_dir=install_dir,
+                )
+            elif ON_WINDOWS:
                 exefile = f"git-annex-installer_{version}_x64.exe"
                 exepath = tmpdir / exefile
                 download_file(
@@ -2077,8 +2110,7 @@ class DataladPackagesBuildInstaller(Installer):
         return binpath
 
     def assert_supported_system(self) -> None:
-        if not (ON_WINDOWS or ON_MACOS):
-            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
+        pass
 
 
 @GitAnnexComponent.register_installer
