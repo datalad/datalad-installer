@@ -764,7 +764,7 @@ class DataladInstaller:
         ok = True
         for cmd in self.new_commands:
             log.info("%s is now installed at %s", cmd.name, cmd.path)
-            if not os.path.exists(cmd.path):
+            if not check_exists(cmd.path):
                 log.error("%s does not exist!", cmd.path)
                 ok = False
             elif not ON_WINDOWS and not os.access(cmd.path, os.X_OK):
@@ -2750,6 +2750,16 @@ def deb_pkg_installed(package: str) -> bool:
         universal_newlines=True,
     )
     return r.returncode == 0 and r.stdout == "installed"
+
+
+def check_exists(path: Path) -> bool:
+    if ON_WINDOWS:
+        # <https://github.com/datalad/datalad-installer/issues/92>
+        for _ in range(5):
+            if os.path.exists(path):
+                return True
+            sleep(1)
+    return os.path.exists(path)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
