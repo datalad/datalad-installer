@@ -1,3 +1,15 @@
+# v0.11.1 (Thu Jan 05 2023)
+
+#### 🐛 Bug Fix
+
+- Try to handle Windows being Windows [#145](https://github.com/datalad/datalad-installer/pull/145) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.11.0 (Wed Jan 04 2023)
 
 #### 🚀 Enhancement
