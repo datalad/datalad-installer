@@ -182,7 +182,7 @@ class Option:
 
     def __eq__(self, other: Any) -> bool:
         if type(self) is type(other):
-            return vars(self) == vars(other)
+            return bool(vars(self) == vars(other))
         else:
             return NotImplemented
 
@@ -344,7 +344,7 @@ class OptionParser:
         except GetoptError as e:
             raise UsageError(str(e), self.component)
         kwargs: Dict[str, Any] = {}
-        for (o, a) in optlist:
+        for o, a in optlist:
             option = self.options[o]
             try:
                 ret = option.process(kwargs, a)
