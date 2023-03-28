@@ -2545,6 +2545,13 @@ def download_file(
             with urlopen(req) as r:
                 with open(path, "wb") as fp:
                     shutil.copyfileobj(r, fp)
+                if "content-length" in r.headers:
+                    size = int(r.headers["Content-Length"])
+                    fsize = os.path.getsize(path)
+                    if fsize < size:
+                        raise URLError(
+                            f"only {fsize} out of {size} bytes were received"
+                        )
             return
         except URLError as e:
             if isinstance(e, HTTPError) and e.code not in (500, 502, 503, 504):
