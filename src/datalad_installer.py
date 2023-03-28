@@ -12,7 +12,7 @@ Python libraries, though it does make heavy use of external packaging commands.
 Visit <https://github.com/datalad/datalad-installer> for more information.
 """
 
-__version__ = "0.11.1"
+__version__ = "0.11.2"
 __author__ = "The DataLad Team and Contributors"
 __author_email__ = "team@datalad.org"
 __license__ = "MIT"
