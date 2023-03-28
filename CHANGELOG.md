@@ -1,3 +1,19 @@
+# v0.11.2 (Tue Mar 28 2023)
+
+#### 🐛 Bug Fix
+
+- Detect file downloads that end early [#153](https://github.com/datalad/datalad-installer/pull/153) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Fix failing tests [#149](https://github.com/datalad/datalad-installer/pull/149) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v0.11.1 (Thu Jan 05 2023)
 
 #### 🐛 Bug Fix
