@@ -2415,7 +2415,7 @@ class GitHubClient:
         self, target_dir: Path, repo: str, workflow: str, branch: str = "master"
     ) -> None:
         """
-        Downloads the most recent artifact built by a succesful run of
+        Downloads the most recent artifact built by a successful run of
         ``workflow`` on ``branch`` in ``repo`` to ``target_dir``
         """
         runs_url = (
