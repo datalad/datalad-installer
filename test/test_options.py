@@ -291,8 +291,8 @@ def test_global_short_help() -> None:
 
 
 def test_component_short_help() -> None:
-    assert DataladInstaller.short_help("datalad_installer", "miniconda") == (
-        "Usage: datalad_installer [<options>] miniconda [<options>]"
+    assert DataladInstaller.short_help("datalad_installer", "venv") == (
+        "Usage: datalad_installer [<options>] venv [<options>]"
     )
 
 
@@ -340,24 +340,17 @@ def test_global_long_help() -> None:
 
 
 def test_component_long_help() -> None:
-    assert DataladInstaller.long_help("datalad_installer", "miniconda") == (
-        "Usage: datalad_installer [<options>] miniconda [<options>]\n"
+    assert DataladInstaller.long_help("datalad_installer", "venv") == (
+        "Usage: datalad_installer [<options>] venv [<options>]\n"
         "\n"
-        "  Install Miniconda\n"
+        "  Create a Python virtual environment\n"
         "\n"
         "Options:\n"
-        "  --batch                         Run in batch (noninteractive) mode\n"
-        "  -c, --channel CHANNEL           Additional Conda channels to install\n"
-        "                                  packages from\n"
-        "  -e, --extra-args EXTRA_ARGS     Extra arguments to pass to the install\n"
+        "  --dev-pip                       Install the development version of pip\n"
+        "                                  from GitHub\n"
+        "  -e, --extra-args EXTRA_ARGS     Extra arguments to pass to the venv\n"
         "                                  command\n"
-        "  --path PATH                     Install Miniconda at the given path\n"
-        "  --python-match [major|minor|micro]\n"
-        "                                  Install the same version of Python,\n"
-        "                                  matching to the given version level\n"
-        "  --spec SPEC                     Space-separated list of package\n"
-        "                                  specifiers to install in the Miniconda\n"
-        "                                  environment\n"
+        "  --path PATH                     Create the venv at the given path\n"
         "  -h, --help                      Show this help information and exit"
     )
 

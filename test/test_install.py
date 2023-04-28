@@ -65,10 +65,14 @@ def test_install_miniconda(tmp_path: Path) -> None:
 @pytest.mark.miniconda
 def test_install_miniconda_python_match(tmp_path: Path) -> None:
     miniconda_path = tmp_path / "conda"
+    if sys.version_info[:2] == (3, 7):
+        component = "miniconda=py37_23.1.0-1"
+    else:
+        component = "miniconda"
     r = main(
         [
             "datalad_installer.py",
-            "miniconda",
+            component,
             "--batch",
             "--path",
             str(miniconda_path),

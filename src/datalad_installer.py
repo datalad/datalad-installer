@@ -938,7 +938,7 @@ class MinicondaComponent(Component):
 
     OPTION_PARSER = OptionParser(
         "miniconda",
-        versioned=False,
+        versioned=True,
         help="Install Miniconda",
         options=[
             Option(
@@ -984,6 +984,7 @@ class MinicondaComponent(Component):
         python_match: Optional[str] = None,
         extra_args: Optional[List[str]] = None,
         channel: Optional[List[str]] = None,
+        version: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         log.info("Installing Miniconda")
@@ -997,6 +998,9 @@ class MinicondaComponent(Component):
             # conditions, but so is specifying a nonexistent directory on the
             # command line.)
             path.rmdir()
+        if version is None:
+            version = "latest"
+        log.info("Version: %s", version)
         log.info("Path: %s", path)
         if ON_WINDOWS:
             log.info("Batch: True")
@@ -1009,15 +1013,15 @@ class MinicondaComponent(Component):
         if kwargs:
             log.warning("Ignoring extra component arguments: %r", kwargs)
         if ON_LINUX:
-            miniconda_script = "Miniconda3-latest-Linux-x86_64.sh"
+            miniconda_script = f"Miniconda3-{version}-Linux-x86_64.sh"
         elif ON_MACOS:
             arch = platform.machine().lower()
             if arch in ("x86_64", "arm64"):
-                miniconda_script = f"Miniconda3-latest-MacOSX-{arch}.sh"
+                miniconda_script = f"Miniconda3-{version}-MacOSX-{arch}.sh"
             else:
                 raise RuntimeError(f"E: Unsupported architecture: {arch}")
         elif ON_WINDOWS:
-            miniconda_script = "Miniconda3-latest-Windows-x86_64.exe"
+            miniconda_script = f"Miniconda3-{version}-Windows-x86_64.exe"
         else:
             raise RuntimeError(f"E: Unsupported OS: {SYSTEM}")
         if python_match is not None:

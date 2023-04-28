@@ -107,8 +107,12 @@ on the command line will use this installation, and subsequent ``datalad`` and
 ``git-annex`` components will be installed using this conda by default if not
 overridden by an intervening component.
 
+A specific version to install can be specified by suffixing "``miniconda``"
+with "``=``" and the version number on the command line.  If not specified, the
+version defaults to ``latest``.
+
 The Miniconda installation script is downloaded from
-``$ANACONDA_URL/Miniconda3-latest-$OS-x86_64.{sh,exe}``, where
+``$ANACONDA_URL/Miniconda3-$VERSION-$OS-$ARCH.{sh,exe}``, where
 ``$ANACONDA_URL`` is taken from the environment, defaulting to
 ``https://repo.anaconda.com/miniconda``.
 
