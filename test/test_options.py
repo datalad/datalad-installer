@@ -1,6 +1,7 @@
+from __future__ import annotations
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 import pytest
 from datalad_installer import (
     ComponentRequest,
@@ -192,7 +193,7 @@ from datalad_installer import (
         ),
     ],
 )
-def test_parse_args(args: List[str], parsed: ParsedArgs) -> None:
+def test_parse_args(args: list[str], parsed: ParsedArgs) -> None:
     assert DataladInstaller.parse_args(args) == parsed
 
 
@@ -222,7 +223,7 @@ def test_parse_args(args: List[str], parsed: ParsedArgs) -> None:
     ],
 )
 def test_parse_args_errors(
-    args: List[str], message: str, component: Optional[str]
+    args: list[str], message: str, component: Optional[str]
 ) -> None:
     with pytest.raises(UsageError) as excinfo:
         DataladInstaller.parse_args(args)

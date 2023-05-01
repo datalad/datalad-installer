@@ -1,5 +1,6 @@
+from __future__ import annotations
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Optional
 import pytest
 from datalad_installer import compose_pip_requirement, parse_header_links, untmppaths
 
@@ -139,7 +140,7 @@ def test_compose_pip_requirement(
         ),
     ],
 )
-def test_parse_header_links(url: str, links: Dict[str, dict]) -> None:
+def test_parse_header_links(url: str, links: dict[str, dict]) -> None:
     assert parse_header_links(url) == links
 
 
