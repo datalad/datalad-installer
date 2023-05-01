@@ -65,10 +65,14 @@ def test_install_miniconda(tmp_path: Path) -> None:
 @pytest.mark.miniconda
 def test_install_miniconda_python_match(tmp_path: Path) -> None:
     miniconda_path = tmp_path / "conda"
+    if sys.version_info[:2] == (3, 7):
+        component = "miniconda=py37_23.1.0-1"
+    else:
+        component = "miniconda"
     r = main(
         [
             "datalad_installer.py",
-            "miniconda",
+            component,
             "--batch",
             "--path",
             str(miniconda_path),
@@ -126,29 +130,37 @@ def test_install_miniconda_autogen_path(monkeypatch: pytest.MonkeyPatch) -> None
     # Override TMPDIR with a path that will be cleaned up afterwards (We can't
     # use tmp_path here, as that's apparently always in the user temp folder on
     # Windows regardless of the external value of TMPDIR.)
-    with tempfile.TemporaryDirectory() as newtmp:
-        monkeypatch.setenv("TMPDIR", newtmp)
+    try:
+        with tempfile.TemporaryDirectory() as newtmp:
+            monkeypatch.setenv("TMPDIR", newtmp)
+            tempfile.tempdir = None  # Reset cache
+            r = main(
+                [
+                    "datalad_installer.py",
+                    "miniconda",
+                    "--batch",
+                ]
+            )
+            assert r == 0
+            (miniconda_path,) = Path(newtmp).glob("dl-miniconda-*")
+            assert (miniconda_path / bin_path("conda")).exists()
+            assert (
+                "conda activate test"
+                in subprocess.run(
+                    [
+                        str(miniconda_path / bin_path("conda")),
+                        "create",
+                        "-n",
+                        "test",
+                        "-y",
+                    ],
+                    stdout=subprocess.PIPE,
+                    universal_newlines=True,
+                    check=True,
+                ).stdout
+            )
+    finally:
         tempfile.tempdir = None  # Reset cache
-        r = main(
-            [
-                "datalad_installer.py",
-                "miniconda",
-                "--batch",
-            ]
-        )
-        assert r == 0
-        (miniconda_path,) = Path(newtmp).glob("dl-miniconda-*")
-        assert (miniconda_path / bin_path("conda")).exists()
-        assert (
-            "conda activate test"
-            in subprocess.run(
-                [str(miniconda_path / bin_path("conda")), "create", "-n", "test", "-y"],
-                stdout=subprocess.PIPE,
-                universal_newlines=True,
-                check=True,
-            ).stdout
-        )
-    tempfile.tempdir = None  # Reset cache
 
 
 @pytest.mark.miniconda
