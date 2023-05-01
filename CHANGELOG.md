@@ -1,3 +1,20 @@
+# v0.12.0 (Mon May 01 2023)
+
+#### 🚀 Enhancement
+
+- Support installing specific versions of Miniconda [#158](https://github.com/datalad/datalad-installer/pull/158) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- codespell: workflow, config, 1 fix [#151](https://github.com/datalad/datalad-installer/pull/151) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # v0.11.2 (Tue Mar 28 2023)
 
 #### 🐛 Bug Fix
