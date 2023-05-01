@@ -136,7 +136,7 @@ class Option:
         immediate: Optional[Immediate] = None,
         metavar: Optional[str] = None,
         choices: Optional[list[str]] = None,
-        help: Optional[str] = None,
+        help: Optional[str] = None,  # noqa: A002
     ) -> None:
         #: List of individual option characters
         self.shortopts: list[str] = []
@@ -262,7 +262,7 @@ class OptionParser:
         self,
         component: Optional[str] = None,
         versioned: bool = False,
-        help: Optional[str] = None,
+        help: Optional[str] = None,  # noqa: A002
         options: Optional[list[Option]] = None,
     ) -> None:
         self.component: Optional[str] = component
