@@ -740,7 +740,7 @@ class DataladInstaller:
         if not components:
             components = [ComponentRequest("datalad")]
         logging.basicConfig(
-            format="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
+            format="%(asctime)s [%(levelname)-8s] %(name)s: %(message)s",
             datefmt="%Y-%m-%dT%H:%M:%S%z",
             level=global_opts.pop("log_level", logging.INFO),
         )
