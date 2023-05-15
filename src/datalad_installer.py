@@ -2564,10 +2564,11 @@ def download_file(
             try:
                 delay = next(delays)
             except StopIteration:
-                raise
+                raise e
             else:
                 log.warning("Request to %s failed: %s", url, e)
                 log.info("Retrying in %d seconds", delay)
+                sleep(delay)
 
 
 def download_to_tempfile(
