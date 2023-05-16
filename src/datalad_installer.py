@@ -1382,7 +1382,7 @@ class Installer(ABC):
         not support installing the given component.  Returns a list of
         (command, Path) pairs for each installed program.
         """
-        self.assert_supported_system()
+        self.assert_supported_system(**kwargs)
         try:
             package, commands = self.PACKAGES[component]
         except KeyError:
@@ -1401,7 +1401,7 @@ class Installer(ABC):
         ...
 
     @abstractmethod
-    def assert_supported_system(self) -> None:
+    def assert_supported_system(self, **kwargs: Any) -> None:
         """
         If the installation method is not supported by the current system,
         raises `MethodNotSupportedError`; otherwise, does nothing.
@@ -1472,7 +1472,7 @@ class AptInstaller(Installer):
         log.debug("Installed program directory: /usr/bin")
         return Path("/usr/bin")
 
-    def assert_supported_system(self) -> None:
+    def assert_supported_system(self, **_kwargs: Any) -> None:
         if shutil.which("apt-get") is None:
             raise MethodNotSupportedError("apt-get command not found")
 
@@ -1530,7 +1530,7 @@ class HomebrewInstaller(Installer):
         log.debug("Installed program directory: /usr/local/bin")
         return Path("/usr/local/bin")
 
-    def assert_supported_system(self) -> None:
+    def assert_supported_system(self, **_kwargs: Any) -> None:
         if shutil.which("brew") is None:
             raise MethodNotSupportedError("brew command not found")
 
@@ -1632,7 +1632,7 @@ class PipInstaller(Installer):
         log.debug("Installed program directory: %s", binpath)
         return binpath
 
-    def assert_supported_system(self) -> None:
+    def assert_supported_system(self, **_kwargs: Any) -> None:
         ### TODO: Detect whether pip is installed in the current Python,
         ### preferably without importing it
         pass
@@ -1648,8 +1648,8 @@ class NeurodebianInstaller(AptInstaller):
         "git-annex": ("git-annex-standalone", [GIT_ANNEX_CMD]),
     }
 
-    def assert_supported_system(self) -> None:
-        super().assert_supported_system()
+    def assert_supported_system(self, **kwargs: Any) -> None:
+        super().assert_supported_system(**kwargs)
         if "l=NeuroDebian" not in readcmd("apt-cache", "policy"):
             raise MethodNotSupportedError("Neurodebian not configured")
 
@@ -1723,9 +1723,11 @@ class DebURLInstaller(Installer):
             log.debug("Installed program directory: %s", binpath)
             return binpath
 
-    def assert_supported_system(self) -> None:
-        if shutil.which("dpkg") is None:
-            raise MethodNotSupportedError("dpkg command not found")
+    def assert_supported_system(self, **kwargs: Any) -> None:
+        if kwargs.get("install_dir") is None and shutil.which("dpkg") is None:
+            raise MethodNotSupportedError(
+                "Non-dpkg-based systems not supported unless --install-dir is given"
+            )
 
 
 class AutobuildSnapshotInstaller(Installer):
@@ -1758,7 +1760,7 @@ class AutobuildSnapshotInstaller(Installer):
             )
             return install_git_annex_dmg(dmgpath, self.manager)
 
-    def assert_supported_system(self) -> None:
+    def assert_supported_system(self, **_kwargs: Any) -> None:
         if not ON_POSIX:
             raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
 
@@ -1888,7 +1890,7 @@ class CondaInstaller(Installer):
         log.debug("Installed program directory: %s", binpath)
         return binpath
 
-    def assert_supported_system(self) -> None:
+    def assert_supported_system(self, **_kwargs: Any) -> None:
         if not self.manager.conda_stack and shutil.which("conda") is None:
             raise MethodNotSupportedError("Conda installation not found")
 
@@ -1970,9 +1972,17 @@ class DataladGitAnnexBuildInstaller(Installer):
         log.debug("Installed program directory: %s", binpath)
         return binpath
 
-    def assert_supported_system(self) -> None:
+    def assert_supported_system(self, **kwargs: Any) -> None:
         if not (ON_LINUX or ON_MACOS or ON_WINDOWS):
             raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
+        elif (
+            ON_LINUX
+            and kwargs.get("install_dir") is None
+            and shutil.which("dpkg") is None
+        ):
+            raise MethodNotSupportedError(
+                "Non-dpkg-based systems not supported unless --install-dir is given"
+            )
 
     @staticmethod
     def download(
@@ -2118,8 +2128,17 @@ class DataladPackagesBuildInstaller(Installer):
         log.debug("Installed program directory: %s", binpath)
         return binpath
 
-    def assert_supported_system(self) -> None:
-        pass
+    def assert_supported_system(self, **kwargs: Any) -> None:
+        if not (ON_LINUX or ON_MACOS or ON_WINDOWS):
+            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
+        elif (
+            ON_LINUX
+            and kwargs.get("install_dir") is None
+            and shutil.which("dpkg") is None
+        ):
+            raise MethodNotSupportedError(
+                "Non-dpkg-based systems not supported unless --install-dir is given"
+            )
 
 
 @GitAnnexComponent.register_installer
@@ -2157,7 +2176,7 @@ class DMGInstaller(Installer):
         log.debug("Installed program directory: %s", binpath)
         return binpath
 
-    def assert_supported_system(self) -> None:
+    def assert_supported_system(self, **_kwargs: Any) -> None:
         if not ON_MACOS:
             raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
 
@@ -2217,7 +2236,7 @@ class GARRCGitHubInstaller(Installer):
         log.debug("Installed program directory: %s", bin_dir)
         return bin_dir
 
-    def assert_supported_system(self) -> None:
+    def assert_supported_system(self, **_kwargs: Any) -> None:
         if not ON_POSIX:
             raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
 
@@ -2317,7 +2336,7 @@ class DownloadsRCloneInstaller(Installer):
             self.manager.addpath(bin_dir)
         return bin_dir
 
-    def assert_supported_system(self) -> None:
+    def assert_supported_system(self, **_kwargs: Any) -> None:
         pass
 
 
