@@ -1061,6 +1061,23 @@ class MinicondaComponent(Component):
                     args.extend(extra_args)
                 runcmd("bash", script_path, *args)
         conda_instance = CondaInstance(basepath=path, name=None)
+        # As of 2023 June 11, when Conda v23.3.1 on Linux is asked to install
+        # the latest DataLad, it installs an incredibly out-of-date version
+        # instead.  This can be fixed by upgrading Conda first.
+        if (
+            ON_LINUX
+            and readcmd(conda_instance.conda_exe, "--version").strip() == "conda 23.3.1"
+        ):
+            log.info("Upgrading conda from buggy v23.3.1")
+            runcmd(
+                conda_instance.conda_exe,
+                "update",
+                "-n",
+                "base",
+                "-c",
+                "defaults",
+                "conda",
+            )
         if spec is not None:
             install_args: list[str] = []
             if batch:
