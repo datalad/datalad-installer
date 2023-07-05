@@ -929,8 +929,10 @@ class MinicondaComponent(Component):
     OPTION_PARSER = OptionParser(
         "miniconda",
         versioned=True,
-        help="Install Miniconda\n\nVERSION is the suffix which could be found used as "
-        "the suffix of a file at https://repo.anaconda.com/miniconda/, e.g. py37_23.1.0-1",
+        help=(
+            "Install Miniconda\n\nVERSION is the version suffix of a file at"
+            " https://repo.anaconda.com/miniconda/, e.g. py37_23.1.0-1"
+        ),
         options=[
             Option(
                 "--path",
