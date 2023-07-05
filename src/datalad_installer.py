@@ -823,7 +823,7 @@ class DataladInstaller:
             width = max(map(len, cls.COMPONENTS.keys()))
             for name, cmpnt in sorted(cls.COMPONENTS.items()):
                 if cmpnt.OPTION_PARSER.help is not None:
-                    chelp = cmpnt.OPTION_PARSER.help
+                    chelp = cmpnt.OPTION_PARSER.help.splitlines()[0]
                 else:
                     chelp = ""
                 s += (
@@ -929,7 +929,10 @@ class MinicondaComponent(Component):
     OPTION_PARSER = OptionParser(
         "miniconda",
         versioned=True,
-        help="Install Miniconda",
+        help=(
+            "Install Miniconda\n\nVERSION is the version suffix of a file at"
+            " https://repo.anaconda.com/miniconda/, e.g. py37_23.1.0-1"
+        ),
         options=[
             Option(
                 "--path",
