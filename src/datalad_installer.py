@@ -1196,6 +1196,7 @@ class NeurodebianComponent(Component):
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+        apt_file = Path("/etc/apt/sources.list.d/neurodebian.sources.list")
         if r.returncode != 0 and "o=NeuroDebian" not in readcmd("apt-cache", "policy"):
             log.info("NeuroDebian not available in APT and repository not configured")
             log.info("Configuring NeuroDebian APT repository")
@@ -1216,7 +1217,7 @@ class NeurodebianComponent(Component):
                     "cp",
                     "-i",
                     sources_file,
-                    "/etc/apt/sources.list.d/neurodebian.sources.list",
+                    str(apt_file),
                 )
                 try:
                     self.manager.sudo(
@@ -1240,7 +1241,16 @@ class NeurodebianComponent(Component):
             "neurodebian",
             env=dict(os.environ, DEBIAN_FRONTEND="noninteractive"),
         )
-        runcmd("nd-configurerepo", *(extra_args or []))
+        try:
+            runcmd("nd-configurerepo", *(extra_args or []))
+        except subprocess.CalledProcessError as exc:
+            if apt_file.exists() and ("Malformed entry" in exc.stderr):
+                log.info(
+                    "DEBUG information for the error, the content of %s:\n%s",
+                    apt_file,
+                    apt_file.read_text(),
+                )
+            raise
 
 
 class InstallableComponent(Component):
