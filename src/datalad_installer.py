@@ -1243,8 +1243,8 @@ class NeurodebianComponent(Component):
         )
         try:
             runcmd("nd-configurerepo", *(extra_args or []))
-        except subprocess.CalledProcessError as exc:
-            if apt_file.exists() and ("Malformed entry" in exc.stderr):
+        except subprocess.CalledProcessError:  #  as exc:
+            if apt_file.exists():  #  and ("Malformed entry" in exc.stderr):
                 log.info(
                     "DEBUG information for the error, the content of %s:\n%s",
                     apt_file,
