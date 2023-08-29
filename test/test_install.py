@@ -18,6 +18,7 @@ from datalad_installer import (
     DataladGitAnnexBuildInstaller,
     DataladGitAnnexLatestBuildInstaller,
     DataladGitAnnexReleaseBuildInstaller,
+    get_version_codename,
     main,
 )
 
@@ -375,11 +376,19 @@ def test_install_neurodebian_sudo_ok(mocker: MockerFixture) -> None:
     spy = mocker.spy(datalad_installer, "runcmd")
     r = main(["datalad_installer.py", "--sudo=ok", "neurodebian"])
     assert r == 0
-    assert spy.call_args_list[-2] == mocker.call(
+    # we could have now scenario where we had to fixup and have a call to
+    # nd-configurerepo with -r <release> --overwrite
+    offset = int(
+        spy.call_args_list[-1]
+        == mocker.call("nd-configurerepo", "-r", get_version_codename(), "--overwrite")
+    )
+    assert spy.call_args_list[-2 - offset] == mocker.call(
         "sudo", "apt-get", "install", "-qy", "neurodebian", env=mocker.ANY
     )
-    assert spy.call_args_list[-2][1]["env"]["DEBIAN_FRONTEND"] == "noninteractive"
-    assert spy.call_args_list[-1] == mocker.call("nd-configurerepo")
+    assert (
+        spy.call_args_list[-2 - offset][1]["env"]["DEBIAN_FRONTEND"] == "noninteractive"
+    )
+    assert spy.call_args_list[-1 - offset] == mocker.call("nd-configurerepo", stderr=-1)
     assert (
         subprocess.run(
             [
