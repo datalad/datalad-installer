@@ -4,6 +4,7 @@
 .cache/
 .coverage*
 .eggs/
+.idea/
 .mypy_cache/
 .nox/
 .pytest_cache/
@@ -14,3 +15,4 @@ dist/
 docs/.doctrees/
 docs/_build/
 venv/
+venvs/
