@@ -1196,6 +1196,7 @@ class NeurodebianComponent(Component):
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+        apt_file = Path("/etc/apt/sources.list.d/neurodebian.sources.list")
         if r.returncode != 0 and "o=NeuroDebian" not in readcmd("apt-cache", "policy"):
             log.info("NeuroDebian not available in APT and repository not configured")
             log.info("Configuring NeuroDebian APT repository")
@@ -1216,7 +1217,7 @@ class NeurodebianComponent(Component):
                     "cp",
                     "-i",
                     sources_file,
-                    "/etc/apt/sources.list.d/neurodebian.sources.list",
+                    str(apt_file),
                 )
                 try:
                     self.manager.sudo(
@@ -1240,7 +1241,31 @@ class NeurodebianComponent(Component):
             "neurodebian",
             env=dict(os.environ, DEBIAN_FRONTEND="noninteractive"),
         )
-        runcmd("nd-configurerepo", *(extra_args or []))
+        try:
+            runcmd("nd-configurerepo", *(extra_args or []), stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as exc:
+            re_res = re.search(
+                r"Malformed entry (?P<line>\d+) in list file (?P<apt_file>\S+\.list) ",
+                getattr(exc, "stderr", b"").decode(),
+            )
+            if re_res:
+                apt_file = Path(re_res.groupdict()["apt_file"])
+                log.info(
+                    "DEBUG information for the error, the content of %s:\n%s",
+                    apt_file,
+                    apt_file.read_text(),
+                )
+
+                version_codename = get_version_codename()
+                if version_codename:
+                    log.info(
+                        "Retrying nd-configurerepo with explicit release %s",
+                        version_codename,
+                    )
+                    args = (extra_args or []) + ["-r", version_codename, "--overwrite"]
+                    runcmd("nd-configurerepo", *args)
+                    return
+            raise
 
 
 class InstallableComponent(Component):
@@ -1877,7 +1902,12 @@ class CondaInstaller(Installer):
         if extra_args is not None:
             cmd.extend(extra_args)
         if version is None:
-            cmd.append(package)
+            # Ad-hoc workaround for https://github.com/conda-forge/datalad-feedstock/issues/109
+            # we need to request datalad after 'noarch' 0.9.3
+            if package == "datalad":
+                cmd.append("datalad>=0.10.0")
+            else:
+                cmd.append(package)
         else:
             cmd.append(f"{package}={version}")
         i = 0
