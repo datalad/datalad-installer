@@ -1242,14 +1242,42 @@ class NeurodebianComponent(Component):
             env=dict(os.environ, DEBIAN_FRONTEND="noninteractive"),
         )
         try:
-            runcmd("nd-configurerepo", *(extra_args or []))
-        except subprocess.CalledProcessError:  #  as exc:
-            if apt_file.exists():  #  and ("Malformed entry" in exc.stderr):
+            runcmd("nd-configurerepo", *(extra_args or []), stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as exc:
+            re_res = re.search(
+                r"Malformed entry (?P<line>\d+) in list file (?P<apt_file>\S+\.list) ",
+                getattr(exc, "stderr", b"").decode(),
+            )
+            if re_res:
+                apt_file = Path(re_res.groupdict()["apt_file"])
                 log.info(
                     "DEBUG information for the error, the content of %s:\n%s",
                     apt_file,
                     apt_file.read_text(),
                 )
+
+                version_codename = get_version_codename()
+                if version_codename:
+                    log.info(
+                        "Retrying nd-configurerepo with explicit release %s",
+                        version_codename,
+                    )
+                    args = (extra_args or []) + ["-r", version_codename, "--overwrite"]
+                    runcmd("nd-configurerepo", *args)
+                    return
+
+                    # # we will not rely on "line" in the message and just go through the lines
+                    # # and see if any need to be fixed.
+                    # apt_lines = apt_file.read_text('utf-8').splitlines()
+                    # line_fixed = None
+                    # for i, line in enumerate(apt_lines):
+                    #     line_split = line.strip().split()
+                    #     if len(line_split) == 3 and line_split[0] in ('deb', 'deb-src'):
+                    #         line_fixed = ' '.join(line_split[:2] + [version_codename] + line_split[2:])
+                    #         log.info("Found malformed line #%d. Fixing '%s' to '%s'", i, line, line_fixed)
+                    #         apt_lines[i] = line_fixed
+                    # if line_fixed:
+                    #     apt_file.write_text(os.linesep.join(apt_lines))
             raise
 
 
