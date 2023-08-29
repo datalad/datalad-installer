@@ -1915,7 +1915,12 @@ class CondaInstaller(Installer):
         if extra_args is not None:
             cmd.extend(extra_args)
         if version is None:
-            cmd.append(package)
+            # Ad-hoc workaround for https://github.com/conda-forge/datalad-feedstock/issues/109
+            # we need to request datalad after 'noarch' 0.9.3
+            if package == "datalad":
+                cmd.append("datalad>=0.10.0")
+            else:
+                cmd.append(package)
         else:
             cmd.append(f"{package}={version}")
         i = 0
