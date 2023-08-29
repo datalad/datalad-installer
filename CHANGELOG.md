@@ -1,3 +1,36 @@
+# v1.0.0 (Tue Aug 29 2023)
+
+#### 💥 Breaking Change
+
+- [gh-actions](deps): Bump codespell-project/actions-codespell from 1 to 2 [#164](https://github.com/datalad/datalad-installer/pull/164) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### 🐛 Bug Fix
+
+- Provide explicit release to nd-configure if it fails to determine one, specify minimal version of datalad (>= 0.10.0) for conda [#174](https://github.com/datalad/datalad-installer/pull/174) ([@yarikoptic](https://github.com/yarikoptic))
+- dpkg-based methods now raise MethodNotSupportedError when called on non-dpkg systems without `--install-dir` [#163](https://github.com/datalad/datalad-installer/pull/163) ([@jwodder](https://github.com/jwodder))
+- Fix sleeping when retrying downloads [#165](https://github.com/datalad/datalad-installer/pull/165) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Cancel any still-running tests when pushing to a branch or PR [#168](https://github.com/datalad/datalad-installer/pull/168) ([@jwodder](https://github.com/jwodder))
+- Assorted code improvements [#161](https://github.com/datalad/datalad-installer/pull/161) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Extend miniconda docstring on how to figure out VERSION to use [#169](https://github.com/datalad/datalad-installer/pull/169) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Fix failing tests [#167](https://github.com/datalad/datalad-installer/pull/167) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 3
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # v0.12.0 (Mon May 01 2023)
 
 #### 🚀 Enhancement
