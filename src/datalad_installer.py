@@ -1076,6 +1076,7 @@ class MinicondaComponent(Component):
                 conda_instance.conda_exe,
                 "update",
                 "-n",
+                "-y",
                 "base",
                 "-c",
                 "defaults",
