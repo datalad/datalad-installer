@@ -86,7 +86,7 @@ Components
 
 Creates a Python virtual environment using ``python -m venv``.  Subsequent
 ``datalad`` components on the command line will be installed into this virtual
-environment by default if not overridden by an intervening componnent.
+environment by default if not overridden by an intervening component.
 
 Options
 '''''''
