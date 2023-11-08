@@ -55,6 +55,13 @@ ON_MACOS = SYSTEM == "Darwin"
 ON_WINDOWS = SYSTEM == "Windows"
 ON_POSIX = ON_LINUX or ON_MACOS
 
+USER_AGENT = "datalad-installer/{} ({}) {}/{}".format(
+    __version__,
+    __url__,
+    platform.python_implementation(),
+    platform.python_version(),
+)
+
 
 class SudoConfirm(Enum):
     ASK = "ask"
@@ -2396,10 +2403,13 @@ class GitHubClient:
                     " environment variable or hub.oauthtoken Git config option."
                 )
             token = r.stdout.strip()
+        self.headers = {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": USER_AGENT,
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
         if token:
-            self.headers = {"Authorization": f"Bearer {token}"}
-        else:
-            self.headers = {}
+            self.headers["Authorization"] = f"Bearer {token}"
 
     @contextmanager
     def get(self, url: str) -> Iterator[Any]:
@@ -2408,8 +2418,8 @@ class GitHubClient:
         try:
             with urlopen(req) as r:
                 yield r
-        except URLError as e:
-            raise_for_ratelimit(e, self.headers.get("Authorization"))
+        except HTTPError as e:
+            self.raise_for_ratelimit(e)
             raise
 
     def getjson(self, url: str) -> Any:
@@ -2470,7 +2480,15 @@ class GitHubClient:
             archive_download_url = self.get_archive_download_url(artifacts_url)
             if archive_download_url is not None:
                 log.info("Downloading artifact package from %s", archive_download_url)
-                download_zipfile(archive_download_url, target_dir, headers=self.headers)
+                try:
+                    download_zipfile(
+                        archive_download_url,
+                        target_dir,
+                        headers={**self.headers, "Accept": "*/*"},
+                    )
+                except HTTPError as e:
+                    self.raise_for_ratelimit(e)
+                    raise
                 return
         else:
             raise RuntimeError("No workflow runs with artifacts found!")
@@ -2492,7 +2510,15 @@ class GitHubClient:
             archive_download_url = self.get_archive_download_url(artifacts_url)
             if archive_download_url is not None:
                 log.info("Downloading artifact package from %s", archive_download_url)
-                download_zipfile(archive_download_url, target_dir, headers=self.headers)
+                try:
+                    download_zipfile(
+                        archive_download_url,
+                        target_dir,
+                        headers={**self.headers, "Accept": "*/*"},
+                    )
+                except HTTPError as e:
+                    self.raise_for_ratelimit(e)
+                    raise
                 return
         else:
             raise RuntimeError("No workflow runs with artifacts found!")
@@ -2541,11 +2567,15 @@ class GitHubClient:
         else:
             asset = self.get_release_asset(repo, tag, ext)
         target_dir.mkdir(parents=True, exist_ok=True)
-        download_file(
-            asset["browser_download_url"],
-            target_dir / asset["name"],
-            headers=self.headers,
-        )
+        try:
+            download_file(
+                asset["browser_download_url"],
+                target_dir / asset["name"],
+                headers={**self.headers, "Accept": "*/*"},
+            )
+        except HTTPError as e:
+            self.raise_for_ratelimit(e)
+            raise
 
     def get_latest_release(self, repo: str) -> dict:
         """
@@ -2556,6 +2586,30 @@ class GitHubClient:
         assert isinstance(data, dict)
         return data
 
+    def raise_for_ratelimit(self, e: HTTPError) -> None:
+        if e.code == 403:
+            try:
+                resp = json.load(e)
+            except Exception:
+                return
+            if "API rate limit exceeded" in resp.get("message", ""):
+                if "Authorization" in self.headers:
+                    url = "https://api.github.com/rate_limit"
+                    log.debug("HTTP request: GET %s", url)
+                    req = Request(url, headers=self.headers)
+                    with urlopen(req) as r:
+                        resp = json.load(r)
+                    log.info(
+                        "GitHub rate limit exceeded; details:\n\n%s\n",
+                        textwrap.indent(json.dumps(resp, indent=4), " " * 4),
+                    )
+                else:
+                    raise RuntimeError(
+                        "GitHub rate limit exceeded and GITHUB_TOKEN not set;"
+                        " suggest setting GITHUB_TOKEN in order to get increased"
+                        " rate limit"
+                    )
+
 
 class MethodNotSupportedError(Exception):
     """
@@ -2564,31 +2618,6 @@ class MethodNotSupportedError(Exception):
     """
 
     pass
-
-
-def raise_for_ratelimit(e: URLError, auth: Optional[str]) -> None:
-    if isinstance(e, HTTPError) and e.code == 403:
-        try:
-            resp = json.load(e)
-        except Exception:
-            return
-        if "API rate limit exceeded" in resp.get("message", ""):
-            if auth is not None:
-                url = "https://api.github.com/rate_limit"
-                log.debug("HTTP request: GET %s", url)
-                req = Request(url, headers={"Authorization": auth})
-                with urlopen(req) as r:
-                    resp = json.load(r)
-                log.info(
-                    "GitHub rate limit exceeded; details:\n\n%s\n",
-                    textwrap.indent(json.dumps(resp, indent=4), " " * 4),
-                )
-            else:
-                raise RuntimeError(
-                    "GitHub rate limit exceeded and GITHUB_TOKEN not set;"
-                    " suggest setting GITHUB_TOKEN in order to get increased"
-                    " rate limit"
-                )
 
 
 def download_file(
@@ -2601,6 +2630,7 @@ def download_file(
     log.info("Downloading %s", url)
     if headers is None:
         headers = {}
+    headers.setdefault("User-Agent", USER_AGENT)
     delays = iter([1, 2, 6, 15, 36])
     req = Request(url, headers=headers)
     while True:
@@ -2618,7 +2648,6 @@ def download_file(
             return
         except URLError as e:
             if isinstance(e, HTTPError) and e.code not in (500, 502, 503, 504):
-                raise_for_ratelimit(e, headers.get("Authorization"))
                 raise
             try:
                 delay = next(delays)
