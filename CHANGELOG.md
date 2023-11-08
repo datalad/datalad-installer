@@ -1,3 +1,25 @@
+# v1.0.1 (Wed Nov 08 2023)
+
+#### 🐛 Bug Fix
+
+- Set better headers for HTTP requests [#178](https://github.com/datalad/datalad-installer/pull/178) ([@jwodder](https://github.com/jwodder))
+- Pass `-y` to `conda update` [#177](https://github.com/datalad/datalad-installer/pull/177) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- [gh-actions](deps): Bump actions/checkout from 3 to 4 [#176](https://github.com/datalad/datalad-installer/pull/176) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### 🧪 Tests
+
+- Improve type-checking of imports [#179](https://github.com/datalad/datalad-installer/pull/179) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v1.0.0 (Tue Aug 29 2023)
 
 #### 💥 Breaking Change
