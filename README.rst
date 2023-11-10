@@ -12,12 +12,17 @@
 .. image:: https://img.shields.io/pypi/pyversions/datalad-installer.svg
     :target: https://pypi.org/project/datalad-installer/
 
+.. image:: https://img.shields.io/conda/vn/conda-forge/datalad-installer.svg
+    :target: https://anaconda.org/conda-forge/datalad-installer
+    :alt: Conda Version
+
 .. image:: https://img.shields.io/github/license/datalad/datalad-installer.svg
     :target: https://opensource.org/licenses/MIT
     :alt: MIT License
 
 `GitHub <https://github.com/datalad/datalad-installer>`_
 | `PyPI <https://pypi.org/project/datalad-installer/>`_
+| `Anaconda <https://anaconda.org/conda-forge/datalad-installer>`_
 | `Issues <https://github.com/datalad/datalad-installer/issues>`_
 | `Changelog <https://github.com/datalad/datalad-installer/blob/master/CHANGELOG.md>`_
 
@@ -34,6 +39,10 @@ Installation
 <https://pip.pypa.io>`_ for Python 3 (You have pip, right?) to install it::
 
     python3 -m pip install datalad-installer
+
+``datalad-installer`` is also available for conda!  To install, run::
+
+    conda install -c conda-forge datalad-installer
 
 Alternatively, download the latest version directly from
 <https://raw.githubusercontent.com/datalad/datalad-installer/master/src/datalad_installer.py>.
