@@ -24,9 +24,11 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager, suppress
 import ctypes
+from dataclasses import dataclass
 from enum import Enum
 from functools import total_ordering
 from getopt import GetoptError, getopt
+from html.parser import HTMLParser
 import json
 import logging
 import os
@@ -44,6 +46,7 @@ import textwrap
 from time import sleep
 from typing import Any, ClassVar, NamedTuple, Optional
 from urllib.error import HTTPError, URLError
+from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 from zipfile import ZipFile
 
@@ -2858,6 +2861,130 @@ def check_exists(path: Path) -> bool:
                 return True
             sleep(1)
     return os.path.exists(path)
+
+
+def parse_links(html: str, base_url: Optional[str] = None) -> list[Link]:
+    """
+    Parse the source of an HTML page and return a list of all hyperlinks found
+    on it.
+
+    This function does not support encoding declarations embedded in HTML, and
+    it has limited ability to deal with invalid HTML.
+
+    :param str html: the HTML document to parse
+    :param Optional[str] base_url: an optional URL to join to the front of the
+        links' URLs (usually the URL of the page being parsed)
+    :rtype: list[Link]
+    """
+    parser = LinkParser(base_url=base_url)
+    parser.feed(html)
+    links = parser.fetch_links()
+    parser.close()
+    return links
+
+
+@dataclass
+class Link:
+    """A hyperlink extracted from an HTML page"""
+
+    #: The text inside the link tag, with leading & trailing whitespace removed
+    #: and with any tags nested inside the link tags ignored
+    text: str
+
+    #: The URL that the link points to, resolved relative to the URL of the
+    #: source HTML page and relative to the page's ``<base>`` href value, if
+    #: any
+    url: str
+
+    #: A dictionary of attributes set on the link tag (including the unmodified
+    #: ``href`` attribute).  Keys are converted to lowercase.
+    attrs: dict[str, str]
+
+
+# List taken from BeautifulSoup4 source
+EMPTY_TAGS = {
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "keygen",
+    "link",
+    "menuitem",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr",
+    "basefont",
+    "bgsound",
+    "command",
+    "frame",
+    "image",
+    "isindex",
+    "nextid",
+    "spacer",
+}
+
+
+class LinkParser(HTMLParser):
+    def __init__(self, base_url: Optional[str] = None) -> None:
+        super().__init__(convert_charrefs=True)
+        self.base_url: Optional[str] = base_url
+        self.base_seen = False
+        self.tag_stack: list[str] = []
+        self.finished_links: list[Link] = []
+        self.link_tag_stack: list[dict[str, str]] = []
+
+    def fetch_links(self) -> list[Link]:
+        links = self.finished_links
+        self.finished_links = []
+        return links
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, Optional[str]]]) -> None:
+        if tag not in EMPTY_TAGS:
+            self.tag_stack.append(tag)
+        attrdict = {k: v or "" for k, v in attrs}
+        if tag == "base" and "href" in attrdict and not self.base_seen:
+            if self.base_url is None:
+                self.base_url = attrdict["href"]
+            else:
+                self.base_url = urljoin(self.base_url, attrdict["href"])
+            self.base_seen = True
+        elif tag == "a":
+            attrdict["#text"] = ""
+            self.link_tag_stack.append(attrdict)
+
+    def handle_endtag(self, tag: str) -> None:
+        for i in range(len(self.tag_stack) - 1, -1, -1):
+            if self.tag_stack[i] == tag:
+                for t in self.tag_stack[i:]:
+                    if t == "a":
+                        self.end_link_tag()
+                del self.tag_stack[i:]
+                break
+
+    def end_link_tag(self) -> None:
+        attrs = self.link_tag_stack.pop()
+        if "href" in attrs:
+            text = attrs.pop("#text")
+            if self.base_url is not None:
+                url = urljoin(self.base_url, attrs["href"])
+            else:
+                url = attrs["href"]
+            self.finished_links.append(Link(text=text.strip(), url=url, attrs=attrs))
+
+    def handle_data(self, data: str) -> None:
+        for link in self.link_tag_stack:
+            link["#text"] += data
+
+    def close(self) -> None:
+        while self.link_tag_stack:
+            self.handle_endtag("a")
+        super().close()
 
 
 def main(argv: Optional[list[str]] = None) -> int:

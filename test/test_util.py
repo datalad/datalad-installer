@@ -1,8 +1,17 @@
 from __future__ import annotations
+from dataclasses import asdict
+import json
 from pathlib import Path
 from typing import Optional
 import pytest
-from datalad_installer import compose_pip_requirement, parse_header_links, untmppaths
+from datalad_installer import (
+    compose_pip_requirement,
+    parse_header_links,
+    parse_links,
+    untmppaths,
+)
+
+DATA_DIR = Path(__file__).with_name("data")
 
 
 @pytest.mark.parametrize(
@@ -164,3 +173,11 @@ def test_untmppaths_no_tmpdir() -> None:
         Path("foo.txt"),
         Path("bar", "baz.txt"),
     )
+
+
+def test_parse_links() -> None:
+    src = (DATA_DIR / "parse-links" / "sample.html").read_text(encoding="utf-8")
+    with (DATA_DIR / "parse-links" / "sample.json").open(encoding="utf-8") as fp:
+        expected = json.load(fp)
+    links = parse_links(src, base_url="https://example.com/base/")
+    assert [asdict(lk) for lk in links] == expected
