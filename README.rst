@@ -121,8 +121,13 @@ on the command line will use this installation, and subsequent ``datalad`` and
 overridden by an intervening component.
 
 A specific version to install can be specified by suffixing "``miniconda``"
-with "``=``" and the version number on the command line.  If not specified, the
-version defaults to ``latest``.
+with "``=``" and the version on the command line, where the version is the
+version component of a file at ``$ANACONDA_URL`` or
+<https://repo.anaconda.com/miniconda/>, e.g., ``py37_23.1.0-1``.  Run
+``datalad-installer miniconda --help-versions`` to see a list of available
+versions for your platform.
+
+If not specified, the version defaults to ``latest``.
 
 The Miniconda installation script is downloaded from
 ``$ANACONDA_URL/Miniconda3-$VERSION-$OS-$ARCH.{sh,exe}``, where
@@ -165,6 +170,9 @@ Options
 --spec SPEC                     Space-separated specifiers for packages to
                                 install in the Conda base environment after
                                 provisioning.
+
+--help-versions                 Show a list of available Miniconda versions for
+                                this platform and exit
 
 
 ``conda-env``
