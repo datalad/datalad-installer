@@ -1,6 +1,10 @@
 .. image:: https://github.com/datalad/datalad-installer/workflows/Test/badge.svg?branch=master
     :target: https://github.com/datalad/datalad-installer/actions?workflow=Test
-    :alt: CI Status
+    :alt: GitHub Actions Status
+
+.. image:: https://ci.appveyor.com/api/projects/status/rec96m4r74nrupvn/branch/master?svg=true
+    :target: https://ci.appveyor.com/project/mih/datalad-installer/branch/master
+    :alt: Appveyor Status
 
 .. image:: https://codecov.io/gh/datalad/datalad-installer/branch/master/graph/badge.svg
     :target: https://codecov.io/gh/datalad/datalad-installer
