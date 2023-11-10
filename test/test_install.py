@@ -61,8 +61,8 @@ def test_install_miniconda(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(
-    sys.version_info[:2] == (3, 11),
-    reason="Python 3.11 not yet available on Conda",
+    sys.version_info[:2] == (3, 12),
+    reason="Python 3.12 not yet available on Conda",
 )
 @pytest.mark.miniconda
 def test_install_miniconda_python_match(tmp_path: Path) -> None:
@@ -96,7 +96,7 @@ def test_install_miniconda_python_match(tmp_path: Path) -> None:
     ).stdout.strip() == repr(sys.version_info[:2])
 
 
-@pytest.mark.skipif(sys.version_info[:2] != (3, 11), reason="Only run on Python 3.11")
+@pytest.mark.skipif(sys.version_info[:2] != (3, 12), reason="Only run on Python 3.12")
 @pytest.mark.miniconda
 def test_install_miniconda_python_match_conda_forge(tmp_path: Path) -> None:
     miniconda_path = tmp_path / "conda"
