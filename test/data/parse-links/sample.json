@@ -1,0 +1,233 @@
+[
+    {
+        "text": ".winzip/",
+        "url": "https://example.com/base/.winzip/",
+        "attrs": {
+            "href": ".winzip/"
+        }
+    },
+    {
+        "text": "Miniconda3-latest-Windows-x86_64.exe",
+        "url": "https://example.com/base/Miniconda3-latest-Windows-x86_64.exe",
+        "attrs": {
+            "href": "Miniconda3-latest-Windows-x86_64.exe"
+        }
+    },
+    {
+        "text": "Miniconda3-latest-MacOSX-x86_64.sh",
+        "url": "https://example.com/base/Miniconda3-latest-MacOSX-x86_64.sh",
+        "attrs": {
+            "href": "Miniconda3-latest-MacOSX-x86_64.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-latest-MacOSX-x86_64.pkg",
+        "url": "https://example.com/base/Miniconda3-latest-MacOSX-x86_64.pkg",
+        "attrs": {
+            "href": "Miniconda3-latest-MacOSX-x86_64.pkg"
+        }
+    },
+    {
+        "text": "Miniconda3-latest-MacOSX-arm64.sh",
+        "url": "https://example.com/base/Miniconda3-latest-MacOSX-arm64.sh",
+        "attrs": {
+            "href": "Miniconda3-latest-MacOSX-arm64.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-latest-MacOSX-arm64.pkg",
+        "url": "https://example.com/base/Miniconda3-latest-MacOSX-arm64.pkg",
+        "attrs": {
+            "href": "Miniconda3-latest-MacOSX-arm64.pkg"
+        }
+    },
+    {
+        "text": "Miniconda3-latest-Linux-x86_64.sh",
+        "url": "https://example.com/base/Miniconda3-latest-Linux-x86_64.sh",
+        "attrs": {
+            "href": "Miniconda3-latest-Linux-x86_64.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-latest-Linux-s390x.sh",
+        "url": "https://example.com/base/Miniconda3-latest-Linux-s390x.sh",
+        "attrs": {
+            "href": "Miniconda3-latest-Linux-s390x.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-latest-Linux-ppc64le.sh",
+        "url": "https://example.com/base/Miniconda3-latest-Linux-ppc64le.sh",
+        "attrs": {
+            "href": "Miniconda3-latest-Linux-ppc64le.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-latest-Linux-aarch64.sh",
+        "url": "https://example.com/base/Miniconda3-latest-Linux-aarch64.sh",
+        "attrs": {
+            "href": "Miniconda3-latest-Linux-aarch64.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-latest-Windows-x86.exe",
+        "url": "https://example.com/base/Miniconda3-latest-Windows-x86.exe",
+        "attrs": {
+            "href": "Miniconda3-latest-Windows-x86.exe"
+        }
+    },
+    {
+        "text": "Miniconda3-latest-Linux-x86.sh",
+        "url": "https://example.com/base/Miniconda3-latest-Linux-x86.sh",
+        "attrs": {
+            "href": "Miniconda3-latest-Linux-x86.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-latest-MacOSX-x86.sh",
+        "url": "https://example.com/base/Miniconda3-latest-MacOSX-x86.sh",
+        "attrs": {
+            "href": "Miniconda3-latest-MacOSX-x86.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-latest-Linux-armv7l.sh",
+        "url": "https://example.com/base/Miniconda3-latest-Linux-armv7l.sh",
+        "attrs": {
+            "href": "Miniconda3-latest-Linux-armv7l.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-py39_23.9.0-0-Windows-x86_64.exe",
+        "url": "https://example.com/base/Miniconda3-py39_23.9.0-0-Windows-x86_64.exe",
+        "attrs": {
+            "href": "Miniconda3-py39_23.9.0-0-Windows-x86_64.exe"
+        }
+    },
+    {
+        "text": "Miniconda3-py39_23.9.0-0-MacOSX-x86_64.sh",
+        "url": "https://example.com/base/Miniconda3-py39_23.9.0-0-MacOSX-x86_64.sh",
+        "attrs": {
+            "href": "Miniconda3-py39_23.9.0-0-MacOSX-x86_64.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-py39_23.9.0-0-MacOSX-x86_64.pkg",
+        "url": "https://example.com/base/Miniconda3-py39_23.9.0-0-MacOSX-x86_64.pkg",
+        "attrs": {
+            "href": "Miniconda3-py39_23.9.0-0-MacOSX-x86_64.pkg"
+        }
+    },
+    {
+        "text": "Miniconda3-py39_23.9.0-0-MacOSX-arm64.sh",
+        "url": "https://example.com/base/Miniconda3-py39_23.9.0-0-MacOSX-arm64.sh",
+        "attrs": {
+            "href": "Miniconda3-py39_23.9.0-0-MacOSX-arm64.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-py39_23.9.0-0-MacOSX-arm64.pkg",
+        "url": "https://example.com/base/Miniconda3-py39_23.9.0-0-MacOSX-arm64.pkg",
+        "attrs": {
+            "href": "Miniconda3-py39_23.9.0-0-MacOSX-arm64.pkg"
+        }
+    },
+    {
+        "text": "Miniconda3-py39_23.9.0-0-Linux-x86_64.sh",
+        "url": "https://example.com/base/Miniconda3-py39_23.9.0-0-Linux-x86_64.sh",
+        "attrs": {
+            "href": "Miniconda3-py39_23.9.0-0-Linux-x86_64.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-py39_23.9.0-0-Linux-s390x.sh",
+        "url": "https://example.com/base/Miniconda3-py39_23.9.0-0-Linux-s390x.sh",
+        "attrs": {
+            "href": "Miniconda3-py39_23.9.0-0-Linux-s390x.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-py39_23.9.0-0-Linux-ppc64le.sh",
+        "url": "https://example.com/base/Miniconda3-py39_23.9.0-0-Linux-ppc64le.sh",
+        "attrs": {
+            "href": "Miniconda3-py39_23.9.0-0-Linux-ppc64le.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-py39_23.9.0-0-Linux-aarch64.sh",
+        "url": "https://example.com/base/Miniconda3-py39_23.9.0-0-Linux-aarch64.sh",
+        "attrs": {
+            "href": "Miniconda3-py39_23.9.0-0-Linux-aarch64.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-py38_23.9.0-0-Windows-x86_64.exe",
+        "url": "https://example.com/base/Miniconda3-py38_23.9.0-0-Windows-x86_64.exe",
+        "attrs": {
+            "href": "Miniconda3-py38_23.9.0-0-Windows-x86_64.exe"
+        }
+    },
+    {
+        "text": "Miniconda3-py38_23.9.0-0-MacOSX-x86_64.sh",
+        "url": "https://example.com/base/Miniconda3-py38_23.9.0-0-MacOSX-x86_64.sh",
+        "attrs": {
+            "href": "Miniconda3-py38_23.9.0-0-MacOSX-x86_64.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-py38_23.9.0-0-MacOSX-x86_64.pkg",
+        "url": "https://example.com/base/Miniconda3-py38_23.9.0-0-MacOSX-x86_64.pkg",
+        "attrs": {
+            "href": "Miniconda3-py38_23.9.0-0-MacOSX-x86_64.pkg"
+        }
+    },
+    {
+        "text": "Miniconda3-py38_23.9.0-0-MacOSX-arm64.sh",
+        "url": "https://example.com/base/Miniconda3-py38_23.9.0-0-MacOSX-arm64.sh",
+        "attrs": {
+            "href": "Miniconda3-py38_23.9.0-0-MacOSX-arm64.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-py38_23.9.0-0-MacOSX-arm64.pkg",
+        "url": "https://example.com/base/Miniconda3-py38_23.9.0-0-MacOSX-arm64.pkg",
+        "attrs": {
+            "href": "Miniconda3-py38_23.9.0-0-MacOSX-arm64.pkg"
+        }
+    },
+    {
+        "text": "Miniconda3-py38_23.9.0-0-Linux-x86_64.sh",
+        "url": "https://example.com/base/Miniconda3-py38_23.9.0-0-Linux-x86_64.sh",
+        "attrs": {
+            "href": "Miniconda3-py38_23.9.0-0-Linux-x86_64.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-py38_23.9.0-0-Linux-s390x.sh",
+        "url": "https://example.com/base/Miniconda3-py38_23.9.0-0-Linux-s390x.sh",
+        "attrs": {
+            "href": "Miniconda3-py38_23.9.0-0-Linux-s390x.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-py38_23.9.0-0-Linux-ppc64le.sh",
+        "url": "https://example.com/base/Miniconda3-py38_23.9.0-0-Linux-ppc64le.sh",
+        "attrs": {
+            "href": "Miniconda3-py38_23.9.0-0-Linux-ppc64le.sh"
+        }
+    },
+    {
+        "text": "Miniconda3-py38_23.9.0-0-Linux-aarch64.sh",
+        "url": "https://example.com/base/Miniconda3-py38_23.9.0-0-Linux-aarch64.sh",
+        "attrs": {
+            "href": "Miniconda3-py38_23.9.0-0-Linux-aarch64.sh"
+        }
+    },
+    {
+        "text": "Conda package\n      manager",
+        "url": "http://conda.pydata.org/docs/index.html",
+        "attrs": {
+            "href": "http://conda.pydata.org/docs/index.html"
+        }
+    }
+]

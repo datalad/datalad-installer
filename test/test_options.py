@@ -7,6 +7,7 @@ from datalad_installer import (
     ComponentRequest,
     DataladInstaller,
     HelpRequest,
+    Immediate,
     Option,
     ParsedArgs,
     SudoConfirm,
@@ -191,9 +192,13 @@ from datalad_installer import (
                 [ComponentRequest(name="conda-env", envname="foo")],
             ),
         ),
+        (
+            ["datalad", "miniconda", "--help-versions"],
+            HelpRequest("miniconda", topic="versions"),
+        ),
     ],
 )
-def test_parse_args(args: list[str], parsed: ParsedArgs) -> None:
+def test_parse_args(args: list[str], parsed: Immediate | ParsedArgs) -> None:
     assert DataladInstaller.parse_args(args) == parsed
 
 

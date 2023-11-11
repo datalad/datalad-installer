@@ -24,11 +24,17 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager, suppress
 import ctypes
+from dataclasses import InitVar, dataclass, field
+from email import policy
+from email.headerregistry import ContentTypeHeader
 from enum import Enum
 from functools import total_ordering
 from getopt import GetoptError, getopt
+from html.parser import HTMLParser
+from itertools import groupby
 import json
 import logging
+from operator import attrgetter
 import os
 import os.path
 from pathlib import Path
@@ -44,6 +50,7 @@ import textwrap
 from time import sleep
 from typing import Any, ClassVar, NamedTuple, Optional
 from urllib.error import HTTPError, URLError
+from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 from zipfile import ZipFile
 
@@ -87,6 +94,7 @@ def parse_log_level(level: str) -> int:
         return lv
 
 
+@dataclass
 class Immediate:
     """
     Superclass for constructs returned by the argument-parsing code
@@ -97,29 +105,24 @@ class Immediate:
     pass
 
 
+@dataclass
 class VersionRequest(Immediate):
     """`Immediate` representing a ``--version`` option"""
 
-    def __eq__(self, other: Any) -> bool:
-        if type(self) is type(other):
-            return True
-        else:
-            return NotImplemented
+    pass
 
 
+@dataclass
 class HelpRequest(Immediate):
-    """`Immediate` representing a ``--help`` option"""
+    """`Immediate` representing a ``--help`` or ``--help-TOPIC`` option"""
 
-    def __init__(self, component: Optional[str]) -> None:
-        #: The component for which help was requested, or `None` if the
-        #: ``--help`` option was given at the global level
-        self.component: Optional[str] = component
+    #: The component for which help was requested, or `None` if the ``--help``
+    #: option was given at the global level
+    component: Optional[str]
 
-    def __eq__(self, other: Any) -> bool:
-        if type(self) is type(other):
-            return bool(self.component == other.component)
-        else:
-            return NotImplemented
+    #: The topic for which help was requested via a ``--help-TOPIC`` option, or
+    #: `None` if just a ``--help`` option was given
+    topic: Optional[str] = None
 
 
 SHORT_RGX = re.compile(r"-[^-]")
@@ -191,8 +194,8 @@ class Option:
 
     def _cmp_key(self) -> tuple[int, str]:
         name = self.option_name
-        if name == "--help":
-            return (2, "--help")
+        if name.startswith("--help"):
+            return (2, name)
         elif name == "--version":
             return (1, "--version")
         else:
@@ -264,26 +267,17 @@ class Option:
         return textwrap.indent("\n".join(lines2), " " * HELP_INDENT)
 
 
+@dataclass
 class OptionParser:
-    def __init__(
-        self,
-        component: Optional[str] = None,
-        versioned: bool = False,
-        help: Optional[str] = None,  # noqa: A002
-        options: Optional[list[Option]] = None,
-    ) -> None:
-        self.component: Optional[str] = component
-        self.versioned: bool = versioned
-        self.help: Optional[str] = help
-        #: Mapping from individual option characters to Option instances
-        self.short_options: dict[str, Option] = {}
-        #: Mapping from long option names (sans leading "--") to Option
-        #: instances
-        self.long_options: dict[str, Option] = {}
-        #: Mapping from option names (including leading hyphens) to Option
-        #: instances
-        self.options: dict[str, Option] = {}
-        self.option_list: list[Option] = []
+    component: Optional[str] = None
+    versioned: bool = False
+    help: Optional[str] = None
+    options: InitVar[Optional[list[Option]]] = None
+    #: Mapping from option names (including leading hyphens) to Option
+    #: instances
+    options_map: dict[str, Option] = field(init=False, default_factory=dict)
+
+    def __post_init__(self, options: Optional[list[Option]]) -> None:
         self.add_option(
             Option(
                 "-h",
@@ -298,21 +292,18 @@ class OptionParser:
                 self.add_option(opt)
 
     def add_option(self, option: Option) -> None:
-        if self.options.get(option.option_name) == option:
+        if self.options_map.get(option.option_name) == option:
             return
         for o in option.shortopts:
-            if o in self.short_options:
+            if f"-{o}" in self.options_map:
                 raise ValueError(f"Option -{o} registered more than once")
         for o in option.longopts:
-            if o in self.long_options:
+            if f"--{o}" in self.options_map:
                 raise ValueError(f"Option --{o} registered more than once")
         for o in option.shortopts:
-            self.short_options[o] = option
-            self.options[f"-{o}"] = option
+            self.options_map[f"-{o}"] = option
         for o in option.longopts:
-            self.long_options[o] = option
-            self.options[f"--{o}"] = option
-        self.option_list.append(option)
+            self.options_map[f"--{o}"] = option
 
     def parse_args(
         self, args: list[str]
@@ -325,24 +316,25 @@ class OptionParser:
         :param list[str] args: command-line arguments without ``sys.argv[0]``
         """
         shortspec = ""
-        for o, option in self.short_options.items():
-            if option.is_flag:
-                shortspec += o
-            else:
-                shortspec += f"{o}:"
         longspec = []
-        for o, option in self.long_options.items():
-            if option.is_flag:
-                longspec.append(o)
-            else:
-                longspec.append(f"{o}=")
+        for option in self.options_map.values():
+            for o in option.shortopts:
+                if option.is_flag:
+                    shortspec += o
+                else:
+                    shortspec += f"{o}:"
+            for o in option.longopts:
+                if option.is_flag:
+                    longspec.append(o)
+                else:
+                    longspec.append(f"{o}=")
         try:
             optlist, leftovers = getopt(args, shortspec, longspec)
         except GetoptError as e:
             raise UsageError(str(e), self.component)
         kwargs: dict[str, Any] = {}
         for o, a in optlist:
-            option = self.options[o]
+            option = self.options_map[o]
             try:
                 ret = option.process(kwargs, a)
             except ValueError as e:
@@ -378,11 +370,13 @@ class OptionParser:
                     lines.extend(
                         " " * HELP_INDENT + wl for wl in textwrap.wrap(ln, HELP_WIDTH)
                     )
-        if self.options:
+        if self.options_map:
             lines.append("")
             lines.append("Options:")
-            for option in sorted(self.option_list):
-                lines.extend(option.get_help().splitlines())
+            for _, options in groupby(
+                sorted(self.options_map.values()), attrgetter("option_name")
+            ):
+                lines.extend(next(options).get_help().splitlines())
         return "\n".join(lines)
 
 
@@ -739,7 +733,11 @@ class DataladInstaller:
             print("datalad-installer", __version__)
             return 0
         elif isinstance(r, HelpRequest):
-            print(self.long_help(progname, r.component))
+            if r.topic is None:
+                print(self.long_help(progname, r.component))
+            else:
+                assert r.component is not None
+                self.COMPONENTS[r.component].show_topic_help(r.topic)
             return 0
         else:
             assert isinstance(r, ParsedArgs)
@@ -859,6 +857,10 @@ class Component(ABC):
     def provide(self, **kwargs: Any) -> None:
         ...
 
+    @classmethod
+    def show_topic_help(cls, topic: str) -> None:
+        raise NotImplementedError
+
 
 @DataladInstaller.register_component
 class VenvComponent(Component):
@@ -937,10 +939,18 @@ class MinicondaComponent(Component):
         "miniconda",
         versioned=True,
         help=(
-            "Install Miniconda\n\nVERSION is the version suffix of a file at"
-            " https://repo.anaconda.com/miniconda/, e.g. py37_23.1.0-1"
+            "Install Miniconda\n\nVERSION is the version component of a file"
+            " at <https://repo.anaconda.com/miniconda/>, e.g., py37_23.1.0-1."
+            "  Run `datalad-installer miniconda --help-versions` to see a list"
+            " of available versions for your platform."
         ),
         options=[
+            Option(
+                "--help-versions",
+                is_flag=True,
+                immediate=HelpRequest("miniconda", topic="versions"),
+                help="Show a list of available Miniconda versions for this platform and exit",
+            ),
             Option(
                 "--path",
                 converter=Path,
@@ -1012,18 +1022,8 @@ class MinicondaComponent(Component):
         log.info("Extra args: %s", extra_args)
         if kwargs:
             log.warning("Ignoring extra component arguments: %r", kwargs)
-        if ON_LINUX:
-            miniconda_script = f"Miniconda3-{version}-Linux-x86_64.sh"
-        elif ON_MACOS:
-            arch = platform.machine().lower()
-            if arch in ("x86_64", "arm64"):
-                miniconda_script = f"Miniconda3-{version}-MacOSX-{arch}.sh"
-            else:
-                raise RuntimeError(f"E: Unsupported architecture: {arch}")
-        elif ON_WINDOWS:
-            miniconda_script = f"Miniconda3-{version}-Windows-x86_64.exe"
-        else:
-            raise RuntimeError(f"E: Unsupported OS: {SYSTEM}")
+        suffix = self.get_platform_suffix()
+        miniconda_script = f"Miniconda3-{version}-{suffix}"
         if python_match is not None:
             vparts: tuple[int, ...]
             if python_match == "major":
@@ -1043,12 +1043,7 @@ class MinicondaComponent(Component):
         with tempfile.TemporaryDirectory() as tmpdir:
             script_path = os.path.join(tmpdir, miniconda_script)
             download_file(
-                (
-                    os.environ.get("ANACONDA_URL")
-                    or "https://repo.anaconda.com/miniconda/"
-                ).rstrip("/")
-                + "/"
-                + miniconda_script,
+                self.get_anaconda_url().rstrip("/") + "/" + miniconda_script,
                 script_path,
             )
             log.info("Installing miniconda in %s", path)
@@ -1104,6 +1099,54 @@ class MinicondaComponent(Component):
         )
         self.manager.addenv(f"source {shlex.quote(str(path))}/etc/profile.d/conda.sh")
         self.manager.addenv("conda activate base")
+
+    @staticmethod
+    def get_anaconda_url() -> str:
+        return os.environ.get("ANACONDA_URL") or "https://repo.anaconda.com/miniconda/"
+
+    @staticmethod
+    def get_platform_suffix() -> str:
+        if ON_LINUX:
+            return "Linux-x86_64.sh"
+        elif ON_MACOS:
+            arch = platform.machine().lower()
+            if arch in ("x86_64", "arm64"):
+                return f"MacOSX-{arch}.sh"
+            else:
+                raise RuntimeError(f"E: Unsupported architecture: {arch}")
+        elif ON_WINDOWS:
+            return "Windows-x86_64.exe"
+        else:
+            raise RuntimeError(f"E: Unsupported OS: {SYSTEM}")
+
+    @classmethod
+    def show_topic_help(cls, topic: str) -> None:
+        assert topic == "versions"
+        url = cls.get_anaconda_url()
+        log.debug("HTTP request: GET %s", url)
+        req = Request(url, headers={"User-Agent": USER_AGENT})
+        with urlopen(req) as r:
+            charset = "iso-8859-1"
+            if "content-type" in r.headers:
+                ct = policy.default.header_factory(
+                    "Content-Type", r.headers["Content-Type"]
+                )
+                assert isinstance(ct, ContentTypeHeader)
+                if not ct.defects and "charset" in ct.params:  # type: ignore[attr-defined]
+                    charset = ct.params["charset"]
+            source = r.read().decode(encoding=charset, errors="replace")
+        print("Available Miniconda versions for your platform:")
+        print()
+        prefix = "Miniconda3-"
+        suffix = "-" + cls.get_platform_suffix()
+        found_any = False
+        for link in parse_links(source, base_url=url):
+            if link.text.startswith(prefix) and link.text.endswith(suffix):
+                version = link.text[len(prefix) :][: -len(suffix)]
+                print("-", version)
+                found_any = True
+        if not found_any:
+            print("Nothing found!")
 
 
 @DataladInstaller.register_component
@@ -1287,7 +1330,7 @@ class InstallableComponent(Component):
     def register_installer(cls, installer: type[Installer]) -> type[Installer]:
         """A decorator for registering concrete `Installer` subclasses"""
         cls.INSTALLERS[installer.NAME] = installer
-        methods = cls.OPTION_PARSER.options["--method"].choices
+        methods = cls.OPTION_PARSER.options_map["--method"].choices
         assert methods is not None
         methods.append(installer.NAME)
         for opt in installer.OPTIONS:
@@ -2858,6 +2901,130 @@ def check_exists(path: Path) -> bool:
                 return True
             sleep(1)
     return os.path.exists(path)
+
+
+def parse_links(html: str, base_url: Optional[str] = None) -> list[Link]:
+    """
+    Parse the source of an HTML page and return a list of all hyperlinks found
+    on it.
+
+    This function does not support encoding declarations embedded in HTML, and
+    it has limited ability to deal with invalid HTML.
+
+    :param str html: the HTML document to parse
+    :param Optional[str] base_url: an optional URL to join to the front of the
+        links' URLs (usually the URL of the page being parsed)
+    :rtype: list[Link]
+    """
+    parser = LinkParser(base_url=base_url)
+    parser.feed(html)
+    links = parser.fetch_links()
+    parser.close()
+    return links
+
+
+@dataclass
+class Link:
+    """A hyperlink extracted from an HTML page"""
+
+    #: The text inside the link tag, with leading & trailing whitespace removed
+    #: and with any tags nested inside the link tags ignored
+    text: str
+
+    #: The URL that the link points to, resolved relative to the URL of the
+    #: source HTML page and relative to the page's ``<base>`` href value, if
+    #: any
+    url: str
+
+    #: A dictionary of attributes set on the link tag (including the unmodified
+    #: ``href`` attribute).  Keys are converted to lowercase.
+    attrs: dict[str, str]
+
+
+# List taken from BeautifulSoup4 source
+EMPTY_TAGS = {
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "keygen",
+    "link",
+    "menuitem",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr",
+    "basefont",
+    "bgsound",
+    "command",
+    "frame",
+    "image",
+    "isindex",
+    "nextid",
+    "spacer",
+}
+
+
+class LinkParser(HTMLParser):
+    def __init__(self, base_url: Optional[str] = None) -> None:
+        super().__init__(convert_charrefs=True)
+        self.base_url: Optional[str] = base_url
+        self.base_seen = False
+        self.tag_stack: list[str] = []
+        self.finished_links: list[Link] = []
+        self.link_tag_stack: list[dict[str, str]] = []
+
+    def fetch_links(self) -> list[Link]:
+        links = self.finished_links
+        self.finished_links = []
+        return links
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, Optional[str]]]) -> None:
+        if tag not in EMPTY_TAGS:
+            self.tag_stack.append(tag)
+        attrdict = {k: v or "" for k, v in attrs}
+        if tag == "base" and "href" in attrdict and not self.base_seen:
+            if self.base_url is None:
+                self.base_url = attrdict["href"]
+            else:
+                self.base_url = urljoin(self.base_url, attrdict["href"])
+            self.base_seen = True
+        elif tag == "a":
+            attrdict["#text"] = ""
+            self.link_tag_stack.append(attrdict)
+
+    def handle_endtag(self, tag: str) -> None:
+        for i in range(len(self.tag_stack) - 1, -1, -1):
+            if self.tag_stack[i] == tag:
+                for t in self.tag_stack[i:]:
+                    if t == "a":
+                        self.end_link_tag()
+                del self.tag_stack[i:]
+                break
+
+    def end_link_tag(self) -> None:
+        attrs = self.link_tag_stack.pop()
+        if "href" in attrs:
+            text = attrs.pop("#text")
+            if self.base_url is not None:
+                url = urljoin(self.base_url, attrs["href"])
+            else:
+                url = attrs["href"]
+            self.finished_links.append(Link(text=text.strip(), url=url, attrs=attrs))
+
+    def handle_data(self, data: str) -> None:
+        for link in self.link_tag_stack:
+            link["#text"] += data
+
+    def close(self) -> None:
+        while self.link_tag_stack:
+            self.handle_endtag("a")
+        super().close()
 
 
 def main(argv: Optional[list[str]] = None) -> int:
