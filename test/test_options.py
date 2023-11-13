@@ -94,7 +94,7 @@ from datalad_installer import (
                 [
                     ComponentRequest(
                         name="git-annex",
-                        extra_args=["--extra-opt"],
+                        kwargs={"extra_args": ["--extra-opt"]},
                     )
                 ],
             ),
@@ -106,7 +106,7 @@ from datalad_installer import (
                 [
                     ComponentRequest(
                         name="git-annex",
-                        extra_args=["--extra", "--opt"],
+                        kwargs={"extra_args": ["--extra", "--opt"]},
                     )
                 ],
             ),
@@ -125,11 +125,11 @@ from datalad_installer import (
                 [
                     ComponentRequest(
                         name="git-annex",
-                        extra_args=["--extra", "--opt"],
+                        kwargs={"extra_args": ["--extra", "--opt"]},
                     ),
                     ComponentRequest(
                         name="datalad",
-                        extra_args=["--extra=opt"],
+                        kwargs={"extra_args": ["--extra=opt"]},
                     ),
                 ],
             ),
@@ -141,15 +141,17 @@ from datalad_installer import (
                 [
                     ComponentRequest(
                         name="venv",
-                        path=Path("/path/to/venv"),
+                        kwargs={"path": Path("/path/to/venv")},
                     ),
-                    ComponentRequest(name="datalad", extras="all"),
+                    ComponentRequest(name="datalad", kwargs={"extras": "all"}),
                 ],
             ),
         ),
         (
             ["datalad=0.13.0"],
-            ParsedArgs({}, [ComponentRequest(name="datalad", version="0.13.0")]),
+            ParsedArgs(
+                {}, [ComponentRequest(name="datalad", kwargs={"version": "0.13.0"})]
+            ),
         ),
         (
             ["datalad=0.13.0", "-e", "-a -b -c"],
@@ -158,8 +160,10 @@ from datalad_installer import (
                 [
                     ComponentRequest(
                         name="datalad",
-                        version="0.13.0",
-                        extra_args=["-a", "-b", "-c"],
+                        kwargs={
+                            "version": "0.13.0",
+                            "extra_args": ["-a", "-b", "-c"],
+                        },
                     )
                 ],
             ),
@@ -168,28 +172,28 @@ from datalad_installer import (
             ["git-annex", "--build-dep"],
             ParsedArgs(
                 {},
-                [ComponentRequest(name="git-annex", build_dep=True)],
+                [ComponentRequest(name="git-annex", kwargs={"build_dep": True})],
             ),
         ),
         (
             ["git-annex", "--method", "auto"],
             ParsedArgs(
                 {},
-                [ComponentRequest(name="git-annex", method="auto")],
+                [ComponentRequest(name="git-annex", kwargs={"method": "auto"})],
             ),
         ),
         (
             ["git-annex", "--method", "apt"],
             ParsedArgs(
                 {},
-                [ComponentRequest(name="git-annex", method="apt")],
+                [ComponentRequest(name="git-annex", kwargs={"method": "apt"})],
             ),
         ),
         (
             ["conda-env", "--name", "foo"],
             ParsedArgs(
                 {},
-                [ComponentRequest(name="conda-env", envname="foo")],
+                [ComponentRequest(name="conda-env", kwargs={"envname": "foo"})],
             ),
         ),
         (
