@@ -380,15 +380,15 @@ class OptionParser:
         return "\n".join(lines)
 
 
+@dataclass
 class UsageError(Exception):
     """Raised when an error occurs while processing command-line options"""
 
-    def __init__(self, message: str, component: Optional[str] = None) -> None:
-        #: The error message
-        self.message: str = message
-        #: The component for which the error occurred, or `None` if the error
-        #: was at the global level
-        self.component: Optional[str] = component
+    #: The error message
+    message: str
+    #: The component for which the error occurred, or `None` if the error was
+    #: at the global level
+    component: Optional[str] = None
 
     def __str__(self) -> str:
         return self.message
@@ -404,30 +404,16 @@ class ParsedArgs(NamedTuple):
     components: list[ComponentRequest]
 
 
+@dataclass
 class ComponentRequest:
     """A request for a component parsed from command-line arguments"""
 
-    def __init__(self, name: str, **kwargs: Any) -> None:
-        self.name: str = name
-        self.kwargs: dict[str, Any] = kwargs
-
-    def __eq__(self, other: Any) -> bool:
-        if type(self) is type(other):
-            return bool(self.name == other.name and self.kwargs == other.kwargs)
-        else:
-            return NotImplemented
-
-    def __repr__(self) -> str:
-        attrs = [f"name={self.name!r}"]
-        for k, v in self.kwargs.items():
-            attrs.append(f"{k}={v!r}")
-        return "{0.__module__}.{0.__name__}({1})".format(
-            type(self),
-            ", ".join(attrs),
-        )
+    name: str
+    kwargs: dict[str, Any] = field(default_factory=dict)
 
 
-class CondaInstance(NamedTuple):
+@dataclass
+class CondaInstance:
     """A Conda installation or environment"""
 
     #: The root of the Conda installation
@@ -457,17 +443,15 @@ class CondaInstance(NamedTuple):
             return self.basepath / "envs" / self.name / dirname
 
 
+@dataclass
 class Command:
     """An external command that can be installed by this script"""
 
-    def __init__(self, name: str, test_args: Optional[list[str]] = None) -> None:
-        #: Name of the command
-        self.name = name
-        if test_args is None:
-            #: Arguments with which to invoke the command as a smoke test
-            self.test_args = ["--help"]
-        else:
-            self.test_args = test_args
+    #: Name of the command
+    name: str
+
+    #: Arguments with which to invoke the command as a smoke test
+    test_args: list[str]
 
     def in_bindir(self, bindir: Path) -> InstalledCommand:
         """
@@ -480,15 +464,12 @@ class Command:
         return InstalledCommand(name=self.name, path=cmdpath, test_args=self.test_args)
 
 
+@dataclass
 class InstalledCommand(Command):
     """An external command that has been installed by this script"""
 
-    def __init__(
-        self, name: str, path: Path, test_args: Optional[list[str]] = None
-    ) -> None:
-        super().__init__(name, test_args)
-        #: Path at which the command is installed
-        self.path = path
+    #: Path at which the command is installed
+    path: Path
 
     def test(self) -> bool:
         test_cmd = [str(self.path)] + self.test_args
@@ -506,20 +487,21 @@ class InstalledCommand(Command):
                 return True
 
 
-DATALAD_CMD = Command("datalad")
-GIT_ANNEX_CMD = Command("git-annex")
+DATALAD_CMD = Command("datalad", ["--help"])
+GIT_ANNEX_CMD = Command("git-annex", ["--help"])
 # Smoke-test rclone with --version instead of --help because the latter didn't
 # exist before rclone 1.33
-RCLONE_CMD = Command("rclone", test_args=["--version"])
-GIT_ANNEX_REMOTE_RCLONE_CMD = Command("git-annex-remote-rclone")
+RCLONE_CMD = Command("rclone", ["--version"])
+GIT_ANNEX_REMOTE_RCLONE_CMD = Command("git-annex-remote-rclone", ["--help"])
 
 
+@dataclass
 class DataladInstaller:
     """The script's primary class, a manager & runner of components"""
 
     COMPONENTS: ClassVar[dict[str, type[Component]]] = {}
 
-    OPTION_PARSER = OptionParser(
+    OPTION_PARSER: ClassVar[OptionParser] = OptionParser(
         help=(
             "Installation script for Datalad and related components\n\n"
             "`datalad-installer` is a script for installing Datalad, git-annex,"
@@ -563,21 +545,27 @@ class DataladInstaller:
         ],
     )
 
-    def __init__(
-        self,
-        env_write_files: Optional[list[str | Path]] = None,
-        sudo_confirm: SudoConfirm = SudoConfirm.ASK,
-    ) -> None:
-        #: A list of files to which to write ``PATH`` modifications and related
-        #: shell commands
-        self.env_write_files: list[Path]
-        if env_write_files is None:
-            self.env_write_files = []
-        else:
-            self.env_write_files = [Path(p) for p in env_write_files]
-        self.sudo_confirm: SudoConfirm = sudo_confirm
-        #: The default installers to fall back on for the "auto" installation
-        #: method
+    #: A list of files to which to write ``PATH`` modifications and related
+    #: shell commands
+    env_write_files: list[Path] = field(default_factory=list)
+
+    sudo_confirm: SudoConfirm = SudoConfirm.ASK
+
+    #: The default installers to fall back on for the "auto" installation
+    #: method
+    installer_stack: list[Installer] = field(init=False)
+
+    #: A stack of Conda installations & environments installed via the
+    #: instance
+    conda_stack: list[CondaInstance] = field(init=False, default_factory=list)
+
+    #: A list of commands installed via the instance
+    new_commands: list[InstalledCommand] = field(init=False, default_factory=list)
+
+    #: Whether "brew update" has been run
+    brew_updated: bool = field(init=False, default=False)
+
+    def __post_init__(self) -> None:
         self.installer_stack: list[Installer] = [
             # Lowest priority first
             DownloadsRCloneInstaller(self),
@@ -589,13 +577,6 @@ class DataladInstaller:
             AptInstaller(self),
             CondaInstaller(self),
         ]
-        #: A stack of Conda installations & environments installed via the
-        #: instance
-        self.conda_stack: list[CondaInstance] = []
-        #: A list of commands installed via the instance
-        self.new_commands: list[InstalledCommand] = []
-        #: Whether "brew update" has been run
-        self.brew_updated: bool = False
 
     @classmethod
     def register_component(cls, component: type[Component]) -> type[Component]:
@@ -704,7 +685,7 @@ class DataladInstaller:
             kwargs, leftovers = cr
             if version:
                 kwargs["version"] = version
-            components.append(ComponentRequest(name=name, **kwargs))
+            components.append(ComponentRequest(name=name, kwargs=kwargs))
         return ParsedArgs(global_opts, components)
 
     def main(self, argv: Optional[list[str]] = None) -> int:
@@ -840,6 +821,7 @@ class DataladInstaller:
             return cls.COMPONENTS[component].OPTION_PARSER.long_help(progname)
 
 
+@dataclass
 class Component(ABC):
     """
     An abstract base class for a component that can be specified on the command
@@ -850,8 +832,7 @@ class Component(ABC):
 
     OPTION_PARSER: ClassVar[OptionParser]
 
-    def __init__(self, manager: DataladInstaller) -> None:
-        self.manager = manager
+    manager: DataladInstaller
 
     @abstractmethod
     def provide(self, **kwargs: Any) -> None:
@@ -863,12 +844,13 @@ class Component(ABC):
 
 
 @DataladInstaller.register_component
+@dataclass
 class VenvComponent(Component):
     """Creates a Python virtual environment using ``python -m venv``"""
 
-    NAME = "venv"
+    NAME: ClassVar[str] = "venv"
 
-    OPTION_PARSER = OptionParser(
+    OPTION_PARSER: ClassVar[OptionParser] = OptionParser(
         "venv",
         versioned=False,
         help="Create a Python virtual environment",
@@ -930,12 +912,13 @@ class VenvComponent(Component):
 
 
 @DataladInstaller.register_component
+@dataclass
 class MinicondaComponent(Component):
     """Installs Miniconda"""
 
-    NAME = "miniconda"
+    NAME: ClassVar[str] = "miniconda"
 
-    OPTION_PARSER = OptionParser(
+    OPTION_PARSER: ClassVar[OptionParser] = OptionParser(
         "miniconda",
         versioned=True,
         help=(
@@ -1150,12 +1133,13 @@ class MinicondaComponent(Component):
 
 
 @DataladInstaller.register_component
+@dataclass
 class CondaEnvComponent(Component):
     """Creates a Conda environment"""
 
-    NAME = "conda-env"
+    NAME: ClassVar[str] = "conda-env"
 
-    OPTION_PARSER = OptionParser(
+    OPTION_PARSER: ClassVar[OptionParser] = OptionParser(
         "conda-env",
         versioned=False,
         help="Create a Conda environment",
@@ -1214,12 +1198,13 @@ class CondaEnvComponent(Component):
 
 
 @DataladInstaller.register_component
+@dataclass
 class NeurodebianComponent(Component):
     """Installs & configures NeuroDebian"""
 
-    NAME = "neurodebian"
+    NAME: ClassVar[str] = "neurodebian"
 
-    OPTION_PARSER = OptionParser(
+    OPTION_PARSER: ClassVar[OptionParser] = OptionParser(
         "neurodebian",
         versioned=False,
         help="Install & configure NeuroDebian",
@@ -1233,9 +1218,9 @@ class NeurodebianComponent(Component):
         ],
     )
 
-    KEY_FINGERPRINT = "0xA5D32F012649A5A9"
-    KEY_URL = "http://neuro.debian.net/_static/neuro.debian.net.asc"
-    DOWNLOAD_SERVER = "us-nh"
+    KEY_FINGERPRINT: ClassVar[str] = "0xA5D32F012649A5A9"
+    KEY_URL: ClassVar[str] = "http://neuro.debian.net/_static/neuro.debian.net.asc"
+    DOWNLOAD_SERVER: ClassVar[str] = "us-nh"
 
     def provide(self, extra_args: Optional[list[str]] = None, **kwargs: Any) -> None:
         log.info("Installing & configuring NeuroDebian")
@@ -1306,7 +1291,6 @@ class NeurodebianComponent(Component):
                     apt_file,
                     apt_file.read_text(),
                 )
-
                 version_codename = get_version_codename()
                 if version_codename:
                     log.info(
@@ -1319,9 +1303,11 @@ class NeurodebianComponent(Component):
             raise
 
 
+@dataclass
 class InstallableComponent(Component):
     """
-    Superclass for components that install packages via installation methods
+    Superclass for components that are installed as packages via installation
+    methods
     """
 
     INSTALLERS: ClassVar[dict[str, type[Installer]]] = {}
@@ -1364,12 +1350,13 @@ class InstallableComponent(Component):
 
 
 @DataladInstaller.register_component
+@dataclass
 class GitAnnexComponent(InstallableComponent):
     """Installs git-annex"""
 
-    NAME = "git-annex"
+    NAME: ClassVar[str] = "git-annex"
 
-    OPTION_PARSER = OptionParser(
+    OPTION_PARSER: ClassVar[OptionParser] = OptionParser(
         "git-annex",
         versioned=True,
         help="Install git-annex",
@@ -1385,12 +1372,13 @@ class GitAnnexComponent(InstallableComponent):
 
 
 @DataladInstaller.register_component
+@dataclass
 class DataladComponent(InstallableComponent):
     """Installs Datalad"""
 
-    NAME = "datalad"
+    NAME: ClassVar[str] = "datalad"
 
-    OPTION_PARSER = OptionParser(
+    OPTION_PARSER: ClassVar[OptionParser] = OptionParser(
         "datalad",
         versioned=True,
         help="Install Datalad",
@@ -1406,12 +1394,13 @@ class DataladComponent(InstallableComponent):
 
 
 @DataladInstaller.register_component
+@dataclass
 class RCloneComponent(InstallableComponent):
     """Installs rclone"""
 
-    NAME = "rclone"
+    NAME: ClassVar[str] = "rclone"
 
-    OPTION_PARSER = OptionParser(
+    OPTION_PARSER: ClassVar[OptionParser] = OptionParser(
         "rclone",
         versioned=True,
         help="Install rclone",
@@ -1427,12 +1416,13 @@ class RCloneComponent(InstallableComponent):
 
 
 @DataladInstaller.register_component
+@dataclass
 class GitAnnexRemoteRCloneComponent(InstallableComponent):
     """Installs git-annex-remote-rclone"""
 
-    NAME = "git-annex-remote-rclone"
+    NAME: ClassVar[str] = "git-annex-remote-rclone"
 
-    OPTION_PARSER = OptionParser(
+    OPTION_PARSER: ClassVar[OptionParser] = OptionParser(
         "git-annex-remote-rclone",
         versioned=True,
         help="Install git-annex-remote-rclone",
@@ -1447,6 +1437,7 @@ class GitAnnexRemoteRCloneComponent(InstallableComponent):
     )
 
 
+@dataclass
 class Installer(ABC):
     """An abstract base class for installation methods for packages"""
 
@@ -1458,8 +1449,7 @@ class Installer(ABC):
     #: (installer-specific package IDs, list of installed programs) pairs
     PACKAGES: ClassVar[dict[str, tuple[str, list[Command]]]]
 
-    def __init__(self, manager: DataladInstaller) -> None:
-        self.manager = manager
+    manager: DataladInstaller
 
     def install(self, component: str, **kwargs: Any) -> list[InstalledCommand]:
         """
@@ -1507,19 +1497,20 @@ EXTRA_ARGS_OPTION = Option(
 @DataladComponent.register_installer
 @RCloneComponent.register_installer
 @GitAnnexRemoteRCloneComponent.register_installer
+@dataclass
 class AptInstaller(Installer):
     """Installs via apt-get"""
 
-    NAME = "apt"
+    NAME: ClassVar[str] = "apt"
 
-    OPTIONS = [
+    OPTIONS: ClassVar[list[Option]] = [
         Option(
             "--build-dep", is_flag=True, help="Install build-dep instead of the package"
         ),
         EXTRA_ARGS_OPTION,
     ]
 
-    PACKAGES = {
+    PACKAGES: ClassVar[dict[str, tuple[str, list[Command]]]] = {
         "datalad": ("datalad", [DATALAD_CMD]),
         "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
         "rclone": ("rclone", [RCLONE_CMD]),
@@ -1567,16 +1558,17 @@ class AptInstaller(Installer):
 @GitAnnexComponent.register_installer
 @RCloneComponent.register_installer
 @GitAnnexRemoteRCloneComponent.register_installer
+@dataclass
 class HomebrewInstaller(Installer):
     """Installs via brew (Homebrew)"""
 
-    NAME = "brew"
+    NAME: ClassVar[str] = "brew"
 
-    OPTIONS = [
+    OPTIONS: ClassVar[list[Option]] = [
         EXTRA_ARGS_OPTION,
     ]
 
-    PACKAGES = {
+    PACKAGES: ClassVar[dict[str, tuple[str, list[Command]]]] = {
         "datalad": ("datalad", [DATALAD_CMD]),
         "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
         "rclone": ("rclone", [RCLONE_CMD]),
@@ -1622,35 +1614,32 @@ class HomebrewInstaller(Installer):
 
 
 @DataladComponent.register_installer
+@dataclass
 class PipInstaller(Installer):
     """
     Installs via pip, either at the system level or into a given virtual
     environment
     """
 
-    NAME = "pip"
+    NAME: ClassVar[str] = "pip"
 
-    OPTIONS = [
+    OPTIONS: ClassVar[list[Option]] = [
         Option("--devel", is_flag=True, help="Install from GitHub repository"),
         Option("-E", "--extras", metavar="EXTRAS", help="Install package extras"),
         EXTRA_ARGS_OPTION,
     ]
 
-    PACKAGES = {
+    PACKAGES: ClassVar[dict[str, tuple[str, list[Command]]]] = {
         "datalad": ("datalad", [DATALAD_CMD]),
     }
 
-    DEVEL_PACKAGES = {
+    DEVEL_PACKAGES: ClassVar[dict[str, str]] = {
         "datalad": "git+https://github.com/datalad/datalad.git",
     }
 
-    def __init__(
-        self, manager: DataladInstaller, venv_path: Optional[Path] = None
-    ) -> None:
-        super().__init__(manager)
-        #: The path to the virtual environment in which to install, or `None`
-        #: if installation should be done at the system level
-        self.venv_path: Optional[Path] = venv_path
+    #: The path to the virtual environment in which to install, or `None` if
+    #: installation should be done at the system level
+    venv_path: Optional[Path] = None
 
     @property
     def python(self) -> str | Path:
@@ -1725,12 +1714,13 @@ class PipInstaller(Installer):
 
 
 @GitAnnexComponent.register_installer
+@dataclass
 class NeurodebianInstaller(AptInstaller):
     """Installs via apt-get and the NeuroDebian repositories"""
 
-    NAME = "neurodebian"
+    NAME: ClassVar[str] = "neurodebian"
 
-    PACKAGES = {
+    PACKAGES: ClassVar[dict[str, tuple[str, list[Command]]]] = {
         "git-annex": ("git-annex-standalone", [GIT_ANNEX_CMD]),
     }
 
@@ -1744,12 +1734,13 @@ class NeurodebianInstaller(AptInstaller):
 @DataladComponent.register_installer
 @RCloneComponent.register_installer
 @GitAnnexRemoteRCloneComponent.register_installer
+@dataclass
 class DebURLInstaller(Installer):
     """Installs a ``*.deb`` package by URL"""
 
-    NAME = "deb-url"
+    NAME: ClassVar[str] = "deb-url"
 
-    OPTIONS = [
+    OPTIONS: ClassVar[list[Option]] = [
         Option("--url", metavar="URL", help="URL from which to download `*.deb` file"),
         Option(
             "--install-dir",
@@ -1760,7 +1751,7 @@ class DebURLInstaller(Installer):
         EXTRA_ARGS_OPTION,
     ]
 
-    PACKAGES = {
+    PACKAGES: ClassVar[dict[str, tuple[str, list[Command]]]] = {
         "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
         "datalad": ("datalad", [DATALAD_CMD]),
         "rclone": ("rclone", [RCLONE_CMD]),
@@ -1816,10 +1807,11 @@ class DebURLInstaller(Installer):
             )
 
 
+@dataclass
 class AutobuildSnapshotInstaller(Installer):
     OPTIONS: ClassVar[list[Option]] = []
 
-    PACKAGES = {
+    PACKAGES: ClassVar[dict[str, tuple[str, list[Command]]]] = {
         "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
     }
 
@@ -1852,10 +1844,11 @@ class AutobuildSnapshotInstaller(Installer):
 
 
 @GitAnnexComponent.register_installer
+@dataclass
 class AutobuildInstaller(AutobuildSnapshotInstaller):
     """Installs the latest official build of git-annex from kitenet.net"""
 
-    NAME = "autobuild"
+    NAME: ClassVar[str] = "autobuild"
 
     def install_package(self, package: str, **kwargs: Any) -> Path:
         log.info("Installing %s via autobuild", package)
@@ -1873,12 +1866,13 @@ class AutobuildInstaller(AutobuildSnapshotInstaller):
 
 
 @GitAnnexComponent.register_installer
+@dataclass
 class SnapshotInstaller(AutobuildSnapshotInstaller):
     """
     Installs the latest official snapshot build of git-annex from kitenet.net
     """
 
-    NAME = "snapshot"
+    NAME: ClassVar[str] = "snapshot"
 
     def install_package(self, package: str, **kwargs: Any) -> Path:
         log.info("Installing %s via snapshot", package)
@@ -1899,16 +1893,17 @@ class SnapshotInstaller(AutobuildSnapshotInstaller):
 @DataladComponent.register_installer
 @RCloneComponent.register_installer
 @GitAnnexRemoteRCloneComponent.register_installer
+@dataclass
 class CondaInstaller(Installer):
     """Installs via conda"""
 
-    NAME = "conda"
+    NAME: ClassVar[str] = "conda"
 
-    OPTIONS = [
+    OPTIONS: ClassVar[list[Option]] = [
         EXTRA_ARGS_OPTION,
     ]
 
-    PACKAGES = {
+    PACKAGES: ClassVar[dict[str, tuple[str, list[Command]]]] = {
         "datalad": ("datalad", [DATALAD_CMD]),
         "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
         "rclone": ("rclone", [RCLONE_CMD]),
@@ -1918,11 +1913,7 @@ class CondaInstaller(Installer):
         ),
     }
 
-    def __init__(
-        self, manager: DataladInstaller, conda_instance: Optional[CondaInstance] = None
-    ) -> None:
-        super().__init__(manager)
-        self.conda_instance: Optional[CondaInstance] = conda_instance
+    conda_instance: Optional[CondaInstance] = None
 
     def install_package(
         self,
@@ -1987,15 +1978,16 @@ class CondaInstaller(Installer):
 
 
 @GitAnnexComponent.register_installer
+@dataclass
 class DataladGitAnnexBuildInstaller(Installer):
     """
     Installs git-annex via the artifact from the latest successful build of
     datalad/git-annex
     """
 
-    NAME = "datalad/git-annex:tested"
+    NAME: ClassVar[str] = "datalad/git-annex:tested"
 
-    OPTIONS = [
+    OPTIONS: ClassVar[list[Option]] = [
         Option(
             "--install-dir",
             converter=Path,
@@ -2004,11 +1996,11 @@ class DataladGitAnnexBuildInstaller(Installer):
         ),
     ]
 
-    PACKAGES = {
+    PACKAGES: ClassVar[dict[str, tuple[str, list[Command]]]] = {
         "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
     }
 
-    VERSIONED = False
+    VERSIONED: ClassVar[bool] = False
 
     def install_package(
         self,
@@ -2089,13 +2081,14 @@ class DataladGitAnnexBuildInstaller(Installer):
 
 
 @GitAnnexComponent.register_installer
+@dataclass
 class DataladGitAnnexLatestBuildInstaller(DataladGitAnnexBuildInstaller):
     """
     Installs git-annex via the artifact from the latest artifact-producing
     build (successful or unsuccessful) of datalad/git-annex
     """
 
-    NAME = "datalad/git-annex"
+    NAME: ClassVar[str] = "datalad/git-annex"
 
     @staticmethod
     def download(
@@ -2111,12 +2104,13 @@ class DataladGitAnnexLatestBuildInstaller(DataladGitAnnexBuildInstaller):
 
 
 @GitAnnexComponent.register_installer
+@dataclass
 class DataladGitAnnexReleaseBuildInstaller(DataladGitAnnexBuildInstaller):
     """Installs git-annex via an asset of a release of datalad/git-annex"""
 
-    NAME = "datalad/git-annex:release"
+    NAME: ClassVar[str] = "datalad/git-annex:release"
 
-    VERSIONED = True
+    VERSIONED: ClassVar[bool] = True
 
     @staticmethod
     def download(ostype: str, target_dir: Path, version: Optional[str]) -> None:
@@ -2129,15 +2123,16 @@ class DataladGitAnnexReleaseBuildInstaller(DataladGitAnnexBuildInstaller):
 
 
 @GitAnnexComponent.register_installer
+@dataclass
 class DataladPackagesBuildInstaller(Installer):
     """
     Installs git-annex via artifacts uploaded to
     <https://datasets.datalad.org/?dir=/datalad/packages>
     """
 
-    NAME = "datalad/packages"
+    NAME: ClassVar[str] = "datalad/packages"
 
-    OPTIONS = [
+    OPTIONS: ClassVar[list[Option]] = [
         Option(
             "--install-dir",
             converter=Path,
@@ -2146,7 +2141,7 @@ class DataladPackagesBuildInstaller(Installer):
         ),
     ]
 
-    PACKAGES = {
+    PACKAGES: ClassVar[dict[str, tuple[str, list[Command]]]] = {
         "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
     }
 
@@ -2233,12 +2228,13 @@ class DataladPackagesBuildInstaller(Installer):
 
 
 @GitAnnexComponent.register_installer
+@dataclass
 class DMGInstaller(Installer):
     """Installs a local ``*.dmg`` file"""
 
-    NAME = "dmg"
+    NAME: ClassVar[str] = "dmg"
 
-    OPTIONS = [
+    OPTIONS: ClassVar[list[Option]] = [
         Option(
             "--path",
             converter=Path,
@@ -2247,7 +2243,7 @@ class DMGInstaller(Installer):
         ),
     ]
 
-    PACKAGES = {
+    PACKAGES: ClassVar[dict[str, tuple[str, list[Command]]]] = {
         "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
     }
 
@@ -2273,12 +2269,13 @@ class DMGInstaller(Installer):
 
 
 @GitAnnexRemoteRCloneComponent.register_installer
+@dataclass
 class GARRCGitHubInstaller(Installer):
     """Installs git-annex-remote-rclone from a tag on GitHub"""
 
-    NAME = "DanielDent/git-annex-remote-rclone"
+    NAME: ClassVar[str] = "DanielDent/git-annex-remote-rclone"
 
-    OPTIONS = [
+    OPTIONS: ClassVar[list[Option]] = [
         Option(
             "--bin-dir",
             converter=Path,
@@ -2287,14 +2284,14 @@ class GARRCGitHubInstaller(Installer):
         ),
     ]
 
-    PACKAGES = {
+    PACKAGES: ClassVar[dict[str, tuple[str, list[Command]]]] = {
         "git-annex-remote-rclone": (
             "git-annex-remote-rclone",
             [GIT_ANNEX_REMOTE_RCLONE_CMD],
         ),
     }
 
-    REPO = "DanielDent/git-annex-remote-rclone"
+    REPO: ClassVar[str] = "DanielDent/git-annex-remote-rclone"
 
     def install_package(
         self,
@@ -2333,12 +2330,13 @@ class GARRCGitHubInstaller(Installer):
 
 
 @RCloneComponent.register_installer
+@dataclass
 class DownloadsRCloneInstaller(Installer):
     """Installs rclone via downloads.rclone.org"""
 
-    NAME = "downloads.rclone.org"
+    NAME: ClassVar[str] = "downloads.rclone.org"
 
-    OPTIONS = [
+    OPTIONS: ClassVar[list[Option]] = [
         Option(
             "--bin-dir",
             converter=Path,
@@ -2353,7 +2351,9 @@ class DownloadsRCloneInstaller(Installer):
         ),
     ]
 
-    PACKAGES = {"rclone": ("rclone", [RCLONE_CMD])}
+    PACKAGES: ClassVar[dict[str, tuple[str, list[Command]]]] = {
+        "rclone": ("rclone", [RCLONE_CMD])
+    }
 
     def install_package(
         self,
