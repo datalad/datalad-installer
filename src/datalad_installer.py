@@ -14,7 +14,7 @@ Visit <https://github.com/datalad/datalad-installer> for more information.
 
 from __future__ import annotations
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 __author__ = "The DataLad Team and Contributors"
 __author_email__ = "team@datalad.org"
 __license__ = "MIT"
