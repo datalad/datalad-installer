@@ -1,3 +1,28 @@
+# v1.0.2 (Mon Nov 20 2023)
+
+#### 🐛 Bug Fix
+
+- Add `--help-versions` option to miniconda component [#180](https://github.com/datalad/datalad-installer/pull/180) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Convert almost all classes to dataclasses [#184](https://github.com/datalad/datalad-installer/pull/184) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Mention conda-forge installation in README [#183](https://github.com/datalad/datalad-installer/pull/183) ([@jwodder](https://github.com/jwodder))
+- Add Appveyor status badge to README [#182](https://github.com/datalad/datalad-installer/pull/182) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Test against Python 3.12 and PyPy for 3.10 [#181](https://github.com/datalad/datalad-installer/pull/181) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v1.0.1 (Wed Nov 08 2023)
 
 #### 🐛 Bug Fix
