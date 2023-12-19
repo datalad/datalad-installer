@@ -52,7 +52,13 @@ from time import sleep
 from typing import IO, Any, ClassVar, NamedTuple, Optional
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
-from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
+from urllib.request import (
+    HTTPRedirectHandler,
+    Request,
+    build_opener,
+    install_opener,
+    urlopen,
+)
 from zipfile import ZipFile
 
 log = logging.getLogger("datalad_installer")
@@ -2692,6 +2698,10 @@ class AuthClearHandler(HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
+# Use AuthClearHandler for all requests done via urllib:
+install_opener(build_opener(AuthClearHandler))
+
+
 def get_url_origin(url: str) -> tuple[str, str | None, int]:
     # <https://url.spec.whatwg.org/#concept-url-origin>
     port_map = {"http": 80, "https": 443}
@@ -2720,10 +2730,9 @@ def download_file(
     headers.setdefault("User-Agent", USER_AGENT)
     delays = iter([1, 2, 6, 15, 36])
     req = Request(url, headers=headers)
-    opener = build_opener(AuthClearHandler)
     while True:
         try:
-            with opener.open(req) as r:
+            with urlopen(req) as r:
                 with open(path, "wb") as fp:
                     shutil.copyfileobj(r, fp)
                 if "content-length" in r.headers:
