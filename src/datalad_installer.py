@@ -2453,6 +2453,7 @@ class GitHubClient:
         }
         if token:
             self.headers["Authorization"] = f"Bearer {token}"
+        log.debug("### Headers: %s", json.dumps(self.headers, indent=4))
 
     @contextmanager
     def get(self, url: str) -> Iterator[Any]:
