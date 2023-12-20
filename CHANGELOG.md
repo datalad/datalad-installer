@@ -1,3 +1,20 @@
+# v1.0.3 (Wed Dec 20 2023)
+
+#### 🐛 Bug Fix
+
+- Remove "Authorization" header when following cross-origin redirects [#187](https://github.com/datalad/datalad-installer/pull/187) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- [gh-actions](deps): Bump actions/setup-python from 4 to 5 [#185](https://github.com/datalad/datalad-installer/pull/185) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### Authors: 2
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # v1.0.2 (Mon Nov 20 2023)
 
 #### 🐛 Bug Fix
