@@ -31,6 +31,7 @@ from enum import Enum
 from functools import total_ordering
 from getopt import GetoptError, getopt
 from html.parser import HTMLParser
+from http.client import HTTPMessage
 from itertools import groupby
 import json
 import logging
@@ -48,10 +49,16 @@ import sys
 import tempfile
 import textwrap
 from time import sleep
-from typing import Any, ClassVar, NamedTuple, Optional
+from typing import IO, Any, ClassVar, NamedTuple, Optional
 from urllib.error import HTTPError, URLError
-from urllib.parse import urljoin
-from urllib.request import Request, urlopen
+from urllib.parse import urljoin, urlparse
+from urllib.request import (
+    HTTPRedirectHandler,
+    Request,
+    build_opener,
+    install_opener,
+    urlopen,
+)
 from zipfile import ZipFile
 
 log = logging.getLogger("datalad_installer")
@@ -2661,6 +2668,53 @@ class MethodNotSupportedError(Exception):
     """
 
     pass
+
+
+class AuthClearHandler(HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        req: Request,
+        fp: IO[bytes],
+        code: int,
+        msg: str,
+        headers: HTTPMessage,
+        newurl: str,
+    ) -> Request | None:
+        """
+        Per `the W3 standard`__, remove the :mailheader:`Authorization` header
+        from requests when following a redirect to another origin.  Without
+        this, trying to download a GitHub Actions artifact uploaded with
+        ``actions/upload-artifact@v4`` will fail due to the download URL
+        redirecting to a non-GitHub domain that rejects GitHub authorization
+        (despite it being fine with Authorization-less requests).
+
+        __ https://fetch.spec.whatwg.org/#http-redirect-fetch
+        """
+        if get_url_origin(req.full_url) != get_url_origin(newurl):
+            for k in req.headers.keys():
+                if k.title() == "Authorization":
+                    del req.headers[k]
+                    break
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+# Use AuthClearHandler for all requests done via urllib:
+install_opener(build_opener(AuthClearHandler))
+
+
+def get_url_origin(url: str) -> tuple[str, str | None, int]:
+    # <https://url.spec.whatwg.org/#concept-url-origin>
+    port_map = {"http": 80, "https": 443}
+    bits = urlparse(url)
+    scheme = bits.scheme.lower()
+    if scheme not in port_map:
+        raise ValueError(f"URL has unsupported scheme: {url!r}")
+    host = bits.hostname
+    if bits.port is None:
+        port = port_map[scheme]
+    else:
+        port = bits.port
+    return (scheme, host, port)
 
 
 def download_file(

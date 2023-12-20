@@ -6,6 +6,7 @@ from typing import Optional
 import pytest
 from datalad_installer import (
     compose_pip_requirement,
+    get_url_origin,
     parse_header_links,
     parse_links,
     untmppaths,
@@ -181,3 +182,17 @@ def test_parse_links() -> None:
         expected = json.load(fp)
     links = parse_links(src, base_url="https://example.com/base/")
     assert [asdict(lk) for lk in links] == expected
+
+
+@pytest.mark.parametrize(
+    "url,scheme,host,port",
+    [
+        ("http://www.example.com/foo/bar", "http", "www.example.com", 80),
+        ("https://www.example.com/foo/bar", "https", "www.example.com", 443),
+        ("HTTPS://WWW.EXAMPLE.COM/FOO/BAR", "https", "www.example.com", 443),
+        ("http://www.example.com:8080/foo/bar", "http", "www.example.com", 8080),
+        ("https://www.example.com:8080/foo/bar", "https", "www.example.com", 8080),
+    ],
+)
+def test_get_url_origin(url: str, scheme: str, host: str, port: int) -> None:
+    assert get_url_origin(url) == (scheme, host, port)
