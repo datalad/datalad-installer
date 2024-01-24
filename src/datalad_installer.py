@@ -2485,7 +2485,11 @@ class GitHubClient:
                 for obj in data:
                     assert isinstance(obj, dict)
                     yield obj
-                links = parse_header_links(r.headers.get("Link"))
+                link_header = r.headers.get("Link")
+                if link_header is not None:
+                    links = parse_header_links(link_header)
+                else:
+                    links = {}
                 url2 = links.get("next", {}).get("url")
                 if url2 is None:
                     break
