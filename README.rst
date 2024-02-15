@@ -116,9 +116,10 @@ Options
 ~~~~~~~~~~~~~
 
 Installs the latest version of Miniconda.  Subsequent ``conda-env`` components
-on the command line will use this installation, and subsequent ``datalad`` and
-``git-annex`` components will be installed using this conda by default if not
-overridden by an intervening component.
+on the command line will use this installation, and subsequent ``datalad``,
+``git-annex``, ``rclone``, and ``git-annex-remote-rclone`` components will be
+installed using this conda by default if not overridden by an intervening
+component.
 
 A specific version to install can be specified by suffixing "``miniconda``"
 with "``=``" and the version on the command line, where the version is the
