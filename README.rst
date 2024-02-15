@@ -182,8 +182,9 @@ Creates a Conda environment.  If there is no preceding ``miniconda`` component
 on the command line, Conda must already be installed on the system, and this
 installation will be used to create the environment.
 
-Subsequent ``datalad`` and ``git-annex`` components will be installed into this
-environment by default if not overridden by an intervening component.
+Subsequent ``datalad``, ``git-annex``, ``rclone``, and
+``git-annex-remote-rclone`` components will be installed into this environment
+by default if not overridden by an intervening component.
 
 Options
 '''''''
@@ -232,7 +233,7 @@ specifying the installation method to use; the supported methods are:
 If no method is specified, or if the method is set to "``auto``", then the most
 recent component on the command line that provides a compatible installation
 method will be used.  If there is no such component, the first supported
-component from the following list will be used:
+installation method from the following list will be used:
 
 - ``conda``
 - ``apt``
@@ -265,7 +266,7 @@ specifying the installation method to use; the supported methods are:
 If no method is specified, or if the method is set to "``auto``", then the most
 recent component on the command line that provides a compatible installation
 method will be used.  If there is no such component, the first supported
-component from the following list will be used:
+installation method from the following list will be used:
 
 - ``conda``
 - ``apt``
@@ -297,7 +298,7 @@ specifying the installation method to use; the supported methods are:
 If no method is specified, or if the method is set to "``auto``", then the most
 recent component on the command line that provides a compatible installation
 method will be used.  If there is no such component, the first supported
-component from the following list will be used:
+installation method from the following list will be used:
 
 - ``conda``
 - ``apt``
@@ -331,7 +332,7 @@ option specifying the installation method to use; the supported methods are:
 If no method is specified, or if the method is set to "``auto``", then the most
 recent component on the command line that provides a compatible installation
 method will be used.  If there is no such component, the first supported
-component from the following list will be used:
+installation method from the following list will be used:
 
 - ``conda``
 - ``apt``
@@ -353,7 +354,7 @@ Installation Methods
 ``apt``
 ~~~~~~~
 
-Install with ``sudo apt-get install``.  Supports installing specific versions.
+Installs with ``sudo apt-get install``.  Supports installing specific versions.
 
 Options
 '''''''
@@ -377,7 +378,7 @@ This installation method is only supported on Linux and macOS.
 ``brew``
 ~~~~~~~~
 
-Install with ``brew`` (`Homebrew <https://brew.sh>`_).  Does not support
+Installs with ``brew`` (`Homebrew <https://brew.sh>`_).  Does not support
 installing specific versions.
 
 Options
@@ -390,7 +391,7 @@ Options
 ``conda``
 ~~~~~~~~~
 
-Install with ``conda install``.  Supports installing specific versions.
+Installs with ``conda install``.  Supports installing specific versions.
 
 Options
 '''''''
@@ -418,7 +419,7 @@ Options
 ``datalad/git-annex``
 ~~~~~~~~~~~~~~~~~~~~~
 
-Downloads & installs the artifact from the latest build of `datalad/git-annex
+Downloads & installs ``git-annex`` from the latest build of `datalad/git-annex
 <https://github.com/datalad/git-annex>`_ that produced artifacts for the
 running OS.  Does not support installing specific versions.
 
@@ -439,8 +440,8 @@ Options
 ``datalad/git-annex:release``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Downloads & installs the asset for the running OS from the latest release (or
-the specified version) of `datalad/git-annex
+Downloads & installs ``git-annex`` for the running OS from the latest release
+(or the specified version) of `datalad/git-annex
 <https://github.com/datalad/git-annex>`_.  If no explicit version is specified
 and the latest release lacks an asset for the running OS, the most recent
 release with a matching asset is used.
@@ -458,7 +459,7 @@ Options
 ``datalad/git-annex:tested``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Downloads & installs the artifact from the latest successful build of
+Downloads & installs ``git-annex`` from the latest successful build of
 `datalad/git-annex <https://github.com/datalad/git-annex>`_ for the running OS.
 Does not support installing specific versions.
 
@@ -479,7 +480,7 @@ Options
 ``datalad/packages``
 ~~~~~~~~~~~~~~~~~~~~~
 
-Downloads & installs the artifact from
+Downloads & installs ``git-annex`` from
 <https://datasets.datalad.org/?dir=/datalad/packages> for the running OS.
 Supports installing specific versions (though note that the version strings for
 this method tend to include Git commit information, e.g.,
@@ -522,7 +523,7 @@ Options
 ``dmg``
 ~~~~~~~
 
-Install git-annex to the ``/Applications`` directory from a properly-built
+Installs ``git-annex`` to the ``/Applications`` directory from a properly-built
 ``*.dmg`` image.  Does not support installing specific versions.
 
 This installation method is only supported on macOS.
@@ -563,7 +564,7 @@ Options
 ``neurodebian``
 ~~~~~~~~~~~~~~~
 
-Install from NeuroDebian repositories with ``sudo apt-get install``.  Supports
+Installs from NeuroDebian repositories with ``sudo apt-get install``.  Supports
 installing specific versions.
 
 Options
@@ -579,7 +580,7 @@ Options
 ``pip``
 ~~~~~~~
 
-Install with ``python -m pip``.  Supports installing specific versions.
+Installs with ``python -m pip``.  Supports installing specific versions.
 
 If a ``venv`` component is previously given on the command line, the
 installation will be performed in that virtual environment; otherwise, it will
