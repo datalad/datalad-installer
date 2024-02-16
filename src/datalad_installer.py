@@ -1545,7 +1545,7 @@ class AptInstaller(Installer):
         if build_dep:
             cmd.append("build-dep")
         else:
-            cmd.append("install")
+            cmd.extend(["install", "-y"])
         if extra_args:
             cmd.extend(extra_args)
         if version is not None:
