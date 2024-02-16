@@ -1,3 +1,28 @@
+# v1.0.4 (Fri Feb 16 2024)
+
+#### 🐛 Bug Fix
+
+- Always provide -y   to apt-get install [#194](https://github.com/datalad/datalad-installer/pull/194) ([@yarikoptic](https://github.com/yarikoptic))
+- Handle lack of Link header when paginating [#188](https://github.com/datalad/datalad-installer/pull/188) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- [gh-actions](deps): Bump codecov/codecov-action from 3 to 4 [#189](https://github.com/datalad/datalad-installer/pull/189) ([@dependabot[bot]](https://github.com/dependabot[bot]) [@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Document effect of miniconda component on installing rclone components [#193](https://github.com/datalad/datalad-installer/pull/193) ([@jwodder](https://github.com/jwodder))
+- Assorted minor README improvements [#192](https://github.com/datalad/datalad-installer/pull/192) ([@jwodder](https://github.com/jwodder))
+- Remove inapplicable installers from datalad's "auto" resolution list [#191](https://github.com/datalad/datalad-installer/pull/191) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 3
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # v1.0.3 (Wed Dec 20 2023)
 
 #### 🐛 Bug Fix
