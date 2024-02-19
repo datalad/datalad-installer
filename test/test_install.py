@@ -319,7 +319,7 @@ def test_install_venv_datalad(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(
-    sys.version_info[:2] < (3, 7), reason="dev pip no longer supports Python < 3.7"
+    sys.version_info[:2] < (3, 8), reason="dev pip no longer supports Python < 3.8"
 )
 def test_install_venv_dev_pip_datalad(tmp_path: Path) -> None:
     venv_path = tmp_path / "venv"
