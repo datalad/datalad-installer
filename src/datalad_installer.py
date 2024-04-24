@@ -28,7 +28,7 @@ from dataclasses import InitVar, dataclass, field
 from email import policy
 from email.headerregistry import ContentTypeHeader
 from enum import Enum
-from functools import total_ordering
+from functools import cached_property, total_ordering
 from getopt import GetoptError, getopt
 from html.parser import HTMLParser
 from http.client import HTTPMessage
@@ -1585,6 +1585,10 @@ class HomebrewInstaller(Installer):
         ),
     }
 
+    @cached_property
+    def bin_dir(self) -> Path:
+        return Path(readcmd("brew", "--prefix").rstrip(os.linesep)) / "bin"
+
     def install_package(
         self,
         package: str,
@@ -1612,8 +1616,8 @@ class HomebrewInstaller(Installer):
             runcmd("brew", "doctor")
             raise
         ### TODO: Handle variations in this path (Is it "$(brew --prefix)/bin"?)
-        log.debug("Installed program directory: /usr/local/bin")
-        return Path("/usr/local/bin")
+        log.debug("Installed program directory: %s", self.bin_dir)
+        return self.bin_dir
 
     def assert_supported_system(self, **_kwargs: Any) -> None:
         if shutil.which("brew") is None:
