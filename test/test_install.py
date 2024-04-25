@@ -413,7 +413,17 @@ def test_install_git_annex_brew(mocker: MockerFixture) -> None:
     spy = mocker.spy(datalad_installer, "runcmd")
     r = main(["datalad_installer.py", "git-annex", "-m", "brew"])
     assert r == 0
-    assert spy.call_args_list[-1] == mocker.call("brew", "install", "git-annex")
+
+    # where to look for the "brew install" invocation
+    target_index = -1
+    # we might have checked also for the brew --prefix
+    if spy.call_args_list[-1] == mocker.call(
+        "brew", "--prefix", stdout=-1, universal_newlines=True
+    ):
+        target_index -= 1
+    assert spy.call_args_list[target_index] == mocker.call(
+        "brew", "install", "git-annex"
+    )
     assert shutil.which("git-annex") is not None
 
 

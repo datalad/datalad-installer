@@ -28,7 +28,7 @@ from dataclasses import InitVar, dataclass, field
 from email import policy
 from email.headerregistry import ContentTypeHeader
 from enum import Enum
-from functools import total_ordering
+from functools import lru_cache, total_ordering
 from getopt import GetoptError, getopt
 from html.parser import HTMLParser
 from http.client import HTTPMessage
@@ -1612,8 +1612,9 @@ class HomebrewInstaller(Installer):
             runcmd("brew", "doctor")
             raise
         ### TODO: Handle variations in this path (Is it "$(brew --prefix)/bin"?)
-        log.debug("Installed program directory: /usr/local/bin")
-        return Path("/usr/local/bin")
+        bin_dir = get_brew_bin_dir()
+        log.debug("Installed program directory: %s", bin_dir)
+        return bin_dir
 
     def assert_supported_system(self, **_kwargs: Any) -> None:
         if shutil.which("brew") is None:
@@ -2959,6 +2960,11 @@ def check_exists(path: Path) -> bool:
                 return True
             sleep(1)
     return os.path.exists(path)
+
+
+@lru_cache()
+def get_brew_bin_dir() -> Path:
+    return Path(readcmd("brew", "--prefix").rstrip(os.linesep)) / "bin"
 
 
 def parse_links(html: str, base_url: Optional[str] = None) -> list[Link]:
