@@ -1,3 +1,24 @@
+# v1.0.5 (Thu Apr 25 2024)
+
+#### 🐛 Bug Fix
+
+- Make compatible with arm64 brew, test on older and latest macos, strip away no longer needed windows test env exclusion [#197](https://github.com/datalad/datalad-installer/pull/197) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Progress auto to 11.1.6 to avoid "not an integer" bug in auto [#198](https://github.com/datalad/datalad-installer/pull/198) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Skip `--dev-pip` test on Python 3.7 [#195](https://github.com/datalad/datalad-installer/pull/195) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # v1.0.4 (Fri Feb 16 2024)
 
 #### 🐛 Bug Fix
