@@ -42,16 +42,8 @@ jobs:
           - 'pypy-3.10-v7.3.15'
         toxenv: [py]
         exclude:
-          # No older Pythons on arm64 macos-latest
+          # Not available on arm64 macos-latest:
           - python-version: '3.7'
-            os: macos-latest
-          - python-version: '3.8'
-            os: macos-latest
-          - python-version: '3.9'
-            os: macos-latest
-          - python-version: 'pypy-3.8'
-            os: macos-latest
-          - python-version: 'pypy-3.9'
             os: macos-latest
         include:
           - python-version: '3.7'
