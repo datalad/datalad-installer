@@ -28,13 +28,12 @@ jobs:
           - windows-latest
           - ubuntu-latest
         python-version:
-          - '3.7'
-          - '3.8'
           - '3.9'
           - '3.10'
           - '3.11'
           - '3.12'
-          - 'pypy-3.8'
+          - '3.13'
+          - 'pypy-3.10'
           # Avoid PyPy 7.3.16, as the tests currently fail on it due to a bug
           # in it and/or tox: <https://github.com/pypy/pypy/issues/4958>,
           # <https://github.com/tox-dev/tox/issues/3284>
@@ -43,13 +42,13 @@ jobs:
         toxenv: [py]
         exclude:
           # Not available on arm64 macos-latest:
-          - python-version: '3.7'
+          - python-version: '3.9'
             os: macos-latest
         include:
-          - python-version: '3.7'
+          - python-version: '3.9'
             toxenv: lint
             os: ubuntu-latest
-          - python-version: '3.7'
+          - python-version: '3.9'
             toxenv: typing
             os: ubuntu-latest
     steps:
