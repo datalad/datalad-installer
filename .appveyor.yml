@@ -41,7 +41,7 @@
 #     will run until the file is removed (or 60 min have passed)
 #
 #   - in a terminal execute, for example, `C:\datalad_debug.bat 39` to set up the
-#     environment to debug in a Python 3.8 session (should generally match the
+#     environment to debug in a Python 3.9 session (should generally match the
 #     respective CI run configuration).
 
 
@@ -71,30 +71,30 @@ environment:
       PY: 39-x64
       INSTALL_GITANNEX: git-annex -m datalad/packages
     # MacOS core tests
-    - ID: MacP38core
+    - ID: MacP310core
       APPVEYOR_BUILD_WORKER_IMAGE: macos-monterey
-      PY: 3.8
+      PY: 3.10
       # does not give a functional installation
       # INSTALL_GITANNEX: git-annex -m snapshot
       #INSTALL_GITANNEX: git-annex=8.20201129
       INSTALL_GITANNEX: git-annex
 
-    - ID: MacP38a1
+    - ID: MacP310a1
       APPVEYOR_BUILD_WORKER_IMAGE: macos-monterey
-      PY: 3.8
+      PY: 3.10
       INSTALL_GITANNEX: git-annex
-    - ID: MacP38a2
+    - ID: MacP310a2
       APPVEYOR_BUILD_WORKER_IMAGE: macos-monterey
-      PY: 3.8
+      PY: 3.10
       INSTALL_GITANNEX: git-annex
-    - ID: MacP38a3
+    - ID: MacP310a3
       APPVEYOR_BUILD_WORKER_IMAGE: macos-monterey
-      PY: 3.8
+      PY: 3.10
       INSTALL_GITANNEX: git-annex
 
     # Test alternative Python versions
-    - ID: Ubu20P37
-      PY: 3.7
+    - ID: Ubu20P39
+      PY: 3.9
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
       INSTALL_SYSPKGS: python3-virtualenv
       # system git-annex is way too old, use better one
