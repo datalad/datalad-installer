@@ -62,7 +62,7 @@ environment:
     - ID: Ubu22
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2204
       PY: 3.10
-      INSTALL_SYSPKGS: python3-virtualenv libffi7
+      INSTALL_SYSPKGS: libffi7 python3-virtualenv
       # system git-annex is way too old, use better one
       INSTALL_GITANNEX: git-annex -m deb-url --url http://snapshot.debian.org/archive/debian/20201228T023115Z/pool/main/g/git-annex/git-annex_8.20201127-1_amd64.deb
     # Windows core tests
@@ -141,7 +141,7 @@ install:
   - sh: "[ \"x$PY\" != x ] && . ${HOME}/venv${PY}/bin/activate || virtualenv -p 3 ${HOME}/dlvenv && . ${HOME}/dlvenv/bin/activate; ln -s \"$VIRTUAL_ENV\" \"${HOME}/VENV\""
   - cmd: "set PATH=C:\\Python%PY%;C:\\Python%PY%\\Scripts;%PATH%"
   # Missing system software
-  - sh: "[ -n \"$INSTALL_SYSPKGS\" ] && ( [ \"x${APPVEYOR_BUILD_WORKER_IMAGE}\" = \"xmacos-monterey\" ] && brew install -q ${INSTALL_SYSPKGS} || sudo apt-get install --no-install-recommends -y ${INSTALL_SYSPKGS} ) || true"
+  - sh: "[ -n \"$INSTALL_SYSPKGS\" ] && ( [ \"x${APPVEYOR_BUILD_WORKER_IMAGE}\" = \"xmacos-monterey\" ] && brew install -q ${INSTALL_SYSPKGS} || { sudo apt-get update; sudo apt-get install --no-install-recommends -y ${INSTALL_SYSPKGS} ; } ) || true"
   - python -m pip install .
 
 test_script:
