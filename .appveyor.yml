@@ -62,7 +62,7 @@ environment:
     - ID: Ubu22
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2204
       PY: 3.10
-      INSTALL_SYSPKGS: libffi7 python3-virtualenv
+      INSTALL_SYSPKGS: libffi7 python3-venv
       # system git-annex is way too old, use better one
       INSTALL_GITANNEX: git-annex -m deb-url --url http://snapshot.debian.org/archive/debian/20201228T023115Z/pool/main/g/git-annex/git-annex_8.20201127-1_amd64.deb
     # Windows core tests
@@ -97,7 +97,7 @@ environment:
     - ID: Ubu20P39
       PY: 3.9
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      INSTALL_SYSPKGS: python3-virtualenv
+      INSTALL_SYSPKGS: python3-venv
       # system git-annex is way too old, use better one
       INSTALL_GITANNEX: git-annex -m deb-url --url http://snapshot.debian.org/archive/debian/20201228T023115Z/pool/main/g/git-annex/git-annex_8.20201127-1_amd64.deb
 
@@ -138,7 +138,7 @@ install:
   # https://help.appveyor.com/discussions/problems/28217-appveyor-ubunu-image-with-python3-lzma-module
   # Otherwise create a virtualenv using the default Python 3, to enable uniform
   # use of python/pip executables below
-  - sh: "[ \"x$PY\" != x ] && . ${HOME}/venv${PY}/bin/activate || virtualenv -p 3 ${HOME}/dlvenv && . ${HOME}/dlvenv/bin/activate; ln -s \"$VIRTUAL_ENV\" \"${HOME}/VENV\""
+  - sh: "[ \"x$PY\" != x ] && . ${HOME}/venv${PY}/bin/activate || python${PY} -m venv ${HOME}/dlvenv && . ${HOME}/dlvenv/bin/activate; ln -s \"$VIRTUAL_ENV\" \"${HOME}/VENV\""
   - cmd: "set PATH=C:\\Python%PY%;C:\\Python%PY%\\Scripts;%PATH%"
   # Missing system software
   - sh: "[ -n \"$INSTALL_SYSPKGS\" ] && ( [ \"x${APPVEYOR_BUILD_WORKER_IMAGE}\" = \"xmacos-monterey\" ] && brew install -q ${INSTALL_SYSPKGS} || { sudo apt-get update; sudo apt-get install --no-install-recommends -y ${INSTALL_SYSPKGS} ; } ) || true"
