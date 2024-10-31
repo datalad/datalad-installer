@@ -80,18 +80,16 @@ environment:
       #INSTALL_GITANNEX: git-annex=8.20201129
       INSTALL_GITANNEX: git-annex
 
-    - ID: MacP310a1
+    - ID: MacP310-default
       APPVEYOR_BUILD_WORKER_IMAGE: macos-monterey
       PY: 3.10
+      # ATM default is brew
       INSTALL_GITANNEX: git-annex
-    - ID: MacP310a2
+
+    - ID: MacP310-packages
       APPVEYOR_BUILD_WORKER_IMAGE: macos-monterey
       PY: 3.10
-      INSTALL_GITANNEX: git-annex
-    - ID: MacP310a3
-      APPVEYOR_BUILD_WORKER_IMAGE: macos-monterey
-      PY: 3.10
-      INSTALL_GITANNEX: git-annex
+      INSTALL_GITANNEX: git-annex -m datalad/packages
 
     # Test alternative Python versions
     - ID: Ubu20P39
