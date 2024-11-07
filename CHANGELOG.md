@@ -1,3 +1,28 @@
+# v1.1.0 (Thu Nov 07 2024)
+
+#### 🚀 Enhancement
+
+- Remove support for python < 3.9 [#208](https://github.com/datalad/datalad-installer/pull/208) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🐛 Bug Fix
+
+- "Listen" to conda recommendation to use some other solver upon conda install failing; stderr output from "conda install" would be captured and logged [#210](https://github.com/datalad/datalad-installer/pull/210) ([@yarikoptic](https://github.com/yarikoptic))
+- Add codespell to pre-commit [#201](https://github.com/datalad/datalad-installer/pull/201) ([@asmacdo](https://github.com/asmacdo))
+
+#### 🧪 Tests
+
+- Most older Pythons are now available on arm64 macos-latest [#205](https://github.com/datalad/datalad-installer/pull/205) ([@jwodder](https://github.com/jwodder))
+- Temporarily pin PyPy versions used in CI [#204](https://github.com/datalad/datalad-installer/pull/204) ([@jwodder](https://github.com/jwodder))
+- run-tests.sh: Get GitHub token from `gh` if envvar not set [#202](https://github.com/datalad/datalad-installer/pull/202) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 3
+
+- Austin Macdonald ([@asmacdo](https://github.com/asmacdo))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # v1.0.5 (Thu Apr 25 2024)
 
 #### 🐛 Bug Fix
