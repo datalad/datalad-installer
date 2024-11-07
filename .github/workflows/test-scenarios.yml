@@ -1,0 +1,43 @@
+name: Test-scenarios
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: '0 6 * * *'
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: '3.12'
+            os: ubuntu-latest
+            scenario: miniconda --channel conda-forge --python-match minor --batch git-annex -m conda
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run scenario
+        run: ./src/datalad_installer.py ${{ matrix.scenario }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_DOWNLOAD_TOKEN }}
+
+# vim:set et sts=2:
