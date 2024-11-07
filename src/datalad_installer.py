@@ -1963,17 +1963,57 @@ class CondaInstaller(Installer):
         i = 0
         while True:
             try:
-                runcmd(*cmd)
+                result = runcmd(*cmd, stderr=subprocess.PIPE, universal_newlines=True)
+                if result.stderr:
+                    log.error("conda install stderr: %s", result.stderr)
             except subprocess.CalledProcessError as e:
-                if i < 3:
-                    log.error(
-                        "Command failed with exit status %d; sleeping and retrying",
-                        e.returncode,
-                    )
-                    i += 1
-                    sleep(5)
-                else:
-                    raise
+                log.error(
+                    "Command failed with exit status %d and stderr:\n%s",
+                    e.returncode,
+                    e.stderr,
+                )
+                # Custom workaround for https://github.com/datalad/datalad-installer/issues/206
+                # May be would not be needed in the future.
+                solvers_offered = None
+                if solvers_match := re.search(
+                    r"CondaValueError: You have chosen a non-default solver backend \(\S*\) .*"
+                    "Choose one of: (?P<solvers>.*)",
+                    e.stderr,
+                ):
+                    solvers_offered = solvers_match.groupdict()["solvers"]
+                    solvers_offered = [
+                        c.strip() for c in re.split("[ \t,]", solvers_offered)
+                    ]
+                    if len(solvers_offered):
+                        solver = solvers_offered[0]
+                        if "--solver" in cmd:
+                            log.info(
+                                "--solver was already in the command, not retrying with offered %s",
+                                solver,
+                            )
+                            # reset for logic below
+                            solvers_offered = []
+                        elif len(solvers_offered) > 1:
+                            # TODO: might add a logic in case of multiple to try them one by one
+                            log.info(
+                                "More than once choice given (%s), we will use the first one.",
+                                solvers_offered,
+                            )
+                        else:
+                            log.info("Will use solver %s", solver)
+                        cmd += ["--solver", solver]
+                    else:
+                        log.info("No choices offered, continuing as is")
+                if not solvers_offered:
+                    if i < 3:
+                        log.error(
+                            "Sleeping and retrying",
+                            e.returncode,
+                        )
+                        i += 1
+                        sleep(5)
+                    else:
+                        raise
             else:
                 break
         binpath = conda.bindir
