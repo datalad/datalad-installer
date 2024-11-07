@@ -61,11 +61,31 @@ def test_install_miniconda(tmp_path: Path) -> None:
 
 
 @pytest.mark.miniconda
-def test_install_miniconda_python_match(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "extra_opts,extra_spec",
+    [
+        pytest.param(
+            [], [], marks=pytest.mark.skipif(ON_LINUX, reason="non-Linux only")
+        ),
+        pytest.param(["-c", "conda-forge"], []),
+        # to save testing time we will also bundle with handling of the case when
+        # it might fail to find solver,
+        # ref: https://github.com/datalad/datalad-installer/issues/206
+        pytest.param(
+            [],
+            [
+                "git-annex",
+                "-m",
+                "conda",
+            ],
+            marks=pytest.mark.skipif(not ON_LINUX, reason="Linux only"),
+        ),
+    ],
+)
+def test_install_miniconda_python_match(
+    extra_opts: list[str], extra_spec: list[str], tmp_path: Path
+) -> None:
     miniconda_path = tmp_path / "conda"
-    # to save testing time we will also bundle with handling of the case when
-    # it might fail to find solver,
-    # ref: https://github.com/datalad/datalad-installer/issues/206
     r = main(
         [
             "datalad_installer.py",
@@ -75,10 +95,9 @@ def test_install_miniconda_python_match(tmp_path: Path) -> None:
             str(miniconda_path),
             "--python-match",
             "minor",
-            "git-annex",
-            "-m",
-            "conda",
         ]
+        + extra_opts
+        + extra_spec,
     )
     assert r == 0
     if ON_WINDOWS:
@@ -92,39 +111,10 @@ def test_install_miniconda_python_match(tmp_path: Path) -> None:
         universal_newlines=True,
         check=True,
     ).stdout.strip() == repr(sys.version_info[:2])
-    # for the git-annex component
-    assert (miniconda_path / "bin" / "git-annex").exists()
 
-
-@pytest.mark.skipif(sys.version_info[:2] != (3, 12), reason="Only run on Python 3.12")
-@pytest.mark.miniconda
-def test_install_miniconda_python_match_conda_forge(tmp_path: Path) -> None:
-    miniconda_path = tmp_path / "conda"
-    r = main(
-        [
-            "datalad_installer.py",
-            "miniconda",
-            "--batch",
-            "--path",
-            str(miniconda_path),
-            "--python-match",
-            "minor",
-            "-c",
-            "conda-forge",
-        ]
-    )
-    assert r == 0
-    if ON_WINDOWS:
-        pypath = miniconda_path / "python.exe"
-    else:
-        pypath = miniconda_path / "bin" / "python"
-    assert pypath.exists()
-    assert subprocess.run(
-        [str(pypath), "-c", "import sys; print(sys.version_info[:2])"],
-        stdout=subprocess.PIPE,
-        universal_newlines=True,
-        check=True,
-    ).stdout.strip() == repr(sys.version_info[:2])
+    if extra_spec and extra_spec[0] == "git-annex":
+        # for the git-annex component
+        assert (miniconda_path / "bin" / "git-annex").exists()
 
 
 @pytest.mark.miniconda
