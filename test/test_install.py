@@ -63,6 +63,9 @@ def test_install_miniconda(tmp_path: Path) -> None:
 @pytest.mark.miniconda
 def test_install_miniconda_python_match(tmp_path: Path) -> None:
     miniconda_path = tmp_path / "conda"
+    # to save testing time we will also bundle with handling of the case when
+    # it might fail to find solver,
+    # ref: https://github.com/datalad/datalad-installer/issues/206
     r = main(
         [
             "datalad_installer.py",
@@ -72,6 +75,9 @@ def test_install_miniconda_python_match(tmp_path: Path) -> None:
             str(miniconda_path),
             "--python-match",
             "minor",
+            "git-annex",
+            "-m",
+            "conda",
         ]
     )
     assert r == 0
@@ -86,6 +92,8 @@ def test_install_miniconda_python_match(tmp_path: Path) -> None:
         universal_newlines=True,
         check=True,
     ).stdout.strip() == repr(sys.version_info[:2])
+    # for the git-annex component
+    assert (miniconda_path / "bin" / "git-annex").exists()
 
 
 @pytest.mark.skipif(sys.version_info[:2] != (3, 12), reason="Only run on Python 3.12")
