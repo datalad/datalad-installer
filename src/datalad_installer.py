@@ -1973,38 +1973,17 @@ class CondaInstaller(Installer):
                     e.stderr,
                 )
                 # Custom workaround for https://github.com/datalad/datalad-installer/issues/206
-                # May be would not be needed in the future.
-                solvers_offered = None
-                if solvers_match := re.search(
-                    r"CondaValueError: You have chosen a non-default solver backend \(\S*\) .*"
-                    "Choose one of: (?P<solvers>.*)",
-                    e.stderr,
-                ):
-                    solvers_offered = solvers_match.groupdict()["solvers"]
-                    solvers_offered = [
-                        c.strip() for c in re.split("[ \t,]", solvers_offered)
-                    ]
-                    if len(solvers_offered):
-                        solver = solvers_offered[0]
-                        if "--solver" in cmd:
-                            log.info(
-                                "--solver was already in the command, not retrying with offered %s",
-                                solver,
-                            )
-                            # reset for logic below
-                            solvers_offered = []
-                        elif len(solvers_offered) > 1:
-                            # TODO: might add a logic in case of multiple to try them one by one
-                            log.info(
-                                "More than once choice given (%s), we will use the first one.",
-                                solvers_offered,
-                            )
-                        else:
-                            log.info("Will use solver %s", solver)
-                        cmd += ["--solver", solver]
+                if solver_offered := maybe_offered_solver(e.stderr):
+                    if "--solver" in cmd:
+                        log.info(
+                            "--solver was already in the command, not retrying with offered %s",
+                            solver_offered,
+                        )
+                        # on this type of error, not point of retrying
+                        raise
                     else:
-                        log.info("No choices offered, continuing as is")
-                if not solvers_offered:
+                        cmd += ["--solver", solver_offered]
+                else:
                     if i < 3:
                         log.error(
                             "Sleeping and retrying",
@@ -3025,6 +3004,33 @@ def parse_links(html: str, base_url: Optional[str] = None) -> list[Link]:
     links = parser.fetch_links()
     parser.close()
     return links
+
+
+def maybe_offered_solver(e_stderr: Any) -> Optional[str]:
+    # May be would not be needed in the future.
+    solver_offered = None
+    if e_stderr and (
+        solvers_match := re.search(
+            r"CondaValueError: You have chosen a non-default solver backend \(\S*\) .*"
+            "Choose one of: (?P<solvers>.*)",
+            str(e_stderr),
+        )
+    ):
+        solvers_offered = solvers_match.groupdict()["solvers"]
+        solvers_offered = [c.strip() for c in re.split("[ \t,]", solvers_offered)]
+        if len(solvers_offered):
+            solver_offered = solvers_offered[0]
+            if len(solvers_offered) > 1:
+                # TODO: might add a logic in case of multiple to try them one by one
+                log.info(
+                    "More than once choice given (%s), will use the first one.",
+                    solvers_offered,
+                )
+            else:
+                log.info("Will use solver %s", solver_offered)
+        else:
+            log.info("No solver choices offered, continuing as is")
+    return solver_offered
 
 
 @dataclass
