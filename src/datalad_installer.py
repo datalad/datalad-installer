@@ -949,6 +949,13 @@ class MinicondaComponent(Component):
             ),
             Option("--batch", is_flag=True, help="Run in batch (noninteractive) mode"),
             Option(
+                "--run",
+                multiple=True,
+                help="Additional commands to run on an installed conda instance."
+                " If starts with 'conda', uses conda from installed miniconda."
+                " E.g. 'conda config --remove channels defaults' to remove the defaults channel",
+            ),
+            Option(
                 "-c",
                 "--channel",
                 multiple=True,
@@ -980,6 +987,7 @@ class MinicondaComponent(Component):
         self,
         path: Optional[Path] = None,
         batch: bool = False,
+        run: Optional[list[str]] = None,
         spec: Optional[list[str]] = None,
         python_match: Optional[str] = None,
         extra_args: Optional[list[str]] = None,
@@ -1074,6 +1082,12 @@ class MinicondaComponent(Component):
                 "defaults",
                 "conda",
             )
+        for cmd in run or []:
+            cmd_split = shlex.split(cmd)
+            if cmd_split[0] == "conda":
+                runcmd(conda_instance.conda_exe, *cmd_split[1:])
+            else:
+                runcmd(*cmd_split)
         if spec is not None:
             install_args: list[str] = []
             if batch:
