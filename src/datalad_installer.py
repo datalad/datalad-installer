@@ -1848,7 +1848,7 @@ class AutobuildSnapshotInstaller(Installer):
 
     def assert_supported_system(self, **_kwargs: Any) -> None:
         if not ON_POSIX:
-            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
+            raise MethodNotSupportedError(f"{SYSTEM} OS not supported by {self.NAME}")
 
 
 @GitAnnexComponent.register_installer
@@ -2084,7 +2084,7 @@ class DataladGitAnnexBuildInstaller(Installer):
 
     def assert_supported_system(self, **kwargs: Any) -> None:
         if not (ON_LINUX or ON_MACOS or ON_WINDOWS):
-            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
+            raise MethodNotSupportedError(f"{SYSTEM} OS not supported by {self.NAME}")
         elif (
             ON_LINUX
             and kwargs.get("install_dir") is None
@@ -2243,7 +2243,7 @@ class DataladPackagesBuildInstaller(Installer):
 
     def assert_supported_system(self, **kwargs: Any) -> None:
         if not (ON_LINUX or ON_MACOS or ON_WINDOWS):
-            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
+            raise MethodNotSupportedError(f"{SYSTEM} OS not supported by {self.NAME}")
         elif (
             ON_LINUX
             and kwargs.get("install_dir") is None
@@ -2292,7 +2292,7 @@ class DMGInstaller(Installer):
 
     def assert_supported_system(self, **_kwargs: Any) -> None:
         if not ON_MACOS:
-            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
+            raise MethodNotSupportedError(f"{SYSTEM} OS not supported by {self.NAME}")
 
 
 @GitAnnexRemoteRCloneComponent.register_installer
@@ -2353,7 +2353,7 @@ class GARRCGitHubInstaller(Installer):
 
     def assert_supported_system(self, **_kwargs: Any) -> None:
         if not ON_POSIX:
-            raise MethodNotSupportedError(f"{SYSTEM} OS not supported")
+            raise MethodNotSupportedError(f"{SYSTEM} OS not supported by {self.NAME}")
 
 
 @RCloneComponent.register_installer
