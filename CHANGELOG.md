@@ -1,3 +1,24 @@
+# v1.1.1 (Fri Dec 13 2024)
+
+#### 🐛 Bug Fix
+
+- State by what component a system is not supported in a generic message [#215](https://github.com/datalad/datalad-installer/pull/215) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### ⚠️ Pushed to `master`
+
+- fix: remove testing on macos-12 which is not long available ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- [gh-actions](deps): Bump codecov/codecov-action from 4 to 5 [#212](https://github.com/datalad/datalad-installer/pull/212) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### Authors: 2
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # v1.1.0 (Thu Nov 07 2024)
 
 #### 🚀 Enhancement
