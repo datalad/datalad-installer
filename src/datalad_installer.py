@@ -1405,18 +1405,6 @@ class InstallableComponent(Component):
 
     def provide(self, method: Optional[str] = None, **kwargs: Any) -> None:
         if method is not None and method != "auto":
-            # First check if the requested installer is already in the stack
-            for installer in reversed(self.manager.installer_stack):
-                if installer.NAME == method:
-                    try:
-                        log.debug("Using %s installer from stack", installer.NAME)
-                        bins = installer.install(self.NAME, **kwargs)
-                        self.manager.new_commands.extend(bins)
-                        return
-                    except MethodNotSupportedError:
-                        # Fall through to create a new instance
-                        pass
-            # If not found in stack or failed, create a new instance
             bins = self.get_installer(method).install(self.NAME, **kwargs)
         else:
             for installer in reversed(self.manager.installer_stack):
