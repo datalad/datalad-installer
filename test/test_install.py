@@ -327,6 +327,41 @@ def test_install_venv_dev_pip_datalad(tmp_path: Path) -> None:
     assert (venv_path / bin_path("datalad")).exists()
 
 
+def test_install_venv_pip_git_annex(tmp_path: Path) -> None:
+    venv_path = tmp_path / "venv"
+    r = main(
+        [
+            "datalad_installer.py",
+            "venv",
+            "--path",
+            str(venv_path),
+            "git-annex",
+            "-m",
+            "pip",
+        ]
+    )
+    assert r == 0
+    assert (venv_path / bin_path("python")).exists()
+    assert (venv_path / bin_path("git-annex")).exists()
+
+
+def test_install_pip_git_annex_default(tmp_path: Path) -> None:
+    # Test that pip is the default method for git-annex
+    venv_path = tmp_path / "venv"
+    r = main(
+        [
+            "datalad_installer.py",
+            "venv",
+            "--path",
+            str(venv_path),
+            "git-annex",  # No method specified, should use pip by default
+        ]
+    )
+    assert r == 0
+    assert (venv_path / bin_path("python")).exists()
+    assert (venv_path / bin_path("git-annex")).exists()
+
+
 @pytest.mark.miniconda
 def test_install_miniconda_conda_env_venv_datalad(tmp_path: Path) -> None:
     venv_path = tmp_path / "venv"

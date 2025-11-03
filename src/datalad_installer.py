@@ -585,6 +585,7 @@ class DataladInstaller:
             NeurodebianInstaller(self),
             AptInstaller(self),
             CondaInstaller(self),
+            PipInstaller(self),  # Highest priority for git-annex
         ]
 
     @classmethod
@@ -919,7 +920,7 @@ class VenvComponent(Component):
             cmd.extend(extra_args)
         cmd.append(str(path))
         runcmd(*cmd)
-        installer = PipInstaller(self.manager, path)
+        installer = PipInstaller(self.manager, venv_path=path)
         if dev_pip:
             runcmd(
                 installer.python,
@@ -1404,6 +1405,18 @@ class InstallableComponent(Component):
 
     def provide(self, method: Optional[str] = None, **kwargs: Any) -> None:
         if method is not None and method != "auto":
+            # First check if the requested installer is already in the stack
+            for installer in reversed(self.manager.installer_stack):
+                if installer.NAME == method:
+                    try:
+                        log.debug("Using %s installer from stack", installer.NAME)
+                        bins = installer.install(self.NAME, **kwargs)
+                        self.manager.new_commands.extend(bins)
+                        return
+                    except MethodNotSupportedError:
+                        # Fall through to create a new instance
+                        pass
+            # If not found in stack or failed, create a new instance
             bins = self.get_installer(method).install(self.NAME, **kwargs)
         else:
             for installer in reversed(self.manager.installer_stack):
@@ -1689,6 +1702,7 @@ class HomebrewInstaller(Installer):
 
 
 @DataladComponent.register_installer
+@GitAnnexComponent.register_installer
 @dataclass
 class PipInstaller(Installer):
     """
@@ -1706,10 +1720,13 @@ class PipInstaller(Installer):
 
     PACKAGES: ClassVar[dict[str, tuple[str, list[Command]]]] = {
         "datalad": ("datalad", [DATALAD_CMD]),
+        "git-annex": ("git-annex", [GIT_ANNEX_CMD]),
     }
 
     DEVEL_PACKAGES: ClassVar[dict[str, str]] = {
         "datalad": "git+https://github.com/datalad/datalad.git",
+        # It is built by this repo CI but not `pip install`able from
+        # "git-annex": "git+https://github.com/psychoinformatics-de/git-annex-wheel",
     }
 
     #: The path to the virtual environment in which to install, or `None` if
