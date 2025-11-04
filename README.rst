@@ -322,13 +322,13 @@ Installs git-annex-remote-rclone_.  The component takes an ``-m``, ``--method``
 option specifying the installation method to use; the supported methods are:
 
 .. _git-annex-remote-rclone:
-   https://github.com/DanielDent/git-annex-remote-rclone
+   https://github.com/git-annex-remote-rclone/git-annex-remote-rclone
 
 - ``apt``
 - ``brew``
 - ``conda``
 - ``deb-url``
-- ``DanielDent/git-annex-remote-rclone``
+- ``git-annex-remote-rclone/git-annex-remote-rclone``
 
 If no method is specified, or if the method is set to "``auto``", then the most
 recent component on the command line that provides a compatible installation
@@ -338,7 +338,7 @@ installation method from the following list will be used:
 - ``conda``
 - ``apt``
 - ``brew``
-- ``DanielDent/git-annex-remote-rclone``
+- ``git-annex-remote-rclone/git-annex-remote-rclone``
 
 A specific version to install can be specified for those methods that support
 it by suffixing "``git-annex-remote-rclone``" with "``=``" and the version
@@ -400,7 +400,7 @@ Options
 -e ARGS, --extra-args ARGS      Specify extra command-line arguments to pass to
                                 the installation command.
 
-``DanielDent/git-annex-remote-rclone``
+``git-annex-remote-rclone/git-annex-remote-rclone``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Downloads & installs ``git-annex-remote-rclone`` from a release of its GitHub

@@ -519,7 +519,7 @@ def test_install_git_annex_remote_rclone_latest_from_github(tmp_path: Path) -> N
             "datalad_installer.py",
             "git-annex-remote-rclone",
             "-m",
-            "DanielDent/git-annex-remote-rclone",
+            "git-annex-remote-rclone/git-annex-remote-rclone",
             "--bin-dir",
             str(tmp_path / "bin"),
         ]
@@ -540,7 +540,7 @@ def test_install_git_annex_remote_rclone_specific_version_from_github(
             "datalad_installer.py",
             "git-annex-remote-rclone=0.5",
             "-m",
-            "DanielDent/git-annex-remote-rclone",
+            "git-annex-remote-rclone/git-annex-remote-rclone",
             "--bin-dir",
             str(tmp_path / "bin"),
         ]
@@ -562,7 +562,7 @@ def test_install_git_annex_remote_rclone_latest_from_github_globally() -> None:
             "--sudo=ok",
             "git-annex-remote-rclone",
             "-m",
-            "DanielDent/git-annex-remote-rclone",
+            "git-annex-remote-rclone/git-annex-remote-rclone",
         ]
     )
     assert r == 0

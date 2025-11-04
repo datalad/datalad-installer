@@ -2300,7 +2300,7 @@ class DMGInstaller(Installer):
 class GARRCGitHubInstaller(Installer):
     """Installs git-annex-remote-rclone from a tag on GitHub"""
 
-    NAME: ClassVar[str] = "DanielDent/git-annex-remote-rclone"
+    NAME: ClassVar[str] = "git-annex-remote-rclone/git-annex-remote-rclone"
 
     OPTIONS: ClassVar[list[Option]] = [
         Option(
@@ -2318,7 +2318,7 @@ class GARRCGitHubInstaller(Installer):
         ),
     }
 
-    REPO: ClassVar[str] = "DanielDent/git-annex-remote-rclone"
+    REPO: ClassVar[str] = "git-annex-remote-rclone/git-annex-remote-rclone"
 
     def install_package(
         self,
