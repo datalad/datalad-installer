@@ -1352,8 +1352,20 @@ class InstallableComponent(Component):
             cls.OPTION_PARSER.add_option(opt)
         return installer
 
+    # Methods that have been renamed; old name → new name
+    INSTALLER_ALIASES: ClassVar[dict[str, str]] = {}
+
     def get_installer(self, name: str) -> Installer:
         """Retrieve & instantiate the installer with the given name"""
+        if name in self.INSTALLER_ALIASES:
+            new_name = self.INSTALLER_ALIASES[name]
+            warnings.warn(
+                f"Installation method {name!r} is deprecated,"
+                f" use {new_name!r} instead (repo was renamed/moved).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            log.warning("Method %r is deprecated; using %r instead", name, new_name)
         try:
             installer_cls = self.INSTALLERS[name]
         except KeyError:
@@ -2322,7 +2334,7 @@ class DMGInstaller(Installer):
 class GARRCGitHubInstaller(Installer):
     """Installs git-annex-remote-rclone from a tag on GitHub"""
 
-    NAME: ClassVar[str] = "DanielDent/git-annex-remote-rclone"
+    NAME: ClassVar[str] = "git-annex-remote-rclone/git-annex-remote-rclone"
 
     OPTIONS: ClassVar[list[Option]] = [
         Option(
@@ -2340,7 +2352,7 @@ class GARRCGitHubInstaller(Installer):
         ),
     }
 
-    REPO: ClassVar[str] = "DanielDent/git-annex-remote-rclone"
+    REPO: ClassVar[str] = "git-annex-remote-rclone/git-annex-remote-rclone"
 
     def install_package(
         self,
@@ -2376,6 +2388,20 @@ class GARRCGitHubInstaller(Installer):
     def assert_supported_system(self, **_kwargs: Any) -> None:
         if not ON_POSIX:
             raise MethodNotSupportedError(f"{SYSTEM} OS not supported by {self.NAME}")
+
+
+# Backward-compatible alias for the old repo location
+GitAnnexRemoteRCloneComponent.INSTALLERS[
+    "DanielDent/git-annex-remote-rclone"
+] = GARRCGitHubInstaller
+GitAnnexRemoteRCloneComponent.INSTALLER_ALIASES[
+    "DanielDent/git-annex-remote-rclone"
+] = "git-annex-remote-rclone/git-annex-remote-rclone"
+_garrc_method_choices = GitAnnexRemoteRCloneComponent.OPTION_PARSER.options_map[
+    "--method"
+].choices
+assert _garrc_method_choices is not None
+_garrc_method_choices.append("DanielDent/git-annex-remote-rclone")
 
 
 @RCloneComponent.register_installer
