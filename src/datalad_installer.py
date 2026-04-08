@@ -59,6 +59,7 @@ from urllib.request import (
     install_opener,
     urlopen,
 )
+import warnings
 from zipfile import ZipFile
 
 log = logging.getLogger("datalad_installer")
@@ -507,6 +508,7 @@ class DataladInstaller:
     """The script's primary class, a manager & runner of components"""
 
     COMPONENTS: ClassVar[dict[str, type[Component]]] = {}
+    COMPONENT_ALIASES: ClassVar[dict[str, str]] = {}
 
     OPTION_PARSER: ClassVar[OptionParser] = OptionParser(
         help=(
@@ -778,6 +780,15 @@ class DataladInstaller:
 
     def addcomponent(self, name: str, **kwargs: Any) -> None:
         """Provision the given component"""
+        if name == "miniconda":
+            warnings.warn(
+                "'miniconda' component is deprecated, use 'miniforge' instead."
+                " Now using Miniforge (conda-forge based) to avoid Anaconda"
+                " Terms of Service issues.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            log.warning("'miniconda' is deprecated; using 'miniforge' instead")
         try:
             component = self.COMPONENTS[name]
         except AttributeError:
@@ -813,8 +824,13 @@ class DataladInstaller:
         if component is None:
             s = cls.OPTION_PARSER.long_help(progname)
             s += "\n\nComponents:"
-            width = max(map(len, cls.COMPONENTS.keys()))
-            for name, cmpnt in sorted(cls.COMPONENTS.items()):
+            primary = {
+                n: c
+                for n, c in cls.COMPONENTS.items()
+                if n not in cls.COMPONENT_ALIASES
+            }
+            width = max(map(len, primary.keys()))
+            for name, cmpnt in sorted(primary.items()):
                 if cmpnt.OPTION_PARSER.help is not None:
                     chelp = cmpnt.OPTION_PARSER.help.splitlines()[0]
                 else:
@@ -920,32 +936,36 @@ class VenvComponent(Component):
 
 @DataladInstaller.register_component
 @dataclass
-class MinicondaComponent(Component):
-    """Installs Miniconda"""
+class MiniforgeComponent(Component):
+    """Installs Miniforge"""
 
-    NAME: ClassVar[str] = "miniconda"
+    NAME: ClassVar[str] = "miniforge"
+
+    MINIFORGE_BASE_URL: ClassVar[
+        str
+    ] = "https://github.com/conda-forge/miniforge/releases"
 
     OPTION_PARSER: ClassVar[OptionParser] = OptionParser(
-        "miniconda",
+        "miniforge",
         versioned=True,
         help=(
-            "Install Miniconda\n\nVERSION is the version component of a file"
-            " at <https://repo.anaconda.com/miniconda/>, e.g., py37_23.1.0-1."
-            "  Run `datalad-installer miniconda --help-versions` to see a list"
+            "Install Miniforge (conda-forge based)\n\nVERSION is a Miniforge"
+            " release version, e.g., 24.11.3-0."
+            "  Run `datalad-installer miniforge --help-versions` to see a list"
             " of available versions for your platform."
         ),
         options=[
             Option(
                 "--help-versions",
                 is_flag=True,
-                immediate=HelpRequest("miniconda", topic="versions"),
-                help="Show a list of available Miniconda versions for this platform and exit",
+                immediate=HelpRequest("miniforge", topic="versions"),
+                help="Show a list of available Miniforge versions for this platform and exit",
             ),
             Option(
                 "--path",
                 converter=Path,
                 metavar="PATH",
-                help="Install Miniconda at the given path",
+                help="Install Miniforge at the given path",
             ),
             Option("--batch", is_flag=True, help="Run in batch (noninteractive) mode"),
             Option(
@@ -959,7 +979,7 @@ class MinicondaComponent(Component):
                 converter=str.split,
                 help=(
                     "Space-separated list of package specifiers to install in"
-                    " the Miniconda environment"
+                    " the Miniforge environment"
                 ),
             ),
             Option(
@@ -987,16 +1007,15 @@ class MinicondaComponent(Component):
         version: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
-        log.info("Installing Miniconda")
+        log.info("Installing Miniforge")
         if "CONDA_PREFIX" in os.environ:
-            raise RuntimeError("Conda already active; not installing miniconda")
+            raise RuntimeError("Conda already active; not installing miniforge")
         if path is None:
-            path = mktempdir("dl-miniconda-")
-            # The Miniconda installer requires that the given path not already
-            # exist (unless -u is given); hence, we need to delete the new
-            # directory before using it.  (Yes, this is vulnerable to race
-            # conditions, but so is specifying a nonexistent directory on the
-            # command line.)
+            path = mktempdir("dl-miniforge-")
+            # The installer requires that the given path not already exist
+            # (unless -u is given); hence, we need to delete the new directory
+            # before using it.  (Yes, this is vulnerable to race conditions,
+            # but so is specifying a nonexistent directory on the command line.)
             path.rmdir()
         if version is None:
             version = "latest"
@@ -1013,7 +1032,11 @@ class MinicondaComponent(Component):
         if kwargs:
             log.warning("Ignoring extra component arguments: %r", kwargs)
         suffix = self.get_platform_suffix()
-        miniconda_script = f"Miniconda3-{version}-{suffix}"
+        download_url = self.get_installer_url(version, suffix)
+        if version == "latest":
+            installer_script = f"Miniforge3-{suffix}"
+        else:
+            installer_script = f"Miniforge3-{version}-{suffix}"
         if python_match is not None:
             vparts: tuple[int, ...]
             if python_match == "major":
@@ -1029,14 +1052,11 @@ class MinicondaComponent(Component):
             if spec is None:
                 spec = []
             spec.append(newspec)
-        log.info("Downloading and running miniconda installer")
+        log.info("Downloading and running Miniforge installer")
         with tempfile.TemporaryDirectory() as tmpdir:
-            script_path = os.path.join(tmpdir, miniconda_script)
-            download_file(
-                self.get_anaconda_url().rstrip("/") + "/" + miniconda_script,
-                script_path,
-            )
-            log.info("Installing miniconda in %s", path)
+            script_path = os.path.join(tmpdir, installer_script)
+            download_file(download_url, script_path)
+            log.info("Installing Miniforge in %s", path)
             if ON_WINDOWS:
                 # `path` needs to be absolute when passing it to the installer,
                 # but Path.resolve() is a no-op for non-existent files on
@@ -1056,24 +1076,6 @@ class MinicondaComponent(Component):
                     args.extend(extra_args)
                 runcmd("bash", script_path, *args)
         conda_instance = CondaInstance(basepath=path, name=None)
-        # As of 2023 June 11, when Conda v23.3.1 on Linux is asked to install
-        # the latest DataLad, it installs an incredibly out-of-date version
-        # instead.  This can be fixed by upgrading Conda first.
-        if (
-            ON_LINUX
-            and readcmd(conda_instance.conda_exe, "--version").strip() == "conda 23.3.1"
-        ):
-            log.info("Upgrading conda from buggy v23.3.1")
-            runcmd(
-                conda_instance.conda_exe,
-                "update",
-                "-n",
-                "-y",
-                "base",
-                "-c",
-                "defaults",
-                "conda",
-            )
         if spec is not None:
             install_args: list[str] = []
             if batch:
@@ -1090,14 +1092,27 @@ class MinicondaComponent(Component):
         self.manager.addenv(f"source {shlex.quote(str(path))}/etc/profile.d/conda.sh")
         self.manager.addenv("conda activate base")
 
-    @staticmethod
-    def get_anaconda_url() -> str:
-        return os.environ.get("ANACONDA_URL") or "https://repo.anaconda.com/miniconda/"
+    @classmethod
+    def get_installer_url(cls, version: str, suffix: str) -> str:
+        anaconda_url = os.environ.get("ANACONDA_URL")
+        if anaconda_url:
+            # Legacy override: user explicitly requested Miniconda via ANACONDA_URL
+            script = f"Miniconda3-{version}-{suffix}"
+            return anaconda_url.rstrip("/") + "/" + script
+        base = cls.MINIFORGE_BASE_URL
+        if version == "latest":
+            return f"{base}/latest/download/Miniforge3-{suffix}"
+        else:
+            return f"{base}/download/{version}/Miniforge3-{version}-{suffix}"
 
     @staticmethod
     def get_platform_suffix() -> str:
         if ON_LINUX:
-            return "Linux-x86_64.sh"
+            arch = platform.machine().lower()
+            if arch in ("x86_64", "aarch64"):
+                return f"Linux-{arch}.sh"
+            else:
+                raise RuntimeError(f"E: Unsupported architecture: {arch}")
         elif ON_MACOS:
             arch = platform.machine().lower()
             if arch in ("x86_64", "arm64"):
@@ -1112,7 +1127,7 @@ class MinicondaComponent(Component):
     @classmethod
     def show_topic_help(cls, topic: str) -> None:
         assert topic == "versions"
-        url = cls.get_anaconda_url()
+        url = f"{cls.MINIFORGE_BASE_URL}/expanded_assets/latest"
         log.debug("HTTP request: GET %s", url)
         req = Request(url, headers={"User-Agent": USER_AGENT})
         with urlopen(req) as r:
@@ -1125,18 +1140,25 @@ class MinicondaComponent(Component):
                 if not ct.defects and "charset" in ct.params:  # type: ignore[attr-defined]
                     charset = ct.params["charset"]
             source = r.read().decode(encoding=charset, errors="replace")
-        print("Available Miniconda versions for your platform:")
+        print("Available Miniforge versions for your platform:")
         print()
-        prefix = "Miniconda3-"
-        suffix = "-" + cls.get_platform_suffix()
+        suffix = cls.get_platform_suffix()
+        prefix = "Miniforge3-"
+        name_suffix = "-" + suffix
         found_any = False
         for link in parse_links(source, base_url=url):
-            if link.text.startswith(prefix) and link.text.endswith(suffix):
-                version = link.text[len(prefix) :][: -len(suffix)]
-                print("-", version)
-                found_any = True
+            if link.text.startswith(prefix) and link.text.endswith(name_suffix):
+                version = link.text[len(prefix) :][: -len(name_suffix)]
+                if version:
+                    print("-", version)
+                    found_any = True
         if not found_any:
             print("Nothing found!")
+
+
+# Backward-compatible alias: "miniconda" → "miniforge" with deprecation warning
+DataladInstaller.COMPONENTS["miniconda"] = MiniforgeComponent
+DataladInstaller.COMPONENT_ALIASES["miniconda"] = "miniforge"
 
 
 @DataladInstaller.register_component
@@ -1986,7 +2008,7 @@ class CondaInstaller(Installer):
                 else:
                     if i < 3:
                         log.error(
-                            "Sleeping and retrying",
+                            "Sleeping and retrying (exit code %d)",
                             e.returncode,
                         )
                         i += 1

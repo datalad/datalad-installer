@@ -41,7 +41,7 @@ def test_install_miniconda(tmp_path: Path) -> None:
     r = main(
         [
             "datalad_installer.py",
-            "miniconda",
+            "miniforge",
             "--batch",
             "--path",
             str(miniconda_path),
@@ -89,7 +89,7 @@ def test_install_miniconda_python_match(
     r = main(
         [
             "datalad_installer.py",
-            "miniconda",
+            "miniforge",
             "--batch",
             "--path",
             str(miniconda_path),
@@ -129,12 +129,12 @@ def test_install_miniconda_autogen_path(monkeypatch: pytest.MonkeyPatch) -> None
             r = main(
                 [
                     "datalad_installer.py",
-                    "miniconda",
+                    "miniforge",
                     "--batch",
                 ]
             )
             assert r == 0
-            (miniconda_path,) = Path(newtmp).glob("dl-miniconda-*")
+            (miniconda_path,) = Path(newtmp).glob("dl-miniforge-*")
             assert (miniconda_path / bin_path("conda")).exists()
             assert (
                 "conda activate test"
@@ -164,7 +164,7 @@ def test_install_env_write_file_miniconda_conda_env(tmp_path: Path) -> None:
             "datalad_installer.py",
             "-E",
             str(env_write_file),
-            "miniconda",
+            "miniforge",
             "--batch",
             "--path",
             str(miniconda_path),
@@ -204,7 +204,7 @@ def test_install_miniconda_datalad(tmp_path: Path) -> None:
     r = main(
         [
             "datalad_installer.py",
-            "miniconda",
+            "miniforge",
             "--batch",
             "--path",
             str(miniconda_path),
@@ -222,7 +222,7 @@ def test_install_miniconda_conda_env_datalad(tmp_path: Path) -> None:
     r = main(
         [
             "datalad_installer.py",
-            "miniconda",
+            "miniforge",
             "--batch",
             "--path",
             str(miniconda_path),
@@ -249,7 +249,7 @@ def test_install_venv_miniconda_datalad(tmp_path: Path) -> None:
             "venv",
             "--path",
             str(venv_path),
-            "miniconda",
+            "miniforge",
             "--batch",
             "--path",
             str(miniconda_path),
@@ -273,7 +273,7 @@ def test_install_venv_miniconda_conda_env_datalad(tmp_path: Path) -> None:
             "venv",
             "--path",
             str(venv_path),
-            "miniconda",
+            "miniforge",
             "--batch",
             "--path",
             str(miniconda_path),
@@ -335,7 +335,7 @@ def test_install_miniconda_conda_env_venv_datalad(tmp_path: Path) -> None:
     r = main(
         [
             "datalad_installer.py",
-            "miniconda",
+            "miniforge",
             "--batch",
             "--path",
             str(miniconda_path),
