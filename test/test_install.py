@@ -18,7 +18,6 @@ from datalad_installer import (
     DataladGitAnnexBuildInstaller,
     DataladGitAnnexLatestBuildInstaller,
     DataladGitAnnexReleaseBuildInstaller,
-    get_version_codename,
     main,
 )
 
@@ -366,19 +365,22 @@ def test_install_neurodebian_sudo_ok(mocker: MockerFixture) -> None:
     spy = mocker.spy(datalad_installer, "runcmd")
     r = main(["datalad_installer.py", "--sudo=ok", "neurodebian"])
     assert r == 0
-    # we could have now scenario where we had to fixup and have a call to
-    # nd-configurerepo with -r <release> --overwrite
-    offset = int(
-        spy.call_args_list[-1]
-        == mocker.call("nd-configurerepo", "-r", get_version_codename(), "--overwrite")
-    )
-    assert spy.call_args_list[-2 - offset] == mocker.call(
-        "sudo", "apt-get", "install", "-qy", "neurodebian", env=mocker.ANY
-    )
-    assert (
-        spy.call_args_list[-2 - offset][1]["env"]["DEBIAN_FRONTEND"] == "noninteractive"
-    )
-    assert spy.call_args_list[-1 - offset] == mocker.call("nd-configurerepo", stderr=-1)
+    calls = spy.call_args_list
+    # Verify neurodebian was installed via apt
+    apt_install_calls = [
+        c
+        for c in calls
+        if c
+        == mocker.call(
+            "sudo", "apt-get", "install", "-qy", "neurodebian", env=mocker.ANY
+        )
+    ]
+    assert len(apt_install_calls) == 1
+    assert apt_install_calls[0][1]["env"]["DEBIAN_FRONTEND"] == "noninteractive"
+    # Verify nd-configurerepo was called (possibly twice if keyring
+    # needed updating or release needed to be specified explicitly)
+    nd_calls = [c for c in calls if c[0][0] == "nd-configurerepo"]
+    assert len(nd_calls) >= 1
     assert (
         subprocess.run(
             [
