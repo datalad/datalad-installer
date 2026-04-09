@@ -423,8 +423,20 @@ def test_install_git_annex_brew(mocker: MockerFixture) -> None:
 @pytest.mark.parametrize(
     "ostype,ext",
     [
-        ("ubuntu", ".deb"),
-        ("macos", ".dmg"),
+        pytest.param(
+            "ubuntu",
+            ".deb",
+            marks=pytest.mark.xfail(
+                reason="No successful Ubuntu builds since 2026-01-05; artifacts expired"
+            ),
+        ),
+        pytest.param(
+            "macos",
+            ".dmg",
+            marks=pytest.mark.xfail(
+                reason="No successful macOS builds since 2026-01-05; artifacts expired"
+            ),
+        ),
         pytest.param(
             "windows",
             ".exe",
