@@ -1248,8 +1248,23 @@ class NeurodebianComponent(Component):
     )
 
     KEY_FINGERPRINT: ClassVar[str] = "0xA5D32F012649A5A9"
+    NEW_KEY_FINGERPRINT: ClassVar[str] = "0x439754ED1F42AA2C"
     KEY_URL: ClassVar[str] = "http://neuro.debian.net/_static/neuro.debian.net.asc"
     DOWNLOAD_SERVER: ClassVar[str] = "us-nh"
+
+    def _install_updated_keyring(self) -> None:
+        """
+        Download the combined NeuroDebian keyring (old dsa1024 + new rsa4096)
+        from neuro.debian.net and install it into apt's trusted keyring
+        directory.
+        """
+        keyring_dest = "/etc/apt/trusted.gpg.d/neurodebian-archive-keyring.asc"
+        log.info("Installing updated NeuroDebian archive keyring with RSA4096 key")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            keyfile = os.path.join(tmpdir, "neuro.debian.net.asc")
+            download_file(self.KEY_URL, keyfile)
+            self.manager.sudo("mkdir", "-p", "/etc/apt/trusted.gpg.d")
+            self.manager.sudo("cp", keyfile, keyring_dest)
 
     def provide(self, extra_args: Optional[list[str]] = None, **kwargs: Any) -> None:
         log.info("Installing & configuring NeuroDebian")
@@ -1309,9 +1324,12 @@ class NeurodebianComponent(Component):
         try:
             runcmd("nd-configurerepo", *(extra_args or []), stderr=subprocess.PIPE)
         except subprocess.CalledProcessError as exc:
+            stderr_text = getattr(exc, "stderr", b"")
+            if isinstance(stderr_text, bytes):
+                stderr_text = stderr_text.decode(errors="replace")
             re_res = re.search(
                 r"Malformed entry (?P<line>\d+) in list file (?P<apt_file>\S+\.list) ",
-                getattr(exc, "stderr", b"").decode(),
+                stderr_text,
             )
             if re_res:
                 apt_file = Path(re_res.groupdict()["apt_file"])
@@ -1329,6 +1347,18 @@ class NeurodebianComponent(Component):
                     args = (extra_args or []) + ["-r", version_codename, "--overwrite"]
                     runcmd("nd-configurerepo", *args)
                     return
+            if "is not signed" in stderr_text or "NO_PUBKEY" in stderr_text:
+                # The Ubuntu-stock neurodebian-archive-keyring (< 0.43) only
+                # has the old dsa1024 key which apt on Ubuntu 24.04+ rejects.
+                # Download the updated keyring from neuro.debian.net (which
+                # includes the new rsa4096 key) and retry.
+                log.warning(
+                    "nd-configurerepo failed due to unsigned/missing key; "
+                    "installing updated NeuroDebian archive keyring and retrying"
+                )
+                self._install_updated_keyring()
+                runcmd("nd-configurerepo", *(extra_args or []), stderr=subprocess.PIPE)
+                return
             raise
 
 
