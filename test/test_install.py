@@ -437,11 +437,7 @@ def test_install_git_annex_brew(mocker: MockerFixture) -> None:
                 reason="No successful macOS builds since 2026-01-05; artifacts expired"
             ),
         ),
-        pytest.param(
-            "windows",
-            ".exe",
-            marks=pytest.mark.xfail(reason="No successful Windows builds in months"),
-        ),
+        ("windows", ".exe"),
     ],
 )
 def test_download_git_annex_tested_artifact(
