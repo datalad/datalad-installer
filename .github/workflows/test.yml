@@ -24,7 +24,8 @@ jobs:
       matrix:
         os:
           - macos-latest        # arm64
-          - macos-latest-large  # intel
+          # macos-latest-large (Intel) requires paid "larger runners" billing;
+          # removed to avoid CI failures when spending limit is reached.
           - windows-latest
           - ubuntu-latest
         python-version:
