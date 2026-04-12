@@ -40,8 +40,8 @@
 #     Desktop (a required .txt extension will be added automatically). The session
 #     will run until the file is removed (or 60 min have passed)
 #
-#   - in a terminal execute, for example, `C:\datalad_debug.bat 39` to set up the
-#     environment to debug in a Python 3.9 session (should generally match the
+#   - in a terminal execute, for example, `C:\datalad_debug.bat 310` to set up the
+#     environment to debug in a Python 3.10 session (should generally match the
 #     respective CI run configuration).
 
 
@@ -66,37 +66,29 @@ environment:
       # system git-annex is way too old, use better one
       INSTALL_GITANNEX: git-annex -m deb-url --url http://snapshot.debian.org/archive/debian/20201228T023115Z/pool/main/g/git-annex/git-annex_8.20201127-1_amd64.deb
     # Windows core tests
-    - ID: WinP39core
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
+    - ID: WinP310core
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2022
       # Python version specification is non-standard on windows
-      PY: 39-x64
+      PY: 310-x64
       INSTALL_GITANNEX: git-annex -m datalad/packages
     # MacOS core tests
     - ID: MacP310-default
-      APPVEYOR_BUILD_WORKER_IMAGE: macos-monterey
+      APPVEYOR_BUILD_WORKER_IMAGE: macos-sonoma
       PY: 3.10
       # ATM default is brew
       INSTALL_GITANNEX: git-annex
 
     - ID: MacP310-packages
-      APPVEYOR_BUILD_WORKER_IMAGE: macos-monterey
+      APPVEYOR_BUILD_WORKER_IMAGE: macos-sonoma
       PY: 3.10
       INSTALL_GITANNEX: git-annex -m datalad/packages
-
-    # Test alternative Python versions
-    - ID: Ubu20P39
-      PY: 3.9
-      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      INSTALL_SYSPKGS: python3-venv
-      # system git-annex is way too old, use better one
-      INSTALL_GITANNEX: git-annex -m deb-url --url http://snapshot.debian.org/archive/debian/20201228T023115Z/pool/main/g/git-annex/git-annex_8.20201127-1_amd64.deb
 
 # it is OK to specify paths that may not exist for a particular test run
 cache:
   # pip cache
   - C:\Users\appveyor\AppData\Local\pip\Cache -> .appveyor.yml
   - /home/appveyor/.cache/pip -> .appveyor.yml
-  # TODO: where is the cache on macos-monterey?
+  # TODO: where is the cache on macos-sonoma?
   #- /Users/appveyor/.cache/pip -> .appveyor.yml
   # TODO: Can we cache `brew`?
   #- /usr/local/Cellar
@@ -131,7 +123,7 @@ install:
   - sh: "[ \"x$PY\" != x ] && . ${HOME}/venv${PY}/bin/activate || python${PY} -m venv ${HOME}/dlvenv && . ${HOME}/dlvenv/bin/activate; ln -s \"$VIRTUAL_ENV\" \"${HOME}/VENV\""
   - cmd: "set PATH=C:\\Python%PY%;C:\\Python%PY%\\Scripts;%PATH%"
   # Missing system software
-  - sh: "[ -n \"$INSTALL_SYSPKGS\" ] && ( [ \"x${APPVEYOR_BUILD_WORKER_IMAGE}\" = \"xmacos-monterey\" ] && brew install -q ${INSTALL_SYSPKGS} || { sudo apt-get update; sudo apt-get install --no-install-recommends -y ${INSTALL_SYSPKGS} ; } ) || true"
+  - sh: "[ -n \"$INSTALL_SYSPKGS\" ] && ( case \"${APPVEYOR_BUILD_WORKER_IMAGE}\" in macos-*) brew install -q ${INSTALL_SYSPKGS};; *) sudo apt-get update; sudo apt-get install --no-install-recommends -y ${INSTALL_SYSPKGS};; esac ) || true"
   - python -m pip install .
 
 test_script:

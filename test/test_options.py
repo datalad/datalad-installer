@@ -197,8 +197,8 @@ from datalad_installer import (
             ),
         ),
         (
-            ["datalad", "miniconda", "--help-versions"],
-            HelpRequest("miniconda", topic="versions"),
+            ["datalad", "miniforge", "--help-versions"],
+            HelpRequest("miniforge", topic="versions"),
         ),
     ],
 )
@@ -342,7 +342,7 @@ def test_global_long_help() -> None:
         "  datalad                  Install Datalad\n"
         "  git-annex                Install git-annex\n"
         "  git-annex-remote-rclone  Install git-annex-remote-rclone\n"
-        "  miniconda                Install Miniconda\n"
+        "  miniforge                Install Miniforge (conda-forge based)\n"
         "  neurodebian              Install & configure NeuroDebian\n"
         "  rclone                   Install rclone\n"
         "  venv                     Create a Python virtual environment"

@@ -18,7 +18,6 @@ from datalad_installer import (
     DataladGitAnnexBuildInstaller,
     DataladGitAnnexLatestBuildInstaller,
     DataladGitAnnexReleaseBuildInstaller,
-    get_version_codename,
     main,
 )
 
@@ -41,7 +40,7 @@ def test_install_miniconda(tmp_path: Path) -> None:
     r = main(
         [
             "datalad_installer.py",
-            "miniconda",
+            "miniforge",
             "--batch",
             "--path",
             str(miniconda_path),
@@ -89,7 +88,7 @@ def test_install_miniconda_python_match(
     r = main(
         [
             "datalad_installer.py",
-            "miniconda",
+            "miniforge",
             "--batch",
             "--path",
             str(miniconda_path),
@@ -129,12 +128,12 @@ def test_install_miniconda_autogen_path(monkeypatch: pytest.MonkeyPatch) -> None
             r = main(
                 [
                     "datalad_installer.py",
-                    "miniconda",
+                    "miniforge",
                     "--batch",
                 ]
             )
             assert r == 0
-            (miniconda_path,) = Path(newtmp).glob("dl-miniconda-*")
+            (miniconda_path,) = Path(newtmp).glob("dl-miniforge-*")
             assert (miniconda_path / bin_path("conda")).exists()
             assert (
                 "conda activate test"
@@ -164,7 +163,7 @@ def test_install_env_write_file_miniconda_conda_env(tmp_path: Path) -> None:
             "datalad_installer.py",
             "-E",
             str(env_write_file),
-            "miniconda",
+            "miniforge",
             "--batch",
             "--path",
             str(miniconda_path),
@@ -204,7 +203,7 @@ def test_install_miniconda_datalad(tmp_path: Path) -> None:
     r = main(
         [
             "datalad_installer.py",
-            "miniconda",
+            "miniforge",
             "--batch",
             "--path",
             str(miniconda_path),
@@ -222,7 +221,7 @@ def test_install_miniconda_conda_env_datalad(tmp_path: Path) -> None:
     r = main(
         [
             "datalad_installer.py",
-            "miniconda",
+            "miniforge",
             "--batch",
             "--path",
             str(miniconda_path),
@@ -249,7 +248,7 @@ def test_install_venv_miniconda_datalad(tmp_path: Path) -> None:
             "venv",
             "--path",
             str(venv_path),
-            "miniconda",
+            "miniforge",
             "--batch",
             "--path",
             str(miniconda_path),
@@ -273,7 +272,7 @@ def test_install_venv_miniconda_conda_env_datalad(tmp_path: Path) -> None:
             "venv",
             "--path",
             str(venv_path),
-            "miniconda",
+            "miniforge",
             "--batch",
             "--path",
             str(miniconda_path),
@@ -335,7 +334,7 @@ def test_install_miniconda_conda_env_venv_datalad(tmp_path: Path) -> None:
     r = main(
         [
             "datalad_installer.py",
-            "miniconda",
+            "miniforge",
             "--batch",
             "--path",
             str(miniconda_path),
@@ -366,19 +365,22 @@ def test_install_neurodebian_sudo_ok(mocker: MockerFixture) -> None:
     spy = mocker.spy(datalad_installer, "runcmd")
     r = main(["datalad_installer.py", "--sudo=ok", "neurodebian"])
     assert r == 0
-    # we could have now scenario where we had to fixup and have a call to
-    # nd-configurerepo with -r <release> --overwrite
-    offset = int(
-        spy.call_args_list[-1]
-        == mocker.call("nd-configurerepo", "-r", get_version_codename(), "--overwrite")
-    )
-    assert spy.call_args_list[-2 - offset] == mocker.call(
-        "sudo", "apt-get", "install", "-qy", "neurodebian", env=mocker.ANY
-    )
-    assert (
-        spy.call_args_list[-2 - offset][1]["env"]["DEBIAN_FRONTEND"] == "noninteractive"
-    )
-    assert spy.call_args_list[-1 - offset] == mocker.call("nd-configurerepo", stderr=-1)
+    calls = spy.call_args_list
+    # Verify neurodebian was installed via apt
+    apt_install_calls = [
+        c
+        for c in calls
+        if c
+        == mocker.call(
+            "sudo", "apt-get", "install", "-qy", "neurodebian", env=mocker.ANY
+        )
+    ]
+    assert len(apt_install_calls) == 1
+    assert apt_install_calls[0][1]["env"]["DEBIAN_FRONTEND"] == "noninteractive"
+    # Verify nd-configurerepo was called (possibly twice if keyring
+    # needed updating or release needed to be specified explicitly)
+    nd_calls = [c for c in calls if c[0][0] == "nd-configurerepo"]
+    assert len(nd_calls) >= 1
     assert (
         subprocess.run(
             [
@@ -421,13 +423,21 @@ def test_install_git_annex_brew(mocker: MockerFixture) -> None:
 @pytest.mark.parametrize(
     "ostype,ext",
     [
-        ("ubuntu", ".deb"),
-        ("macos", ".dmg"),
         pytest.param(
-            "windows",
-            ".exe",
-            marks=pytest.mark.xfail(reason="No successful Windows builds in months"),
+            "ubuntu",
+            ".deb",
+            marks=pytest.mark.xfail(
+                reason="No successful Ubuntu builds since 2026-01-05; artifacts expired"
+            ),
         ),
+        pytest.param(
+            "macos",
+            ".dmg",
+            marks=pytest.mark.xfail(
+                reason="No successful macOS builds since 2026-01-05; artifacts expired"
+            ),
+        ),
+        ("windows", ".exe"),
     ],
 )
 def test_download_git_annex_tested_artifact(
@@ -519,7 +529,7 @@ def test_install_git_annex_remote_rclone_latest_from_github(tmp_path: Path) -> N
             "datalad_installer.py",
             "git-annex-remote-rclone",
             "-m",
-            "DanielDent/git-annex-remote-rclone",
+            "git-annex-remote-rclone/git-annex-remote-rclone",
             "--bin-dir",
             str(tmp_path / "bin"),
         ]
@@ -540,7 +550,7 @@ def test_install_git_annex_remote_rclone_specific_version_from_github(
             "datalad_installer.py",
             "git-annex-remote-rclone=0.5",
             "-m",
-            "DanielDent/git-annex-remote-rclone",
+            "git-annex-remote-rclone/git-annex-remote-rclone",
             "--bin-dir",
             str(tmp_path / "bin"),
         ]
@@ -562,7 +572,7 @@ def test_install_git_annex_remote_rclone_latest_from_github_globally() -> None:
             "--sudo=ok",
             "git-annex-remote-rclone",
             "-m",
-            "DanielDent/git-annex-remote-rclone",
+            "git-annex-remote-rclone/git-annex-remote-rclone",
         ]
     )
     assert r == 0
