@@ -1660,7 +1660,10 @@ class HomebrewInstaller(Installer):
         if kwargs:
             log.warning("Ignoring extra installer arguments: %r", kwargs)
         if not self.manager.brew_updated:
-            runcmd("brew", "update")
+            try:
+                runcmd("brew", "update")
+            except subprocess.CalledProcessError:
+                log.warning("brew update failed; proceeding with existing formulae")
             self.manager.brew_updated = True
         cmd = ["brew", "install"]
         if extra_args:
