@@ -1,3 +1,15 @@
+# v1.2.0 (Sun Apr 12 2026)
+
+#### 🚀 Enhancement
+
+- Make datalad-installer work again: drop 3.9 support, add claim/test support of 3.13, switch to use miniforge, update for moved git-annex-remote-rclone, etc [#222](https://github.com/datalad/datalad-installer/pull/222) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # v1.1.1 (Fri Dec 13 2024)
 
 #### 🐛 Bug Fix
