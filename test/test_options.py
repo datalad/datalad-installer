@@ -219,8 +219,8 @@ def test_parse_args(args: list[str], parsed: Immediate | ParsedArgs) -> None:
         (["invalid"], "Unknown component: 'invalid'", None),
         (["venv=1.2.3"], "venv component does not take a version", "venv"),
         (
-            ["git-annex", "--method", "pip"],
-            "Invalid choice for --method option: 'pip'",
+            ["git-annex", "--method", "invalid_method"],
+            "Invalid choice for --method option: 'invalid_method'",
             "git-annex",
         ),
         (
@@ -373,10 +373,12 @@ def test_versioned_component_long_help() -> None:
         "\n"
         "Options:\n"
         "  --build-dep                     Install build-dep instead of the package\n"
+        "  --devel                         Install from GitHub repository\n"
         "  -e, --extra-args EXTRA_ARGS     Extra arguments to pass to the install\n"
         "                                  command\n"
+        "  -E, --extras EXTRAS             Install package extras\n"
         "  --install-dir DIR               Directory in which to unpack the `*.deb`\n"
-        "  -m, --method [auto|apt|brew|neurodebian|deb-url|autobuild|snapshot|"
+        "  -m, --method [auto|apt|brew|pip|neurodebian|deb-url|autobuild|snapshot|"
         "conda|datalad/git-annex:tested|datalad/git-annex|"
         "datalad/git-annex:release|datalad/packages|dmg]\n"
         "                                  Select the installation method to use\n"
