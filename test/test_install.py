@@ -327,6 +327,24 @@ def test_install_venv_dev_pip_datalad(tmp_path: Path) -> None:
     assert (venv_path / bin_path("datalad")).exists()
 
 
+def test_install_venv_pip_git_annex(tmp_path: Path) -> None:
+    # pip is the highest priority in the installer stack,
+    # so auto-detection should pick it for git-annex
+    venv_path = tmp_path / "venv"
+    r = main(
+        [
+            "datalad_installer.py",
+            "venv",
+            "--path",
+            str(venv_path),
+            "git-annex",
+        ]
+    )
+    assert r == 0
+    assert (venv_path / bin_path("python")).exists()
+    assert (venv_path / bin_path("git-annex")).exists()
+
+
 @pytest.mark.miniconda
 def test_install_miniconda_conda_env_venv_datalad(tmp_path: Path) -> None:
     venv_path = tmp_path / "venv"

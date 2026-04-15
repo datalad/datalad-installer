@@ -229,6 +229,7 @@ specifying the installation method to use; the supported methods are:
 - ``deb-url``
 - ``dmg``
 - ``neurodebian``
+- ``pip``
 - ``snapshot``
 
 If no method is specified, or if the method is set to "``auto``", then the most
@@ -236,6 +237,7 @@ recent component on the command line that provides a compatible installation
 method will be used.  If there is no such component, the first supported
 installation method from the following list will be used:
 
+- ``pip``
 - ``conda``
 - ``apt``
 - ``neurodebian``
