@@ -1,3 +1,22 @@
+# v1.2.1 (Wed Apr 15 2026)
+
+#### 🐛 Bug Fix
+
+- ENH: add ability to install git-annex via pip [#219](https://github.com/datalad/datalad-installer/pull/219) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- [gh-actions](deps): Bump actions/setup-python from 5 to 6 [#218](https://github.com/datalad/datalad-installer/pull/218) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- [gh-actions](deps): Bump actions/checkout from 4 to 6 [#220](https://github.com/datalad/datalad-installer/pull/220) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- [gh-actions](deps): Bump codecov/codecov-action from 5 to 6 [#223](https://github.com/datalad/datalad-installer/pull/223) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### Authors: 2
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # v1.2.0 (Sun Apr 12 2026)
 
 #### 🚀 Enhancement
