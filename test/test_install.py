@@ -291,6 +291,21 @@ def test_install_venv_miniconda_conda_env_datalad(tmp_path: Path) -> None:
     assert (miniconda_path / "envs" / "foo" / bin_path("datalad")).exists()
 
 
+# `datalad` pulls in `cryptography`, which (since 47.0.0) ships no PyPy
+# 3.10 wheel and refuses to build from sdist on `pp310` ("Unsupported
+# platform: pp73"). Skip the pip-into-venv installation tests under
+# PyPy 3.10 — they cannot succeed regardless of this code. PyPy 3.11+
+# still works because cryptography ships `pp311` wheels.
+no_datalad_pip_on_pypy310 = pytest.mark.skipif(
+    sys.implementation.name == "pypy" and sys.version_info[:2] < (3, 11),
+    reason=(
+        "datalad's cryptography dep has no PyPy 3.10 wheel and the sdist"
+        " rejects pp310 (cryptography >= 47.0.0)"
+    ),
+)
+
+
+@no_datalad_pip_on_pypy310
 def test_install_venv_datalad(tmp_path: Path) -> None:
     venv_path = tmp_path / "venv"
     r = main(
@@ -307,6 +322,7 @@ def test_install_venv_datalad(tmp_path: Path) -> None:
     assert (venv_path / bin_path("datalad")).exists()
 
 
+@no_datalad_pip_on_pypy310
 @pytest.mark.skipif(
     sys.version_info[:2] < (3, 8), reason="dev pip no longer supports Python < 3.8"
 )
@@ -345,6 +361,7 @@ def test_install_venv_pip_git_annex(tmp_path: Path) -> None:
     assert (venv_path / bin_path("git-annex")).exists()
 
 
+@no_datalad_pip_on_pypy310
 @pytest.mark.miniconda
 def test_install_miniconda_conda_env_venv_datalad(tmp_path: Path) -> None:
     venv_path = tmp_path / "venv"
