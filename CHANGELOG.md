@@ -1,3 +1,15 @@
+# v1.2.2 (Fri May 01 2026)
+
+#### 🧪 Tests
+
+- BF(TST): skip datalad-via-pip tests on PyPy 3.10; add PyPy 3.11 to CI [#224](https://github.com/datalad/datalad-installer/pull/224) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # v1.2.1 (Wed Apr 15 2026)
 
 #### 🐛 Bug Fix
