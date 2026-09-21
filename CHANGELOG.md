@@ -1,3 +1,16 @@
+# v1.2.4 (Mon Sep 21 2026)
+
+#### 🏠 Internal
+
+- Move configuration from setup.cfg to pyproject.toml, with a PEP 639 license expression [#230](https://github.com/datalad/datalad-installer/pull/230) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### Authors: 2
+
+- Claude ([@claude](https://github.com/claude))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+---
+
 # v1.2.3 (Mon Sep 21 2026)
 
 #### 🏠 Internal
