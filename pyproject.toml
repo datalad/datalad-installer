@@ -1,3 +1,83 @@
 [build-system]
-requires = ["setuptools >= 46.4.0"]
+# setuptools 77.0.3 is the first version with dependable PEP 639 support
+# (SPDX license expressions & `license-files`):
+requires = ["setuptools >= 77.0.3"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "datalad-installer"
+dynamic = ["version"]
+description = "Installation script for Datalad and related components"
+readme = "README.rst"
+requires-python = ">= 3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "The DataLad Team and Contributors", email = "team@datalad.org" },
+]
+maintainers = [
+    { name = "John Thorvald Wodder II", email = "datalad-installer@varonathe.org" },
+]
+
+keywords = [
+    "apt",
+    "conda",
+    "datalad",
+    "git-annex",
+    "installer",
+    "miniconda",
+    "neurodebian",
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    #"Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: System Administrators",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: System :: Installation/Setup",
+    "Topic :: System :: Systems Administration",
+]
+
+[project.scripts]
+datalad-installer = "datalad_installer:main"
+
+[project.urls]
+Homepage = "https://github.com/datalad/datalad-installer"
+"Source Code" = "https://github.com/datalad/datalad-installer"
+"Bug Tracker" = "https://github.com/datalad/datalad-installer/issues"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+py-modules = ["datalad_installer"]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = { attr = "datalad_installer.__version__" }
+
+[tool.mypy]
+ignore_missing_imports = false
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+local_partial_types = true
+no_implicit_reexport = true
+strict_equality = true
+show_error_codes = true
+show_traceback = true
+pretty = true
