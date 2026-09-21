@@ -1,3 +1,19 @@
+# v1.2.3 (Mon Sep 21 2026)
+
+#### 🏠 Internal
+
+- Add manual dispatch trigger to release workflow [#229](https://github.com/datalad/datalad-installer/pull/229) ([@yarikoptic](https://github.com/yarikoptic))
+- [gh-actions](deps): Bump codecov/codecov-action from 6 to 7 [#225](https://github.com/datalad/datalad-installer/pull/225) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- [gh-actions](deps): Bump actions/checkout from 6 to 7 [#226](https://github.com/datalad/datalad-installer/pull/226) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- [gh-actions](deps): Bump actions/setup-python from 6 to 7 [#227](https://github.com/datalad/datalad-installer/pull/227) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### Authors: 2
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # v1.2.2 (Fri May 01 2026)
 
 #### 🧪 Tests
