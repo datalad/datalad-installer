@@ -4,9 +4,10 @@
 # This replaces the .appveyor.yml setup that this repository used to carry;
 # the scenarios below are the ones its build matrix covered.  They complement
 # .github/workflows/test.yml (the pytest suite, which installs into temporary
-# directories for the most part) by installing git-annex *globally* via the
-# methods the test suite does not exercise at all: `deb-url`,
-# `datalad/packages`, and the per-platform default.
+# directories for the most part) by installing git-annex for real -- into the
+# system or the job's Python -- via the methods the test suite does not
+# exercise at all: `deb-url`, `datalad/packages`, and whatever the default
+# method resolves to.
 #
 # Debugging a failing job, which AppVeyor offered via SSH/RDP plus a `BLOCK`
 # file in $HOME: re-run the job with "Enable debug logging" ticked for more
@@ -81,7 +82,11 @@ jobs:
             python-version: '3.10'
             args: git-annex -m datalad/packages
 
-          # The default method, which is Homebrew at the moment.
+          # Whatever the default method resolves to.  AppVeyor's copy of this
+          # entry said that was Homebrew; as of this writing it is the PyPI
+          # git-annex wheel instead, which is the point of pinning no method
+          # here.  Homebrew itself stays covered by test_install_git_annex_brew
+          # in the pytest suite.
           - id: MacP310-default
             os: macos-latest
             python-version: '3.10'
