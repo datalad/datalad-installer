@@ -1,0 +1,172 @@
+# Installation scenarios: run the `datalad-installer` command line the way a
+# user would, on each supported platform.
+#
+# This replaces the .appveyor.yml setup that this repository used to carry;
+# the scenarios below are the ones its build matrix covered.  They complement
+# .github/workflows/test.yml (the pytest suite, which installs into temporary
+# directories for the most part) by installing git-annex for real -- into the
+# system or the job's Python -- via the methods the test suite does not
+# exercise at all: `deb-url`, `datalad/packages`, and whatever the default
+# method resolves to.
+#
+# Debugging a failing job, which AppVeyor offered via SSH/RDP plus a `BLOCK`
+# file in $HOME: re-run the job with "Enable debug logging" ticked for more
+# verbose logs, or start a run from "Run workflow" with `debug` set, which
+# opens an interactive SSH session (tmate) on the runner right before
+# git-annex gets installed.  The session is limited to the actor who started
+# the run and, like AppVeyor's block, lasts until the job's 60 minute timeout.
+
+name: Installation scenarios
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  schedule:
+    # Half an hour after the test workflow, so that a broken download
+    # location shows up as its own failure rather than in a pile.
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: Open an SSH session on the runner before installing
+        type: boolean
+        default: false
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: ${{ matrix.id }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # One entry per (platform, installation method) combination, spelled
+        # out rather than built up from matrix dimensions, so that each
+        # platform gets exactly the scenarios that apply to it -- the same
+        # reason .appveyor.yml did not use `image` as a matrix dimension.
+        # `id` is the short, intelligible name the run shows up under; the
+        # names are carried over from AppVeyor.
+        include:
+          # The system git-annex is way too old to be worth testing, so pull
+          # a better one from a Debian snapshot.
+          - id: Ubu22
+            os: ubuntu-22.04
+            python-version: '3.10'
+            args: >-
+              git-annex -m deb-url --url
+              http://snapshot.debian.org/archive/debian/20201228T023115Z/pool/main/g/git-annex/git-annex_8.20201127-1_amd64.deb
+            # `deb-url` installs with a plain `dpkg -i`, which pulls in no
+            # dependencies, and this 2020 build still links against libffi7.
+            # 22.04 (jammy) is the newest runner image that ships libffi7, so
+            # moving this job to a newer image means picking a newer *.deb
+            # too.  AppVeyor also installed python3-venv here, which was only
+            # needed to work around the broken Pythons on its Ubuntu images;
+            # actions/setup-python gives us a working venv module.
+            syspkgs: libffi7
+
+          - id: WinP310core
+            os: windows-latest
+            python-version: '3.10'
+            args: git-annex -m datalad/packages
+
+          # Whatever the default method resolves to.  AppVeyor's copy of this
+          # entry said that was Homebrew; as of this writing it is the PyPI
+          # git-annex wheel instead, which is the point of pinning no method
+          # here.  Homebrew itself stays covered by test_install_git_annex_brew
+          # in the pytest suite.
+          - id: MacP310-default
+            os: macos-latest
+            python-version: '3.10'
+            args: git-annex
+
+          - id: MacP310-packages
+            os: macos-latest
+            python-version: '3.10'
+            # datalad/packages only ships an x86_64 *.dmg while macos-latest is
+            # Apple Silicon, so unlike on AppVeyor's Intel macos-sonoma
+            # workers this also exercises the Rosetta 2 installation that
+            # install_git_annex_dmg() does for us.
+            args: git-annex -m datalad/packages
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install missing system packages
+        if: matrix.syspkgs
+        run: |
+          # $SYSPKGS is a whitespace-separated list of package names.
+          # shellcheck disable=SC2086
+          if [ "$RUNNER_OS" = macOS ]
+          then brew install -q $SYSPKGS
+          else sudo apt-get update
+               sudo apt-get install --no-install-recommends -y $SYSPKGS
+          fi
+        env:
+          SYSPKGS: ${{ matrix.syspkgs }}
+
+      - name: Set up scratch space
+        # A short $TMPDIR keeps the paths that installers and their unpacked
+        # payloads live under well clear of Windows' path length limits, and
+        # on macOS it keeps git-annex out of the long, generated per-session
+        # temporary directories (datalad/datalad#5291).
+        run: |
+          if [ "$RUNNER_OS" = Windows ]
+          then mkdir -p /c/DLTMP
+               echo 'TMP=C:\DLTMP' >> "$GITHUB_ENV"
+               echo 'TEMP=C:\DLTMP' >> "$GITHUB_ENV"
+          else mkdir -p "$HOME/DLTMP"
+               echo "TMPDIR=$HOME/DLTMP" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install datalad-installer
+        run: python -m pip install .
+
+      - name: Open a debugging session on the runner
+        if: inputs.debug
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+
+      - name: Install git-annex
+        # $INSTALL_ARGS is deliberately unquoted: it carries a whole command
+        # line, and going through the environment keeps the matrix entry out
+        # of the script itself.
+        run: |
+          # shellcheck disable=SC2086
+          datalad-installer --sudo ok -E dl.env $INSTALL_ARGS
+        env:
+          INSTALL_ARGS: ${{ matrix.args }}
+
+      - name: Verify that the installed git-annex runs
+        # datalad-installer smoke-tests what it installs, but it does so
+        # through the environment it just recorded rather than the one a
+        # subsequent shell gets, so check that too.  `dl.env` is empty for
+        # methods that install into a directory already on $PATH.
+        run: |
+          cat dl.env
+          source dl.env
+          command -v git-annex
+          # Not piped into `head`: the runners' shell has `pipefail` set, and
+          # a `git-annex` killed by SIGPIPE would fail the step.
+          git-annex version
+
+# vim:set et sts=2:
